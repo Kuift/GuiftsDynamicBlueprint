@@ -7,8 +7,10 @@
 
 
 ## TODO:
-- properly implement blueprint data sharing
+- Transfer everything on CRule instead of CBlob
+- Fix next map schematics bug
 - on death : clear array from garbage values
+- properly implement blueprint data sharing
 - implement the save mechanics
 - implement the load mechanics
 - support rotation

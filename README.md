@@ -1,9 +1,9 @@
 # CONTROLS :
-To enter blueprint editing mode, press Left control or Right control
-To hide blueprints, simply press 'H'
-When in editing mode, you can left click to add a block, or right click to remove a block
-When playing as a builder, use the usual menu to choose which block to place
-When playing as archer or knight, use the key 'R' and 'U' to naviguate between the different blocks
+- To enter blueprint editing mode, press Left control or Right control
+- To hide blueprints, simply press 'H'
+- When in editing mode, you can left click to add a block, or right click to remove a block
+- When playing as a builder, use the usual menu to choose which block to place
+- When playing as archer or knight, use the key 'R' and 'U' to naviguate between the different blocks
 
 
 ## TODO:

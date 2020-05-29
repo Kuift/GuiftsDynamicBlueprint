@@ -7,16 +7,16 @@ When playing as archer or knight, use the key 'R' and 'U' to naviguate between t
 
 
 ## TODO:
-properly implement blueprint data sharing
-on death : clear array from garbage values
-implement the save mechanics
-implement the load mechanics
-support rotation
-implement the cursor select when middle click
-    -2 mode
-        -if mode 1, you can copy paste selected blueprint into png + place blueprint
-        -if mode 2, you can edit and fill things
+- properly implement blueprint data sharing
+- on death : clear array from garbage values
+- implement the save mechanics
+- implement the load mechanics
+- support rotation
+- implement the cursor select when middle click
+    - 2 mode
+        - if mode 1, you can copy paste selected blueprint into png + place blueprint
+        - if mode 2, you can edit and fill things
 support multiple uv size/blob size other than 8x8
-    -remove offset from placeentities, put an offset array or do something to make it possible to have different size entities
+    - remove offset from placeentities, put an offset array or do something to make it possible to have different size entities
 add more to the REEE.PNG
 make custom menu less of a pain, have a gui for it

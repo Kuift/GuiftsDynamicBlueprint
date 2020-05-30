@@ -297,6 +297,7 @@ void RenderWidgetFor(CBlob@ this)
 	//Render::RawTrianglesIndexed(render_texture_name, v_raw, v_i);
 
 }
+
 void placeEntities(Vec2f[] &position, Vertex[] &v_raw, u16[] &v_i, f32 z, Vec2f[] &uvcoord)
 {
 	int index = v_i[v_i.size()-1] + 1;

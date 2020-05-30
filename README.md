@@ -10,9 +10,12 @@
 - Transfer everything on CRule instead of CBlob
 - Fix next map schematics bug
 - on death : clear array from garbage values
+    - Change datastructure to be more efficient
+- change color
 - properly implement blueprint data sharing
 - implement the save mechanics
 - implement the load mechanics
+- add multiple page block selection
 - support rotation
 - implement the cursor select when middle click
     - 2 mode

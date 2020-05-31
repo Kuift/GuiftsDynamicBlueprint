@@ -194,18 +194,21 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	}
 	if(!isClient() && cmd == this.getCommandID("getAllBlocks") && dynamicMapTileData.size() > 0)
 	{
-		CMap@ map = getMap();
-		CBitStream insideparams;
-		insideparams.write_u16(getLocalPlayer().getNetworkID());
-		uint16 playerNetworkID = params.read_u16();
-		for( int y = 0; y < map.tilemapheight; y++ ) 
+		uint16 netID = params.read_u16();
+		if(getLocalPlayer().getNetworkID() == netID)
 		{
-			for(int x = 0; x < map.tilemapwidth; x++)
+			CMap@ map = getMap();
+			CBitStream insideparams;
+			insideparams.write_u16(netID);
+			for( int y = 0; y < map.tilemapheight; y++ ) 
 			{
-					insideparams.write_u8(dynamicMapTileData[x][y]);
+				for(int x = 0; x < map.tilemapwidth; x++)
+				{
+						insideparams.write_u8(dynamicMapTileData[x][y]);
+				}
 			}
+			getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
 		}
-		getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
 	}
 	if(isClient() && cmd == this.getCommandID("giveAllBlocks"))
 	{

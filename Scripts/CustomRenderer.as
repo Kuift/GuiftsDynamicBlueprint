@@ -30,9 +30,18 @@ void onInit(CRules@ this)
 	this.addCommandID("addBlocks");
 	this.addCommandID("removeBlocks");
 	this.addCommandID("getAllBlocks");
+	this.addCommandID("giveAllBlocks");
 	CMap@ map = getMap();
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
+	CPlayer@ player = getLocalPlayer();
+	if (player != null)
+	{
+		uint16 id = player.getNetworkID();
+		CBitStream params;
+		params.write_u16(id);
+		getRules().SendCommand(getRules().getCommandID("getAllBlocks"), params);
+	}
 }
 
 void RulesRenderFunction(int id)
@@ -171,9 +180,6 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint16 positiony = params.read_u16();
 		uint8 receivedBlockIndex = params.read_u8();
 		
-		float uv_x = (receivedBlockIndex % (pngWidth/8))/(pngWidth/8);
-		float uv_y = int(receivedBlockIndex / (pngWidth/8)) / (pngHeight/8);
-
 		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
 		
     }
@@ -184,6 +190,37 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		
 		dynamicMapTileData[positionx][positiony] = 0;
 
+	}
+	if(!isClient() && cmd == this.getCommandID("getAllBlocks"))
+	{
+		CMap@ map = getMap();
+		CBitStream insideparams;
+		params.write_u16(getLocalPlayer().getNetworkID());
+		uint16 playerNetworkID = params.read_u16();
+		for( int y = 0; y < map.tilemapheight; y++ ) 
+		{
+			for(int x = 0; x < map.tilemapwidth; x++)
+			{
+					params.write_u8(dynamicMapTileData[x][y]);
+			}
+		}
+		getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), params);
+	}
+	if(isClient() && cmd == this.getCommandID("giveAllBlocks"))
+	{
+		CMap@ map = getMap();
+		uint16 netID = params.read_u16();
+		if(getLocalPlayer().getNetworkID() == netID)
+		{
+			for( int y = 0; y < map.tilemapheight; y++ )
+			{
+				for(int x = 0; x < map.tilemapwidth; x++)
+				{
+					dynamicMapTileData[x][y] = params.read_u8();
+				}
+			}
+
+		}
 	}
 }
 

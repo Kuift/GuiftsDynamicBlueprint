@@ -83,6 +83,7 @@ void onRestart(CRules@ this)
 	{
 		Setup();
 	}
+	resetTrigger = true;
 }
 
 
@@ -129,7 +130,7 @@ void ChangeIfNeeded()
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		CMap@ map = getMap();
-		if(indexX < map.tilemapwidth && indexY < map.tilemapheight)//ensure that we don't get index out of the array
+		if(indexX < map.tilemapwidth && indexY < map.tilemapheight && dynamicMapTileData.size() > 0)//ensure that we don't get index out of the array
 		{
 			if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION1)) && c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 			{
@@ -174,7 +175,7 @@ void ChangeIfNeeded()
 
 void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 {
-    if(cmd == this.getCommandID("addBlocks"))
+    if(cmd == this.getCommandID("addBlocks") && dynamicMapTileData.size() > 0)
     {
         uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
@@ -183,7 +184,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
 		
     }
-	if(cmd == this.getCommandID("removeBlocks"))
+	if(cmd == this.getCommandID("removeBlocks") && dynamicMapTileData.size() > 0)
 	{
 		uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
@@ -191,7 +192,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		dynamicMapTileData[positionx][positiony] = 0;
 
 	}
-	if(!isClient() && cmd == this.getCommandID("getAllBlocks"))
+	if(!isClient() && cmd == this.getCommandID("getAllBlocks") && dynamicMapTileData.size() > 0)
 	{
 		CMap@ map = getMap();
 		CBitStream insideparams;
@@ -258,7 +259,7 @@ u16[] v_i;
 //this is the highest performance option
 Vertex[] v_raw;
 
-
+bool resetTrigger = false;
 
 void ClearRenderState()
 {
@@ -313,9 +314,15 @@ void RenderWidgetFor(CBlob@ this)
 	v_i.push_back(2);
 	v_i.push_back(3);
 
-	if(toggleBlueprint)
+	if(toggleBlueprint && dynamicMapTileData.size() > 0)
 	{
 		placeEntities(dynamicMapTileData, v_raw, v_i, z);
+	}
+	else if(resetTrigger)
+	{
+		uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+		dynamicMapTileData = _dynamicMapTileData;
+		resetTrigger = false;
 	}
 	everythingMesh.SetVertex(v_raw);
 	everythingMesh.SetIndices(v_i); 
@@ -333,7 +340,7 @@ void placeEntities(uint8[][] &position, Vertex[] &v_raw, u16[] &v_i, f32 z)
 	for( int y = 0; y < map.tilemapheight; y++ ) {
 		for(int x = 0; x < map.tilemapwidth; x++)
 		{
-			if(position[x][y] !=0 )
+			if(position[x][y] !=0)
 			{
 				v_raw.push_back(Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x70aacdff)));
 				v_raw.push_back(Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x70aacdff)));

@@ -7,7 +7,7 @@
 ##### Thanks to all kag's modder who answered some of my questions and big thanks to Numan who answered most of them.
 
 # INSTALLATION
-add the CustomRenderer to your rules.cfg that adds scripts. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
+add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
 - Make the data being sent only to the right team

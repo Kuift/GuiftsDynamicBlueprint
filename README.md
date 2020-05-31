@@ -14,6 +14,7 @@ add the CustomRenderer to your rules.cfg that adds scripts. Example, to have it 
 - optimise even more blueprint data sharing
 - implement the save mechanics
 - implement the load mechanics
+- cleanup code, remove most of the global variable
 - add multiple page block selection
 - support rotation
 - implement the cursor select when middle click

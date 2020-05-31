@@ -1,38 +1,108 @@
 //This code has been started from the ScriptRenderExample.as script
+uint8[][] dynamicMapTileData;
 
 
 const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
 SMesh@ everythingMesh = SMesh();
 SMaterial@ everythingMat = SMaterial();
+
+float x_size;
+float y_size;
+uint8 blockIndex;//this.get_TileType("buildtile");
+float pngWidth = 128.0f;
+float pngHeight = 256.0f;
+float x = (blockIndex % (pngWidth/8))/(pngWidth/8);
+float y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
+float offsetx = 8/pngWidth;
+float offsety = 8/pngHeight;
+
+void onInit(CRules@ this)
+{
+	customMenuTurn = 1;
+	x_size = 4;
+	y_size = 4;
+	blockIndex = 48;
+	if(isClient())
+	{
+		int cb_id = Render::addScript(Render::layer_objects, "CustomRenderer.as", "RulesRenderFunction", 0.0f);
+		Setup();
+	}
+	this.addCommandID("addBlocks");
+	this.addCommandID("removeBlocks");
+	this.addCommandID("getAllBlocks");
+	CMap@ map = getMap();
+	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	dynamicMapTileData = _dynamicMapTileData;
+}
+
+void RulesRenderFunction(int id)
+{
+	CBlob@ playerBlob = getLocalPlayerBlob();
+	if(playerBlob == null){return;} 
+	RenderWidgetFor(getLocalPlayerBlob());
+}
+
 void Setup()
 {
 	//ensure that we don't duplicate a texture
 	if(!Texture::exists(REEEPPNG))
 	{
 		Texture::createFromFile(REEEPPNG,"/Sprites/REEE.png");
-	}
-	//initial config for the material that will be applied to the mesh
-	everythingMat.AddTexture(REEEPPNG, 0);
-	everythingMat.DisableAllFlags();
-	everythingMat.SetFlag(SMaterial::COLOR_MASK, true);
-	everythingMat.SetFlag(SMaterial::ZBUFFER, true);
-	everythingMat.SetFlag(SMaterial::ZWRITE_ENABLE, true);
-	everythingMat.SetMaterialType(SMaterial::TRANSPARENT_VERTEX_ALPHA);
+		//initial config for the material that will be applied to the mesh
+		everythingMat.AddTexture(REEEPPNG, 0);
+		everythingMat.DisableAllFlags();
+		everythingMat.SetFlag(SMaterial::COLOR_MASK, true);
+		everythingMat.SetFlag(SMaterial::ZBUFFER, true);
+		everythingMat.SetFlag(SMaterial::ZWRITE_ENABLE, true);
+		everythingMat.SetMaterialType(SMaterial::TRANSPARENT_VERTEX_ALPHA);
 
-	//mesh initial config 
-	everythingMesh.SetMaterial(everythingMat);
-	everythingMesh.SetHardwareMapping(SMesh::STATIC); //maybe MAP::STATIC instead
+		//mesh initial config 
+		everythingMesh.SetMaterial(everythingMat);
+		everythingMesh.SetHardwareMapping(SMesh::STATIC); //maybe MAP::STATIC instead
+	}
 
 
 }
-//toggle through each render type to give a working example of each call
 
+void onRestart(CRules@ this)
+{
+	dynamicMapTileData.clear();
+	CMap@ map = getMap();
+	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	dynamicMapTileData = _dynamicMapTileData;
+	if(isClient())
+	{
+		Setup();
+	}
+}
+
+
+//toggle through each render type to give a working example of each call
+int oldBlockIndex = -1;
+
+void onTick(CRules@ this)
+{
+
+	if(isClient())
+	{	
+		CBlob@ playerBlob = getLocalPlayerBlob();
+		if(playerBlob == null){return;} 
+		ChangeIfNeeded(); 
+		blockIndex = GiveBlockIndex(playerBlob);
+		if (blockIndex != oldBlockIndex)
+		{
+			oldBlockIndex = blockIndex;
+			x = (blockIndex % (pngWidth/8))/(pngWidth/8);
+			y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
+		}
+	}
+}
 
 int last_changed = 0;
 bool toggleBlueprint = true;
 Vec2f currentPlacementPosition;
-int customMenuTurn = 1;
-void ChangeIfNeeded(CBlob@ this)
+int customMenuTurn;
+void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
 	if (c is null) return;
@@ -45,41 +115,31 @@ void ChangeIfNeeded(CBlob@ this)
 	if (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
 
-		Vec2f temp = this.getAimPos();
+		Vec2f temp = getLocalPlayerBlob().getAimPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
-		if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION1)) && toggleBlueprint)
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		CMap@ map = getMap();
+		if(indexX < map.tilemapwidth && indexY < map.tilemapheight)//ensure that we don't get index out of the array
 		{
-			//if the vector doesn't exist in the array then... (find return negative number when the item is not in array)
-			if(savedPositions.find(currentPlacementPosition) < 0)
+			if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION1)) && c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 			{
-				savedPositions.push_back(currentPlacementPosition);
-				uvcoord.push_back(Vec2f(x,y));
-
-				CBitStream params;
-				uint16 xpos = currentPlacementPosition.x;
-				uint16 ypos = currentPlacementPosition.y;
-        		params.write_u16(xpos);
-				params.write_u16(ypos);
-				params.write_u8(blockIndex);
-        		this.SendCommand(this.getCommandID("addBlocks"), params);
-			}
-
-		}
-		else if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION2))  && toggleBlueprint)
-		{
-
-				int i = savedPositions.find(currentPlacementPosition);
-				if(i >= 0)
+				if(dynamicMapTileData[indexX][indexY] == 0)
 				{
-					savedPositions[i] = Vec2f_zero;
-					
 					CBitStream params;
-					uint16 xpos = currentPlacementPosition.x;
-					uint16 ypos = currentPlacementPosition.y;
-					params.write_u16(xpos);
-					params.write_u16(ypos);
-					this.SendCommand(this.getCommandID("removeBlocks"), params);
+					params.write_u16(indexX);
+					params.write_u16(indexY);
+					params.write_u8(blockIndex);
+					getRules().SendCommand(getRules().getCommandID("addBlocks"), params);
 				}
+			}
+			else if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION2))  && c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL) && dynamicMapTileData[indexX][indexY] != 0)
+			{				
+				CBitStream params;
+				params.write_u16(indexX);
+				params.write_u16(indexY);
+				getRules().SendCommand(getRules().getCommandID("removeBlocks"), params);
+			}
 		}
 		if(c.isKeyJustPressed(KEY_KEY_U))
 		{
@@ -103,72 +163,31 @@ void ChangeIfNeeded(CBlob@ this)
 
 
 
-
-//blob hooks
-void onInit(CBlob@ this)
+void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 {
-	Setup();
-	int cb_id = Render::addBlobScript(Render::layer_postworld, this, "CustomRenderer.as", "ExampleBlobRenderFunction");
-//////////////////////////NETWORK PART//////////////////////////
-	this.addCommandID("addBlocks");
-	this.addCommandID("removeBlocks");
-	//this.addCommandID("getAllBlocks");
-}
-
-void onCommand(CBlob@ this, u8 cmd, CBitStream @params)
-{
-    if(cmd == this.getCommandID("addBlocks"))//toggles the gui help overlay
+    if(cmd == this.getCommandID("addBlocks"))
     {
         uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
 		uint8 receivedBlockIndex = params.read_u8();
 		
-		Vec2f positionVector = Vec2f(positionx, positiony);
-
-		print("command addblocks called");
-
 		float uv_x = (receivedBlockIndex % (pngWidth/8))/(pngWidth/8);
 		float uv_y = int(receivedBlockIndex / (pngWidth/8)) / (pngHeight/8);
 
-		int ind = savedPositions.find(positionVector);
+		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
 		
-		if(ind < 0)//check if the block is already filled in. If it is, the block at that position is replaced
-		{
-			savedPositions.push_back(positionVector);
-			uvcoord.push_back(Vec2f(uv_x, uv_y));
-		}
-		else{
-			savedPositions[ind] = positionVector;
-			uvcoord[ind] = Vec2f(uv_x, uv_y);
-		}
     }
 	if(cmd == this.getCommandID("removeBlocks"))
 	{
 		uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
 		
-		Vec2f positionVector = Vec2f(positionx, positiony);
-		print("command removeBlocks called");
-		int i = savedPositions.find(positionVector);
-		if(i >= 0)
-		{
-			savedPositions[i] = Vec2f_zero;
-		}
+		dynamicMapTileData[positionx][positiony] = 0;
+
 	}
 }
-//////////////////NETWORK PART END/////////////////////////////////
-int oldBlockIndex = -1;
-void onTick(CBlob@ this)
-{
-	ChangeIfNeeded(this); 
-	blockIndex = GiveBlockIndex(this);
-	if (blockIndex != oldBlockIndex)
-	{
-		oldBlockIndex = blockIndex;
-		x = (blockIndex % (pngWidth/8))/(pngWidth/8);
-		y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
-	}
-}
+
+
 
 int GiveBlockIndex(CBlob@ this)
 {
@@ -190,23 +209,6 @@ int GiveBlockIndex(CBlob@ this)
 	{
 		return 1;
 	}
-}
-
-//render functions
-//
-// blob functions get the blob they were created with as an argument
-//  and are removed safely when that blob is killed/removed
-//
-// both get the id of their function - they can be removed with
-//  Render::RemoveScript if appropriate
-
-void ExampleBlobRenderFunction(CBlob@ this, int id)
-{
-	RenderWidgetFor(this);
-}
-void onInit(CRules@ this)
-{
-    this.addCommandID("clientshowhelp");
 }
 
 
@@ -232,17 +234,6 @@ void ClearRenderState()
 }
 
 
-Vec2f[] savedPositions;
-float x_size = 4;
-float y_size = 4;
-uint8 blockIndex = 48;//this.get_TileType("buildtile");
-float pngWidth = 128.0f;
-float pngHeight = 256.0f;
-float x = (blockIndex % (pngWidth/8))/(pngWidth/8);
-float y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
-float offsetx = 8/pngWidth;
-float offsety = 8/pngHeight;
-Vec2f[] uvcoord;
 
 void RenderWidgetFor(CBlob@ this)
 {
@@ -266,10 +257,10 @@ void RenderWidgetFor(CBlob@ this)
 	if(c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
 		toggleBlueprint = true;
-		v_raw.push_back(Vertex(p.x - x_size, p.y - y_size, z, x, 			y, 			SColor(0xb0aacdff)));
-		v_raw.push_back(Vertex(p.x + x_size, p.y - y_size, z, x+offsetx, 	y, 			SColor(0xb0aacdff)));
-		v_raw.push_back(Vertex(p.x + x_size, p.y + y_size, z, x+offsetx, 	y+offsety, 	SColor(0xb0aacdff)));
-		v_raw.push_back(Vertex(p.x - x_size, p.y + y_size, z, x, 			y+offsety, 	SColor(0xb0aacdff)));
+		v_raw.push_back(Vertex(p.x - x_size, p.y - y_size, z, x, 			y, 			SColor(0x70aacdff)));
+		v_raw.push_back(Vertex(p.x + x_size, p.y - y_size, z, x+offsetx, 	y, 			SColor(0x70aacdff)));
+		v_raw.push_back(Vertex(p.x + x_size, p.y + y_size, z, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
+		v_raw.push_back(Vertex(p.x - x_size, p.y + y_size, z, x, 			y+offsety, 	SColor(0x70aacdff)));
 		//set up the mesh indexing
 	}
 	else{
@@ -285,9 +276,9 @@ void RenderWidgetFor(CBlob@ this)
 	v_i.push_back(2);
 	v_i.push_back(3);
 
-	if(savedPositions.size() != 0 && toggleBlueprint)
+	if(toggleBlueprint)
 	{
-		placeEntities(savedPositions, v_raw, v_i, z, uvcoord);
+		placeEntities(dynamicMapTileData, v_raw, v_i, z);
 	}
 	everythingMesh.SetVertex(v_raw);
 	everythingMesh.SetIndices(v_i); 
@@ -298,25 +289,38 @@ void RenderWidgetFor(CBlob@ this)
 
 }
 
-void placeEntities(Vec2f[] &position, Vertex[] &v_raw, u16[] &v_i, f32 z, Vec2f[] &uvcoord)
+void placeEntities(uint8[][] &position, Vertex[] &v_raw, u16[] &v_i, f32 z)
 {
+	CMap@ map = getMap();
 	int index = v_i[v_i.size()-1] + 1;
-	for( int i = 0; i < position.size(); i++ ) {
-		if(!position[i].opEquals(Vec2f_zero))
+	for( int y = 0; y < map.tilemapheight; y++ ) {
+		for(int x = 0; x < map.tilemapwidth; x++)
 		{
-			v_raw.push_back(Vertex(position[i].x - x_size, position[i].y - y_size, z, uvcoord[i].x, 			uvcoord[i].y, 			SColor(0x80aacdff)));
-			v_raw.push_back(Vertex(position[i].x + x_size, position[i].y - y_size, z, uvcoord[i].x+offsetx, 	uvcoord[i].y, 			SColor(0x80aacdff)));
-			v_raw.push_back(Vertex(position[i].x + x_size, position[i].y + y_size, z, uvcoord[i].x+offsetx, 	uvcoord[i].y+offsety, 	SColor(0x80aacdff)));
-			v_raw.push_back(Vertex(position[i].x - x_size, position[i].y + y_size, z, uvcoord[i].x, 			uvcoord[i].y+offsety, 	SColor(0x80aacdff)));
-			v_i.push_back(index);
-			v_i.push_back(index+1);
-			v_i.push_back(index+2);
-			v_i.push_back(index);
-			v_i.push_back(index+2);
-			v_i.push_back(index+3);
-			index += 4;
+			if(position[x][y] !=0 )
+			{
+				v_raw.push_back(Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x70aacdff)));
+				v_raw.push_back(Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x70aacdff)));
+				v_raw.push_back(Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
+				v_raw.push_back(Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
+				v_i.push_back(index);
+				v_i.push_back(index+1);
+				v_i.push_back(index+2);
+				v_i.push_back(index);
+				v_i.push_back(index+2);
+				v_i.push_back(index+3);
+				index += 4;
+			}
 		}
 	}
+}
+
+float getUVX(int blockID)
+{
+	return (blockID % (pngWidth/8))/(pngWidth/8);
+}
+float getUVY(int blockID)
+{
+	return int(blockID / (pngWidth/8)) / (pngHeight/8);
 }
 
 //this is the fastest way of checking if a a vector is in an vector array, maybe this functino should be removed

@@ -4,15 +4,11 @@
 - When in editing mode, you can left click to add a block, or right click to remove a block
 - When playing as a builder, use the usual menu to choose which block to place
 - When playing as archer or knight, use the key 'R' and 'U' to naviguate between the different blocks
-
+### Thanks to all kag's modder who answered some of my question and Big thanks to Numan who answered most of 'em
 
 ## TODO:
-- Transfer everything on CRule instead of CBlob
-- Fix next map schematics bug
-- on death : clear array from garbage values
-    - Change datastructure to be more efficient
-- change color
-- properly implement blueprint data sharing
+- Make the data being sent only to the right people/right team
+- optimise even more blueprint data sharing
 - implement the save mechanics
 - implement the load mechanics
 - add multiple page block selection

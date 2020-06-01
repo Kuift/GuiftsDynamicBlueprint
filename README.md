@@ -11,6 +11,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 
 ## TODO:
 - Make the data being sent only to the right team
+    - make the 48 64 196 205 block index value goe to 1 2 4 5 
 - optimise even more blueprint data sharing
 - implement the save mechanics
 - implement the load mechanics

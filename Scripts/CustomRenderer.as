@@ -8,7 +8,7 @@ SMaterial@ everythingMat = SMaterial();
 
 float x_size;
 float y_size;
-uint8 blockIndex;//this.get_TileType("buildtile");
+uint8 blockIndex;
 float pngWidth = 128.0f;
 float pngHeight = 256.0f;
 float x = (blockIndex % (pngWidth/8))/(pngWidth/8);
@@ -47,9 +47,9 @@ void onInit(CRules@ this)
 
 void RulesRenderFunction(int id)
 {
-	CBlob@ playerBlob = getLocalPlayerBlob();
-	if(playerBlob == null){return;} 
-	RenderWidgetFor(getLocalPlayerBlob());
+	CPlayer@ player = getLocalPlayer();
+	if(player == null){return;} 
+	RenderWidgetFor(getLocalPlayer());
 }
 
 void Setup()
@@ -97,8 +97,8 @@ void onTick(CRules@ this)
 	if(isClient())
 	{	
 		CBlob@ playerBlob = getLocalPlayerBlob();
+		ChangeIfNeeded();
 		if(playerBlob == null){return;} 
-		ChangeIfNeeded(); 
 		blockIndex = GiveBlockIndex(playerBlob);
 		if (blockIndex != oldBlockIndex)
 		{
@@ -123,10 +123,49 @@ void ChangeIfNeeded()
 		toggleBlueprint = !toggleBlueprint;
 	}
 
+	if(c.isKeyJustPressed(KEY_KEY_J)) //this key serve to adjust the "chunk" the player can see.
+	{
+		if(xRenderLimit == 37)
+		{
+			xRenderLimit = 20;
+			yRenderLimit = 15;
+		}
+		else if(xRenderLimit == 20)
+		{
+			xRenderLimit = 68;
+			yRenderLimit = 40;
+		}
+		else if(xRenderLimit == 68)
+		{
+			xRenderLimit = 37;
+			yRenderLimit = 21;
+		}
+		initRender(false);
+	}
+	if(c.isKeyJustPressed(KEY_KEY_K))
+	{
+		if(renderingState == 0)
+		{
+			renderingState = 1;
+		}
+		else if (renderingState == 1)
+		{
+			renderingState = 0;
+		}
+	}
+
 	if (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
-
-		Vec2f temp = getLocalPlayerBlob().getAimPos();
+		CBlob@ playerBlob = getLocalPlayerBlob();
+		Vec2f temp;
+		if(playerBlob != null)
+		{
+			temp = getLocalPlayerBlob().getAimPos();
+		}
+		else
+		{
+			temp = Vec2f(0,0);
+		}
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
@@ -183,10 +222,10 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint8 receivedBlockIndex = params.read_u8();
 		
 		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
-		if(isClient())
+		/*if(isClient())
 		{
 			setVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
-		}
+		}*/
 		
     }
 	if(cmd == this.getCommandID("removeBlocks") && dynamicMapTileData.size() > 0)
@@ -195,10 +234,10 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint16 positiony = params.read_u16();
 		
 		dynamicMapTileData[positionx][positiony] = 0;
-		if(isClient())
+		/*if(isClient())
 		{
 			unsetVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
-		}
+		}*/
 
 	}
 	if(!isClient() && cmd == this.getCommandID("getAllBlocks") && dynamicMapTileData.size() > 0)
@@ -230,7 +269,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 				for(int x = 0; x < map.tilemapwidth; x++)
 				{
 					dynamicMapTileData[x][y] = params.read_u8();
-					setVertexMatrix(dynamicMapTileData, v_raw, x, y);
+					//setVertexMatrix(dynamicMapTileData, v_raw, x, y);
 				}
 			}
 
@@ -283,23 +322,26 @@ void ClearRenderState()
 }
 
 
-void initRender(CBlob@ this)
+void initRender(bool resetMapData = true)
 {
 	v_i.clear();
 	v_raw.clear();
 	Render::SetAlphaBlend(true);
-	CMap@ map = getMap();
 	
-	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
-	dynamicMapTileData = _dynamicMapTileData;
+	if(resetMapData)
+	{
+		CMap@ map = getMap();
+		uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+		dynamicMapTileData = _dynamicMapTileData;
+	}
 	
-	Vec2f p = this.getAimPos();
+	/*Vec2f p = this.getAimPos();
 	p.x+=15;
-	p.y-=15;
-	v_raw.push_back(Vertex(p.x - x_size, p.y - y_size, 1000, x, 			y, 			SColor(0x70aacdff)));
-	v_raw.push_back(Vertex(p.x + x_size, p.y - y_size, 1000, x+offsetx, 	y, 			SColor(0x70aacdff)));
-	v_raw.push_back(Vertex(p.x + x_size, p.y + y_size, 1000, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
-	v_raw.push_back(Vertex(p.x - x_size, p.y + y_size, 1000, x, 			y+offsety, 	SColor(0x70aacdff)));
+	p.y-=15;*/
+	v_raw.push_back(Vertex(0, 0, 1000, x, 			y, 			SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, x+offsetx, 	y, 			SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, x, 			y+offsety, 	SColor(0x70aacdff)));
 	v_i.push_back(0);
 	v_i.push_back(1);
 	v_i.push_back(2);
@@ -310,21 +352,32 @@ void initRender(CBlob@ this)
 	initVertexAray(v_raw, v_i);
 }
 
-void RenderWidgetFor(CBlob@ this)
+void RenderWidgetFor(CPlayer@ this)
 {
 
 	Render::SetTransformWorldspace();
-	//cursor
-
+	//ensure that there's no null pointer. there will always be something in the array
+	if(v_raw.size() <= 4)
+	{
+		resetTrigger = true;
+	}
 	if(resetTrigger)
 	{
-		initRender(this);
+		initRender(true);
 		resetTrigger = false;
 	}
-
-	Vec2f p = this.getAimPos();
-	p.x+=15;
-	p.y-=15;
+	CBlob@ playerBlob = this.getBlob();
+	Vec2f p;
+	if(playerBlob != null)
+	{
+		p = playerBlob.getAimPos();
+		p.x+=15;
+		p.y-=15;
+	}
+	else
+	{
+		p = Vec2f(0,0);
+	}
 
 
 	//COLOR : 0xAARRGGBB
@@ -347,6 +400,7 @@ void RenderWidgetFor(CBlob@ this)
 
 	if(toggleBlueprint)
 	{
+		updateVertex(this, v_raw, dynamicMapTileData);
 		everythingMesh.SetVertex(v_raw);
 		everythingMesh.SetIndices(v_i); 
 		everythingMesh.BuildMesh();
@@ -355,59 +409,79 @@ void RenderWidgetFor(CBlob@ this)
 	}
 
 }
+int xRenderLimit = 37;
+int yRenderLimit = 21;
+int renderingState = 0; //0 = render relative to camera position, 1 = render relative to player position
+void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
+{
+	CMap@ map = getMap();
+	Vec2f blobPosition;
+	CBlob@ playerBlob = this.getBlob();
+	if(renderingState == 1 && playerBlob != null)
+	{
+		blobPosition = playerBlob.getAimPos();
+	}
+	else
+	{
+		blobPosition = getCamera().getPosition();
+	}
+	int startingx = (blobPosition.x)/8 - xRenderLimit;
+	int startingy = (blobPosition.y)/8 - yRenderLimit;
+	int xConstraint = (blobPosition.x)/8 + xRenderLimit;
+	int yConstraint = (blobPosition.y)/8 + yRenderLimit;
+
+	if (startingx < 0)
+	{
+		startingx = 0;
+	}
+	if (startingy < 0)
+	{
+		startingy = 0;
+	}
+	f32 z = 1000;
+
+	int index = 4;
+	for(int y = startingy; y < map.tilemapheight && y < yConstraint; y++) 
+	{
+		for(int x = startingx; x < map.tilemapwidth && x < xConstraint; x++)
+		{
+			if(tileData[x][y] != 0)
+			{
+				v_raw[index]   = Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(tileData[x][y]), 			getUVY(tileData[x][y]), 			SColor(0x70aacdff));
+				v_raw[index+1] = Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(tileData[x][y])+offsetx, 	getUVY(tileData[x][y]), 			SColor(0x70aacdff));
+				v_raw[index+2] = Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(tileData[x][y])+offsetx, 	getUVY(tileData[x][y])+offsety, 	SColor(0x70aacdff));
+				v_raw[index+3] = Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(tileData[x][y]), 			getUVY(tileData[x][y])+offsety, 	SColor(0x70aacdff));
+			}
+			else
+			{
+				v_raw[index]   = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
+				v_raw[index+1] = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
+				v_raw[index+2] = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
+				v_raw[index+3] = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
+			}
+			index += 4;
+		}
+	}
+}
 
 void initVertexAray(Vertex[] &v_raw, u16[] &v_i)
 {
 	CMap@ map = getMap();
 	int index = v_i[v_i.size()-1] + 1;
-	for( int y = 0; y < map.tilemapheight; y++ ) {
-		for(int x = 0; x < map.tilemapwidth; x++)
-		{
-			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-			v_i.push_back(index);
-			v_i.push_back(index+1);
-			v_i.push_back(index+2);
-			v_i.push_back(index);
-			v_i.push_back(index+2);
-			v_i.push_back(index+3);
-			index += 4;
-		}
+	for(int i = 0; i < xRenderLimit*yRenderLimit*4; i++)
+	{
+		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+		v_i.push_back(index);
+		v_i.push_back(index+1);
+		v_i.push_back(index+2);
+		v_i.push_back(index);
+		v_i.push_back(index+2);
+		v_i.push_back(index+3);
+		index += 4;
 	}
-	print("index : " + index);
-}
-
-void setVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
-{
-	f32 z = 1000;
-
-	CMap@ map = getMap();
-	uint64 ind = 4 + (x * 4 + y * (map.tilemapwidth-1)*4 + y * 4);
-	print("size : " + v_raw.size());
-	print("ind : " + ind);
-	print("x : " + x);
-	print("y : " + y);
-	print("width : " + map.tilemapwidth);
-	print("height : " + map.tilemapheight);
-	v_raw[ind] = (Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x70aacdff)));
-	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x70aacdff)));
-	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
-	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
-}
-
-void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
-{
-	f32 z = 1000;
-
-	CMap@ map = getMap();
-	int ind = 4 + (x * 4 + y * map.tilemapwidth); 
-	
-	v_raw[ind] = (Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x00aacdff)));
-	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x00aacdff)));
-	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
-	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
 }
 
 float getUVX(int blockID)
@@ -420,15 +494,3 @@ float getUVY(int blockID)
 	return int(blockID / (pngWidth/8)) / (pngHeight/8);
 }
 
-//this is the fastest way of checking if a a vector is in an vector array, maybe this functino should be removed
-bool isVecInVecArray(Vec2f &in inputVec, Vec2f[] &in inputVecArray)
-{
-	if(inputVecArray.find(inputVec) >= 0)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}

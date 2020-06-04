@@ -12,7 +12,6 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- make the blueprint spectator mode
 - Make the data being sent only to the right team
     - make the 48 64 196 205 block index value goe to 1 2 4 5 
 - optimise even more blueprint data sharing

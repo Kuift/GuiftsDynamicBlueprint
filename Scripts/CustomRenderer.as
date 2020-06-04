@@ -18,6 +18,7 @@ float offsety = 8/pngHeight;
 
 void onInit(CRules@ this)
 {
+	resetTrigger = true;
 	customMenuTurn = 1;
 	x_size = 4;
 	y_size = 4;
@@ -132,7 +133,7 @@ void ChangeIfNeeded()
 		CMap@ map = getMap();
 		if(indexX < map.tilemapwidth && indexY < map.tilemapheight && dynamicMapTileData.size() > 0)//ensure that we don't get index out of the array
 		{
-			if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION1)) && c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
+			if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION1)) && (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)))
 			{
 				if(dynamicMapTileData[indexX][indexY] == 0)
 				{
@@ -143,7 +144,7 @@ void ChangeIfNeeded()
 					getRules().SendCommand(getRules().getCommandID("addBlocks"), params);
 				}
 			}
-			else if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION2))  && c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL) && dynamicMapTileData[indexX][indexY] != 0)
+			else if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION2))  && (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && dynamicMapTileData[indexX][indexY] != 0)
 			{				
 				CBitStream params;
 				params.write_u16(indexX);
@@ -182,6 +183,10 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint8 receivedBlockIndex = params.read_u8();
 		
 		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
+		if(isClient())
+		{
+			setVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
+		}
 		
     }
 	if(cmd == this.getCommandID("removeBlocks") && dynamicMapTileData.size() > 0)
@@ -190,6 +195,10 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint16 positiony = params.read_u16();
 		
 		dynamicMapTileData[positionx][positiony] = 0;
+		if(isClient())
+		{
+			unsetVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
+		}
 
 	}
 	if(!isClient() && cmd == this.getCommandID("getAllBlocks") && dynamicMapTileData.size() > 0)
@@ -221,6 +230,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 				for(int x = 0; x < map.tilemapwidth; x++)
 				{
 					dynamicMapTileData[x][y] = params.read_u8();
+					setVertexMatrix(dynamicMapTileData, v_raw, x, y);
 				}
 			}
 
@@ -266,105 +276,145 @@ bool resetTrigger = false;
 
 void ClearRenderState()
 {
-	v_i.clear();
-	v_raw.clear();
+
 	//we are rendering after the world
 	//so we can alpha blend relatively safely, although it will still misbehave
 	//when rendering over other alpha-blended stuff
-	Render::SetAlphaBlend(true);
 }
 
 
-
-void RenderWidgetFor(CBlob@ this)
+void initRender(CBlob@ this)
 {
-
-	Render::SetTransformWorldspace();
-	//Vec2f p = this.getInterpolatedPosition();
-	Vec2f p = this.getAimPos();
+	v_i.clear();
+	v_raw.clear();
+	Render::SetAlphaBlend(true);
 	CMap@ map = getMap();
-
-	string render_texture_name = REEEPPNG;
-
-	ClearRenderState();
-
-	//render in front of almost everything
-	f32 z = this.getSprite().getZ() + 1000;
-
-	//COLOR : 0xAARRGGBB
-	CControls@ c = getControls();
+	
+	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	dynamicMapTileData = _dynamicMapTileData;
+	
+	Vec2f p = this.getAimPos();
 	p.x+=15;
 	p.y-=15;
-	if(c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
-	{
-		toggleBlueprint = true;
-		v_raw.push_back(Vertex(p.x - x_size, p.y - y_size, z, x, 			y, 			SColor(0x70aacdff)));
-		v_raw.push_back(Vertex(p.x + x_size, p.y - y_size, z, x+offsetx, 	y, 			SColor(0x70aacdff)));
-		v_raw.push_back(Vertex(p.x + x_size, p.y + y_size, z, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
-		v_raw.push_back(Vertex(p.x - x_size, p.y + y_size, z, x, 			y+offsety, 	SColor(0x70aacdff)));
-		//set up the mesh indexing
-	}
-	else{
-		v_raw.push_back(Vertex(p.x - x_size, p.y - y_size, z, x, 			y, 			SColor(0x00aacdff)));
-		v_raw.push_back(Vertex(p.x + x_size, p.y - y_size, z, x+offsetx, 	y, 			SColor(0x00aacdff)));
-		v_raw.push_back(Vertex(p.x + x_size, p.y + y_size, z, x+offsetx, 	y+offsety, 	SColor(0x00aacdff)));
-		v_raw.push_back(Vertex(p.x - x_size, p.y + y_size, z, x, 			y+offsety, 	SColor(0x00aacdff)));
-	}
+	v_raw.push_back(Vertex(p.x - x_size, p.y - y_size, 1000, x, 			y, 			SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(p.x + x_size, p.y - y_size, 1000, x+offsetx, 	y, 			SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(p.x + x_size, p.y + y_size, 1000, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(p.x - x_size, p.y + y_size, 1000, x, 			y+offsety, 	SColor(0x70aacdff)));
 	v_i.push_back(0);
 	v_i.push_back(1);
 	v_i.push_back(2);
 	v_i.push_back(0);
 	v_i.push_back(2);
 	v_i.push_back(3);
+		
+	initVertexAray(v_raw, v_i);
+}
 
-	if(toggleBlueprint && dynamicMapTileData.size() > 0)
+void RenderWidgetFor(CBlob@ this)
+{
+
+	Render::SetTransformWorldspace();
+	//cursor
+
+	if(resetTrigger)
 	{
-		placeEntities(dynamicMapTileData, v_raw, v_i, z);
-	}
-	else if(resetTrigger)
-	{
-		uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
-		dynamicMapTileData = _dynamicMapTileData;
+		initRender(this);
 		resetTrigger = false;
 	}
-	everythingMesh.SetVertex(v_raw);
-	everythingMesh.SetIndices(v_i); 
-	everythingMesh.BuildMesh();
-	everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
-	everythingMesh.RenderMeshWithMaterial(); 
-	//Render::RawTrianglesIndexed(render_texture_name, v_raw, v_i);
+
+	Vec2f p = this.getAimPos();
+	p.x+=15;
+	p.y-=15;
+
+
+	//COLOR : 0xAARRGGBB
+	CControls@ c = getControls();
+	if(c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
+	{
+		toggleBlueprint = true;
+		v_raw[0] = (Vertex(p.x - x_size, p.y - y_size, 1000, x, 			y, 			SColor(0x70aacdff)));
+		v_raw[1] = (Vertex(p.x + x_size, p.y - y_size, 1000, x+offsetx, 	y, 			SColor(0x70aacdff)));
+		v_raw[2] = (Vertex(p.x + x_size, p.y + y_size, 1000, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
+		v_raw[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, x, 			y+offsety, 	SColor(0x70aacdff)));
+	}
+	else
+	{
+		v_raw[0] = (Vertex(p.x - x_size, p.y - y_size, 1000, x, 			y, 			SColor(0x00aacdff)));
+		v_raw[1] = (Vertex(p.x + x_size, p.y - y_size, 1000, x+offsetx, 	y, 			SColor(0x00aacdff)));
+		v_raw[2] = (Vertex(p.x + x_size, p.y + y_size, 1000, x+offsetx, 	y+offsety, 	SColor(0x00aacdff)));
+		v_raw[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, x, 			y+offsety, 	SColor(0x00aacdff)));
+	}
+
+	if(toggleBlueprint)
+	{
+		everythingMesh.SetVertex(v_raw);
+		everythingMesh.SetIndices(v_i); 
+		everythingMesh.BuildMesh();
+		everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
+		everythingMesh.RenderMeshWithMaterial();
+	}
 
 }
 
-void placeEntities(uint8[][] &position, Vertex[] &v_raw, u16[] &v_i, f32 z)
+void initVertexAray(Vertex[] &v_raw, u16[] &v_i)
 {
 	CMap@ map = getMap();
 	int index = v_i[v_i.size()-1] + 1;
 	for( int y = 0; y < map.tilemapheight; y++ ) {
 		for(int x = 0; x < map.tilemapwidth; x++)
 		{
-			if(position[x][y] !=0)
-			{
-				v_raw.push_back(Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x70aacdff)));
-				v_raw.push_back(Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x70aacdff)));
-				v_raw.push_back(Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
-				v_raw.push_back(Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
-				v_i.push_back(index);
-				v_i.push_back(index+1);
-				v_i.push_back(index+2);
-				v_i.push_back(index);
-				v_i.push_back(index+2);
-				v_i.push_back(index+3);
-				index += 4;
-			}
+			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+			v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
+			v_i.push_back(index);
+			v_i.push_back(index+1);
+			v_i.push_back(index+2);
+			v_i.push_back(index);
+			v_i.push_back(index+2);
+			v_i.push_back(index+3);
+			index += 4;
 		}
 	}
+	print("index : " + index);
+}
+
+void setVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
+{
+	f32 z = 1000;
+
+	CMap@ map = getMap();
+	uint64 ind = 4 + (x * 4 + y * (map.tilemapwidth-1)*4 + y * 4);
+	print("size : " + v_raw.size());
+	print("ind : " + ind);
+	print("x : " + x);
+	print("y : " + y);
+	print("width : " + map.tilemapwidth);
+	print("height : " + map.tilemapheight);
+	v_raw[ind] = (Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x70aacdff)));
+	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x70aacdff)));
+	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
+	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
+}
+
+void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
+{
+	f32 z = 1000;
+
+	CMap@ map = getMap();
+	int ind = 4 + (x * 4 + y * map.tilemapwidth); 
+	
+	v_raw[ind] = (Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x00aacdff)));
+	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x00aacdff)));
+	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
+	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
 }
 
 float getUVX(int blockID)
 {
 	return (blockID % (pngWidth/8))/(pngWidth/8);
 }
+
 float getUVY(int blockID)
 {
 	return int(blockID / (pngWidth/8)) / (pngHeight/8);

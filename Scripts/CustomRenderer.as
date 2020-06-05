@@ -247,17 +247,14 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 					insideparams.write_u8(dynamicMapTileData[x][y]);
 			}
 		}
-		print("server sent giveAllBlocks command to " + netID);
 		getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
 	}
 	if(isClient() && cmd == this.getCommandID("giveAllBlocks"))
 	{
 		CMap@ map = getMap();
 		uint16 netID = params.read_u16();
-		print("client " + netID + " received giveAllblocks Commands");
 		if(getLocalPlayer().getNetworkID() == netID)
 		{
-			print("client " + netID + " is copying server map data");
 			for( int y = 0; y < map.tilemapheight; y++ )
 			{
 				for(int x = 0; x < map.tilemapwidth; x++)
@@ -360,7 +357,6 @@ void RenderWidgetFor(CPlayer@ this)
 		resetTrigger = false;
 		if (this != null && justJoined)
 		{
-			print("entered into here");
 			uint16 id = this.getNetworkID();
 			CBitStream params;
 			params.write_u16(id);

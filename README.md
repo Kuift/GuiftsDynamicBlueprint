@@ -17,6 +17,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 - optimise even more blueprint data sharing
 - implement the save mechanics
 - implement the load mechanics
+- Make render without mesh to bypass v_i limitation
 - cleanup code, remove most of the global variable
 - add multiple page block selection
 - support rotation

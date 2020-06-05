@@ -16,6 +16,8 @@ float y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
 float offsetx = 8/pngWidth;
 float offsety = 8/pngHeight;
 
+bool justJoined = true;
+
 void onInit(CRules@ this)
 {
 	resetTrigger = true;
@@ -35,14 +37,6 @@ void onInit(CRules@ this)
 	CMap@ map = getMap();
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
-	CPlayer@ player = getLocalPlayer();
-	if (player != null)
-	{
-		uint16 id = player.getNetworkID();
-		CBitStream params;
-		params.write_u16(id);
-		getRules().SendCommand(getRules().getCommandID("getAllBlocks"), params);
-	}
 }
 
 void RulesRenderFunction(int id)
@@ -243,27 +237,27 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	if(!isClient() && cmd == this.getCommandID("getAllBlocks") && dynamicMapTileData.size() > 0)
 	{
 		uint16 netID = params.read_u16();
-		if(getLocalPlayer().getNetworkID() == netID)
+		CMap@ map = getMap();
+		CBitStream insideparams;
+		insideparams.write_u16(netID);
+		for( int y = 0; y < map.tilemapheight; y++ ) 
 		{
-			CMap@ map = getMap();
-			CBitStream insideparams;
-			insideparams.write_u16(netID);
-			for( int y = 0; y < map.tilemapheight; y++ ) 
+			for(int x = 0; x < map.tilemapwidth; x++)
 			{
-				for(int x = 0; x < map.tilemapwidth; x++)
-				{
-						insideparams.write_u8(dynamicMapTileData[x][y]);
-				}
+					insideparams.write_u8(dynamicMapTileData[x][y]);
 			}
-			getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
 		}
+		print("server sent giveAllBlocks command to " + netID);
+		getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
 	}
 	if(isClient() && cmd == this.getCommandID("giveAllBlocks"))
 	{
 		CMap@ map = getMap();
 		uint16 netID = params.read_u16();
+		print("client " + netID + " received giveAllblocks Commands");
 		if(getLocalPlayer().getNetworkID() == netID)
 		{
+			print("client " + netID + " is copying server map data");
 			for( int y = 0; y < map.tilemapheight; y++ )
 			{
 				for(int x = 0; x < map.tilemapwidth; x++)
@@ -272,7 +266,6 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 					//setVertexMatrix(dynamicMapTileData, v_raw, x, y);
 				}
 			}
-
 		}
 	}
 }
@@ -365,6 +358,15 @@ void RenderWidgetFor(CPlayer@ this)
 	{
 		initRender(true);
 		resetTrigger = false;
+		if (this != null && justJoined)
+		{
+			print("entered into here");
+			uint16 id = this.getNetworkID();
+			CBitStream params;
+			params.write_u16(id);
+			getRules().SendCommand(getRules().getCommandID("getAllBlocks"), params);
+			justJoined = false;
+		}
 	}
 	CBlob@ playerBlob = this.getBlob();
 	Vec2f p;

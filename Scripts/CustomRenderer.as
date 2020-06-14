@@ -25,6 +25,10 @@ void onInit(CRules@ this)
 	x_size = 4;
 	y_size = 4;
 	blockIndex = 48;
+	/*getDriver().ForceStartShaders();
+	getDriver().AddShader("customShader");
+	getDriver().SetShader("customShader", true);
+	getDriver().SetShader('hq2x', false);*/
 	if(isClient())
 	{
 		int cb_id = Render::addScript(Render::layer_objects, "CustomRenderer.as", "RulesRenderFunction", 0.0f);
@@ -492,3 +496,33 @@ float getUVY(int blockID)
 	return int(blockID / (pngWidth/8)) / (pngHeight/8);
 }
 
+void setVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
+{
+	f32 z = 1000;
+
+	CMap@ map = getMap();
+	uint64 ind = 4 + (x * 4 + y * (map.tilemapwidth-1)*4 + y * 4);
+	print("size : " + v_raw.size());
+	print("ind : " + ind);
+	print("x : " + x);
+	print("y : " + y);
+	print("width : " + map.tilemapwidth);
+	print("height : " + map.tilemapheight);
+	v_raw[ind] = (Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x70aacdff)));
+	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x70aacdff)));
+	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
+	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
+}
+
+void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
+{
+	f32 z = 1000;
+
+	CMap@ map = getMap();
+	int ind = 4 + (x * 4 + y * map.tilemapwidth); 
+
+	v_raw[ind] = (Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y]), 			SColor(0x00aacdff)));
+	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x00aacdff)));
+	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
+	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
+}

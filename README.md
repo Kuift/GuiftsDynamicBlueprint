@@ -12,18 +12,15 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- Make multiple mesh for render
-- implement the save mechanics
-- implement the load mechanics
 - Make the data being sent only to the right team
     - make the 48 64 196 205 block index value go to 1 2 4 5 
-- remove block once it's placed
-- f1 tips
-- dynamics notes
+- optimise even more blueprint data sharing
+- implement the save mechanics
+- implement the load mechanics
+- Make render without mesh to bypass v_i limitation
 - cleanup code, remove most of the global variable
 - add multiple page block selection
 - support rotation
-- veracity : block on flag shouldn't be allowed 
 - implement the cursor select when middle click
     - 2 mode
         - if mode 1, you can copy paste selected blueprint into png + place blueprint
@@ -33,4 +30,3 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 - add more to the REEE.PNG
     - add the logics entities
 - make custom menu less of a pain, have a gui for it
-- optimise even more blueprint data sharing

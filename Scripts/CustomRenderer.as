@@ -27,10 +27,6 @@ void onInit(CRules@ this)
 	x_size = 4;
 	y_size = 4;
 	blockIndex = 48;
-	/*getDriver().ForceStartShaders();
-	getDriver().AddShader("customShader");
-	getDriver().SetShader("customShader", true);
-	getDriver().SetShader('hq2x', false);*/
 	if(isClient())
 	{
 		int cb_id = Render::addScript(Render::layer_objects, "CustomRenderer.as", "RulesRenderFunction", 0.0f);
@@ -537,6 +533,7 @@ float getUVY(int blockID)
 	return int(blockID / (pngWidth/8)) / (pngHeight/8);
 }
 
+<<<<<<< HEAD
 void setVertexMatrix(uint8[][] &position, Vertex[][] &v_raw, int x, int y)
 {
 	f32 z = 1000;
@@ -571,3 +568,5 @@ void unsetVertexMatrix(uint8[][] &position, Vertex[][] &v_raw, int x, int y)
 	v_raw[arrayIndex][ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
 	v_raw[arrayIndex][ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
 }
+=======
+>>>>>>> parent of f60c4ca... save before big optimisation change

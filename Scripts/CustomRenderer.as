@@ -17,9 +17,12 @@ float offsetx = 8/pngWidth;
 float offsety = 8/pngHeight;
 
 bool justJoined = true;
+bool keyOJustPressed = false;
+bool keyLJustPressed = false;
 
 void onInit(CRules@ this)
 {
+	currentBlueprintData.clear();
 	resetTrigger = true;
 	customMenuTurn = 1;
 	x_size = 4;
@@ -75,6 +78,7 @@ void Setup()
 void onRestart(CRules@ this)
 {
 	dynamicMapTileData.clear();
+	currentBlueprintData.clear();
 	CMap@ map = getMap();
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -104,6 +108,14 @@ void onTick(CRules@ this)
 			x = (blockIndex % (pngWidth/8))/(pngWidth/8);
 			y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
 		}
+		if(keyOJustPressed)
+		{
+			SaveBlueprintToPng(this, playerBlob);
+		}
+		if(keyLJustPressed)
+		{
+			LoadBlueprintFromPng(this, playerBlob);
+		}
 	}
 }
 
@@ -111,14 +123,57 @@ int last_changed = 0;
 bool toggleBlueprint = true;
 Vec2f currentPlacementPosition;
 int customMenuTurn;
+array<Vec2f> mouseSelect(2,Vec2f(0.0f,0.0f));
 void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
 	if (c is null) return;
+	CBlob@ playerBlob = getLocalPlayerBlob();
 
-	if(c.isKeyJustPressed(KEY_KEY_H))
+	if(c.isKeyJustPressed(KEY_KEY_H)) //activate or deactivate mesh rendering
 	{
 		toggleBlueprint = !toggleBlueprint;
+	}
+
+	if(c.isKeyJustPressed(KEY_KEY_O))//load a png
+	{
+		keyOJustPressed = true;
+		print("saving blueprint...");
+	}
+
+	if(c.isKeyJustPressed(KEY_KEY_L))
+	{
+		keyLJustPressed = true;
+		print("loading blueprint...");
+	}
+	if(c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL))
+	{
+		currentBlueprintData.clear();
+	}
+
+	if(playerBlob != null)
+	{
+		if(c.isKeyJustPressed(KEY_KEY_I))
+		{
+			Vec2f temp = playerBlob.getAimPos();
+			currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+			uint16 indexX = (currentPlacementPosition.x-4)/8;
+			uint16 indexY = (currentPlacementPosition.y-4)/8; 
+			mouseSelect[0] = Vec2f(indexX,indexY);
+			print("First vector x : " + mouseSelect[0].x);
+			print("First vector y : " + mouseSelect[0].y);
+			
+		}
+		if(c.isKeyJustPressed(KEY_KEY_P))
+		{
+			Vec2f temp = playerBlob.getAimPos();
+			currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+			uint16 indexX = (currentPlacementPosition.x-4)/8;
+			uint16 indexY = (currentPlacementPosition.y-4)/8; 
+			mouseSelect[1] = Vec2f(indexX, indexY);
+			print("second vector x : " + mouseSelect[1].x);
+			print("second vector y : " + mouseSelect[1].y);
+		}
 	}
 
 	if(c.isKeyJustPressed(KEY_KEY_J)) //this key serve to adjust the "chunk" the player can see.
@@ -154,11 +209,10 @@ void ChangeIfNeeded()
 
 	if (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
-		CBlob@ playerBlob = getLocalPlayerBlob();
 		Vec2f temp;
 		if(playerBlob != null)
 		{
-			temp = getLocalPlayerBlob().getAimPos();
+			temp = playerBlob.getAimPos();
 		}
 		else
 		{
@@ -525,4 +579,116 @@ void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
 	v_raw[ind+1] = (Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y]), 			SColor(0x00aacdff)));
 	v_raw[ind+2] = (Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y])+offsetx, 	getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
 	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
+}
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////LOADING SECTION BEGIN HERE/////////////////////////////////////////////////
+CFileImage@ save_image;
+void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
+{
+	int startingXPosition = 0;
+	int endingXPosition = 10;
+	int startingYPosition = 0;
+	int endingYPosition = 10;
+
+	if(mouseSelect[0].x > mouseSelect[1].x)
+	{
+		startingXPosition = mouseSelect[1].x;
+		endingXPosition = mouseSelect[0].x;
+	}
+	else
+	{
+		startingXPosition = mouseSelect[0].x;
+		endingXPosition = mouseSelect[1].x;
+	}
+
+	if(mouseSelect[0].y > mouseSelect[1].y)
+	{
+		startingYPosition = mouseSelect[1].y;
+		endingYPosition = mouseSelect[0].y;
+	}
+	else
+	{
+		startingYPosition = mouseSelect[0].y;
+		endingYPosition = mouseSelect[1].y;
+	}
+	int width = Maths::Abs(mouseSelect[0].x-mouseSelect[1].x);
+	int height =  Maths::Abs(mouseSelect[0].y-mouseSelect[1].y);
+	@save_image = CFileImage(width, height, true);
+	save_image.setFilename("Maps/DynamicBlueprints/1.png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
+	save_image.setPixelOffset(0);
+
+	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)
+	{
+		for(int xp = startingXPosition; xp < endingXPosition+1; xp++)
+		{
+			for (int yp = startingYPosition; yp < endingYPosition+1; yp++)
+			{
+				Vec2f pixelpos = save_image.getPixelPosition();
+				SColor pixelColor = getColorFromBlockID(dynamicMapTileData[xp][yp]);
+				save_image.setPixelAtPosition(width - (endingXPosition - xp), height - (endingYPosition - yp), pixelColor, true);
+			}
+		}
+		save_image.Save();
+		print("image saved.");
+	}
+	else
+	{
+		print("couldn't save blueprint : selection positions are invalid");
+	}
+	keyOJustPressed = false;
+}
+uint8[][] currentBlueprintData;
+int OButtonSelect = 0;
+void LoadBlueprintFromPng(CRules@ this, CBlob@ localPlayerBlob)
+{
+	@save_image = CFileImage("Maps/DynamicBlueprints/1.png");
+
+
+	//uint8[][] _currentBlueprintData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	//currentBlueprintData = _currentBlueprintData;
+	if (save_image.isLoaded())
+	{
+
+	}
+	else
+	{
+		print("couldn't load blueprint");
+	}
+	keyLJustPressed = false;
+}
+
+SColor getColorFromBlockID(int blockID) 
+{
+	// 48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
+	// 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
+	if(blockID == 48)
+	{
+		return SColor(255,48,0,0);
+	}
+	if(blockID == 64)
+	{
+		return SColor(100,64,0,0);
+	}
+	if(blockID == 196)
+	{
+		return SColor(255,196,0,0);
+	}
+	if(blockID == 205)
+	{
+		return SColor(100,205,0,0);
+	}
+	if(blockID >= 2 && 10 <= blockID)
+	{
+		return SColor(255,blockID,0,0);
+	}
+	return SColor(0,0,0,0);
 }

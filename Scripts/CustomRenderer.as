@@ -623,7 +623,7 @@ void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
 	int width = Maths::Abs(mouseSelect[0].x-mouseSelect[1].x);
 	int height =  Maths::Abs(mouseSelect[0].y-mouseSelect[1].y);
 	@save_image = CFileImage(width, height, true);
-	save_image.setFilename("Maps/DynamicBlueprints/1.png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
+	save_image.setFilename("DynamicBlueprints/1.png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
 	save_image.setPixelOffset(0);
 
 	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)

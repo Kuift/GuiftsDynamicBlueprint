@@ -116,6 +116,10 @@ void onTick(CRules@ this)
 		{
 			LoadBlueprintFromPng(this, playerBlob);
 		}
+		if(displayLoadedBlueprint)
+		{
+			LoadBlueprintDataToMapTileData();
+		}
 	}
 }
 
@@ -148,7 +152,17 @@ void ChangeIfNeeded()
 	}
 	if(c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL))
 	{
-		currentBlueprintData.clear();
+		if(displayLoadedBlueprint == true)
+		{
+			dynamicMapTileData = tileMapDataCopy;
+			displayLoadedBlueprint = false;
+			currentBlueprintData.clear();
+		}
+	}
+
+	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true)
+	{
+		displayLoadedBlueprint = false;
 	}
 
 	if(playerBlob != null)
@@ -206,7 +220,6 @@ void ChangeIfNeeded()
 			renderingState = 0;
 		}
 	}
-
 	if (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
 		Vec2f temp;
@@ -399,7 +412,7 @@ void initRender(bool resetMapData = true)
 		
 	initVertexAray(v_raw, v_i);
 }
-
+int updateOptimisation = 0;
 void RenderWidgetFor(CPlayer@ this)
 {
 
@@ -456,7 +469,15 @@ void RenderWidgetFor(CPlayer@ this)
 
 	if(toggleBlueprint)
 	{
-		updateVertex(this, v_raw, dynamicMapTileData);
+		if(updateOptimisation == 0)
+		{
+			updateVertex(this, v_raw, dynamicMapTileData);
+		}
+		updateOptimisation += 1;
+		if(updateOptimisation >= 5)
+		{
+			updateOptimisation = 0;
+		}
 		everythingMesh.SetVertex(v_raw);
 		everythingMesh.SetIndices(v_i); 
 		everythingMesh.BuildMesh();
@@ -590,7 +611,7 @@ void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
 
 
 
-//////////////////////////////////////LOADING SECTION BEGIN HERE/////////////////////////////////////////////////
+//////////////////////////////////////LOADING AND SAVING IMPLEMENTATION SECTION BEGIN HERE/////////////////////////////////////////////////
 CFileImage@ save_image;
 void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
 {
@@ -646,47 +667,130 @@ void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
 	}
 	keyOJustPressed = false;
 }
+
 uint8[][] currentBlueprintData;
 int OButtonSelect = 0;
+int currentBlueprintWidth = 0;
+int currentBlueprintHeight = 0;
 void LoadBlueprintFromPng(CRules@ this, CBlob@ localPlayerBlob)
 {
-	@save_image = CFileImage("Maps/DynamicBlueprints/1.png");
+	@save_image = CFileImage("DynamicBlueprints/1.png");
+	bool done = false;
 
-
-	//uint8[][] _currentBlueprintData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
-	//currentBlueprintData = _currentBlueprintData;
 	if (save_image.isLoaded())
 	{
-
+		currentBlueprintWidth = save_image.getWidth();
+		currentBlueprintHeight = save_image.getHeight();
+		save_image.setPixelOffset(-1);
+		uint8[][] _currentBlueprintData(currentBlueprintWidth, uint8[](currentBlueprintHeight, 0));
+		currentBlueprintData = _currentBlueprintData;
+		u8 a;
+		u8 r;
+		u8 g;
+		u8 b;
+		while(save_image.nextPixel() && !done)
+		{
+			if(save_image.readPixel(a, r, g, b)) //this readpixel function is dank af, the argument given are the output of the function
+			{
+				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = r;
+				print("r value : " + r);
+			}
+			else
+			{
+				print("an error occured while reading a pixel from a blueprint png");
+			}
+		}
+		deepCopyArray();
 	}
 	else
 	{
 		print("couldn't load blueprint");
 	}
 	keyLJustPressed = false;
+	displayLoadedBlueprint = true;
 }
 
+bool displayLoadedBlueprint = false;
+void LoadBlueprintDataToMapTileData()
+{
+	CBlob@ playerBlob = getLocalPlayerBlob();
+	if(playerBlob != null && currentBlueprintData.size() > 0)
+	{
+		Vec2f temp = playerBlob.getAimPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8;
+		uint16 startingx = indexX - Maths::Ceil(float(currentBlueprintWidth)/2.0f);
+		uint16 startingy = indexY - Maths::Ceil(float(currentBlueprintHeight)/2.0f);
+		uint16 endingx = indexX + int(currentBlueprintWidth/2);
+		uint16 endingy = indexY + int(currentBlueprintHeight/2);
+		if(startingx < 0)
+		{
+			startingx = 0;
+		}
+		if(startingy < 0)
+		{
+			startingy = 0;
+		}
+		CMap@ map = getMap();
+		if(endingx >= map.tilemapwidth)
+		{
+			endingx = map.tilemapwidth;
+		}
+		if(endingy >= map.tilemapheight)
+		{
+			endingy = map.tilemapheight;
+		}
+		int xbp = 0;
+		int ybp = 0;
+		dynamicMapTileData = tileMapDataCopy;
+		for(int yp = startingy; yp < endingy; yp++)
+		{
+			for(int xp = startingx; xp < endingx; xp++)
+			{
+				dynamicMapTileData[xp][yp] = currentBlueprintData[xbp][ybp];
+				xbp += 1;
+			}
+			xbp = 0;
+			ybp += 1;
+		}
+	}
+}
+uint8[][] tileMapDataCopy;
+void deepCopyArray()
+{
+	CMap@ map = getMap();
+	uint8[][] _tileMapDataCopy(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	tileMapDataCopy = _tileMapDataCopy;
+	for(int y = 0; y < map.tilemapheight; y++) 
+	{
+		for(int x = 0; x < map.tilemapwidth; x++)
+		{
+			tileMapDataCopy[x][y] = dynamicMapTileData[x][y];
+		}
+	}
+}
 SColor getColorFromBlockID(int blockID) 
 {
 	// 48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
-	// 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
-	if(blockID == 48)
+	// 3 = stone door, 6 = wooden doors, 7 = trap, 8 = ladder, 9 = platform, 10 = workshop, 11 = spike
+	if(blockID == 48 || blockID == 1)
 	{
-		return SColor(255,48,0,0);
+		return SColor(255,1,0,0);
 	}
-	if(blockID == 64)
+	if(blockID == 64 || blockID == 2)
 	{
-		return SColor(100,64,0,0);
+		return SColor(255,2,0,0);
 	}
-	if(blockID == 196)
+	if(blockID == 196 || blockID == 4)
 	{
-		return SColor(255,196,0,0);
+		return SColor(255,4,0,0);
 	}
-	if(blockID == 205)
+	if(blockID == 205 || blockID == 5)
 	{
-		return SColor(100,205,0,0);
+		return SColor(255,5,0,0);
 	}
-	if(blockID >= 2 && 10 <= blockID)
+	if(blockID >= 3 && 11 <= blockID)
 	{
 		return SColor(255,blockID,0,0);
 	}

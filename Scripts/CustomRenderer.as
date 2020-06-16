@@ -649,13 +649,19 @@ void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
 
 	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)
 	{
-		for(int xp = startingXPosition; xp < endingXPosition+1; xp++)
+		for (int yp = startingYPosition; yp < endingYPosition+1; yp++)
 		{
-			for (int yp = startingYPosition; yp < endingYPosition+1; yp++)
+			for(int xp = startingXPosition; xp < endingXPosition+1; xp++)
 			{
 				Vec2f pixelpos = save_image.getPixelPosition();
 				SColor pixelColor = getColorFromBlockID(dynamicMapTileData[xp][yp]);
-				save_image.setPixelAtPosition(width - (endingXPosition - xp), height - (endingYPosition - yp), pixelColor, true);
+				uint p = pixelColor.getRed();
+				if(p != dynamicMapTileData[xp][yp])
+				{
+					print("pixelColor : " + p);
+					print("map data : " + dynamicMapTileData[xp][yp]);
+				}
+				save_image.setPixelAtPosition(width - (endingXPosition - xp), height - (endingYPosition - yp), pixelColor, false);
 			}
 		}
 		save_image.Save();
@@ -693,7 +699,7 @@ void LoadBlueprintFromPng(CRules@ this, CBlob@ localPlayerBlob)
 			if(save_image.readPixel(a, r, g, b)) //this readpixel function is dank af, the argument given are the output of the function
 			{
 				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = r;
-				print("r value : " + r);
+				//print("r value : " + r);
 			}
 			else
 			{
@@ -770,7 +776,7 @@ void deepCopyArray()
 		}
 	}
 }
-SColor getColorFromBlockID(int blockID) 
+SColor getColorFromBlockID(u8 blockID) 
 {
 	// 48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
 	// 3 = stone door, 6 = wooden doors, 7 = trap, 8 = ladder, 9 = platform, 10 = workshop, 11 = spike
@@ -790,7 +796,7 @@ SColor getColorFromBlockID(int blockID)
 	{
 		return SColor(255,5,0,0);
 	}
-	if(blockID >= 3 && 11 <= blockID)
+	if(blockID >= 3 && blockID <= 11)
 	{
 		return SColor(255,blockID,0,0);
 	}

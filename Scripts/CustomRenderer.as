@@ -41,6 +41,7 @@ void onInit(CRules@ this)
 	this.addCommandID("removeBlocks");
 	this.addCommandID("getAllBlocks");
 	this.addCommandID("giveAllBlocks");
+	this.addCommandID("sendBlueprint");
 	CMap@ map = getMap();
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -79,6 +80,7 @@ void onRestart(CRules@ this)
 {
 	dynamicMapTileData.clear();
 	currentBlueprintData.clear();
+	networkBlueprintData.clear();
 	CMap@ map = getMap();
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -162,7 +164,32 @@ void ChangeIfNeeded()
 
 	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true)
 	{
-		displayLoadedBlueprint = false;
+		displayLoadedBlueprint = false; // if the player selected a blueprint and pressed left click, then we send the blueprint to everybody
+
+		CBitStream params;
+
+		uint16 id = playerBlob.getNetworkID();
+
+		Vec2f temp = playerBlob.getAimPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+
+		params.write_u16(id);
+		params.write_u16(currentBlueprintWidth);
+		params.write_u16(currentBlueprintHeight);
+		params.write_u16(indexX);
+		params.write_u16(indexY);
+
+
+		for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it 
+		{
+			for(int x = 0; x < currentBlueprintWidth; x++) 
+			{
+				params.write_u8(currentBlueprintData[x][y]);
+			}
+		}
+		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
 	}
 
 	if(playerBlob != null)
@@ -334,6 +361,37 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 					//setVertexMatrix(dynamicMapTileData, v_raw, x, y);
 				}
 			}
+		}
+	}
+	if(cmd == this.getCommandID("sendBlueprint") && dynamicMapTileData.size() > 0)
+	{
+		uint16 netID = params.read_u16();
+		CPlayer@ playerBlob = getLocalPlayer();
+		bool condition = false;
+		if(playerBlob == null)
+		{
+			condition = true;
+		}
+		else if(playerBlob.getNetworkID() != netID)// we don't modify the data to the player that just sent it
+		{
+			condition = true;
+		}
+		if(condition) 
+		{
+			uint16 bpWidth = params.read_u16();
+			uint16 bpHeight = params.read_u16();
+			uint16 indx = params.read_u16();
+			uint16 indy = params.read_u16();
+			uint8[][] _networkBlueprintData(bpWidth, uint8[](bpHeight, 0));
+			networkBlueprintData = _networkBlueprintData;
+			for(int y = 0; y < bpHeight; y++)// iterate through all the element of the current blueprint and send it 
+			{
+				for(int x = 0; x < bpWidth; x++) 
+				{
+					networkBlueprintData[x][y] = params.read_u8();
+				}
+			}
+			LoadBlueprintDataToMapTileDataFromNetwork(indx,indy,bpWidth,bpHeight);
 		}
 	}
 }
@@ -676,8 +734,8 @@ void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
 
 uint8[][] currentBlueprintData;
 int OButtonSelect = 0;
-int currentBlueprintWidth = 0;
-int currentBlueprintHeight = 0;
+int16 currentBlueprintWidth = 0;
+int16 currentBlueprintHeight = 0;
 void LoadBlueprintFromPng(CRules@ this, CBlob@ localPlayerBlob)
 {
 	@save_image = CFileImage("DynamicBlueprints/1.png");
@@ -717,15 +775,57 @@ void LoadBlueprintFromPng(CRules@ this, CBlob@ localPlayerBlob)
 }
 
 bool displayLoadedBlueprint = false;
-void LoadBlueprintDataToMapTileData()
+uint8[][] networkBlueprintData;
+void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16 bpWidth, int16 bpHeight)
+{
+	uint16 startingx = indexX - Maths::Ceil(float(bpWidth)/2.0f);
+	uint16 startingy = indexY - Maths::Ceil(float(bpHeight)/2.0f);
+	uint16 endingx = indexX + int(bpWidth/2);
+	uint16 endingy = indexY + int(bpHeight/2);
+	if(startingx < 0)
+	{
+		startingx = 0;
+	}
+	if(startingy < 0)
+	{
+		startingy = 0;
+	}
+	CMap@ map = getMap();
+	if(endingx >= map.tilemapwidth)
+	{
+		endingx = map.tilemapwidth;
+	}
+	if(endingy >= map.tilemapheight)
+	{
+		endingy = map.tilemapheight;
+	}
+	int xbp = 0;
+	int ybp = 0;
+	for(int yp = startingy; yp < endingy; yp++)
+	{
+		for(int xp = startingx; xp < endingx; xp++)
+		{
+			dynamicMapTileData[xp][yp] = networkBlueprintData[xbp][ybp];
+			xbp += 1;
+		}
+		xbp = 0;
+		ybp += 1;
+	}
+}
+
+void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 {
 	CBlob@ playerBlob = getLocalPlayerBlob();
 	if(playerBlob != null && currentBlueprintData.size() > 0)
 	{
 		Vec2f temp = playerBlob.getAimPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
-		uint16 indexX = (currentPlacementPosition.x-4)/8;
-		uint16 indexY = (currentPlacementPosition.y-4)/8;
+		if(indexX == -1 || indexY == -1 )
+		{
+			indexX = (currentPlacementPosition.x-4)/8;
+			indexY = (currentPlacementPosition.y-4)/8;
+			dynamicMapTileData = tileMapDataCopy;
+		}
 		uint16 startingx = indexX - Maths::Ceil(float(currentBlueprintWidth)/2.0f);
 		uint16 startingy = indexY - Maths::Ceil(float(currentBlueprintHeight)/2.0f);
 		uint16 endingx = indexX + int(currentBlueprintWidth/2);
@@ -749,7 +849,6 @@ void LoadBlueprintDataToMapTileData()
 		}
 		int xbp = 0;
 		int ybp = 0;
-		dynamicMapTileData = tileMapDataCopy;
 		for(int yp = startingy; yp < endingy; yp++)
 		{
 			for(int xp = startingx; xp < endingx; xp++)
@@ -762,6 +861,7 @@ void LoadBlueprintDataToMapTileData()
 		}
 	}
 }
+
 uint8[][] tileMapDataCopy;
 void deepCopyArray()
 {

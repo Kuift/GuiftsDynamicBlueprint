@@ -16,6 +16,7 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
+- make the prefab blueprint supported on the network
 - integrate a selector gui
 - add the possibilities to have multiple blueprint
 - integrate save mechanics with a GUI elements
@@ -40,3 +41,4 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
     - add the logics entities
 - make custom menu less of a pain, have a gui for it
 - optimise even more blueprint data sharing
+    - getLocalPlayer().getNetworkID() == netID this may not work as you think it does : even when netid != localnetid, code is being executed.

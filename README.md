@@ -4,9 +4,9 @@
 - When in editing mode, you can left click to add a block, or right click to remove a block
 - When playing as a builder, use the usual menu to choose which block to place
 - When playing as archer or knight, use the key 'R' and 'U' to naviguate between the different blocks
-- You can select a zone by settings selection ponits using the 'I' and 'P' key
+- You can select a zone by settings selection points using the 'I' and 'P' key. Use 'I' to set the first point and 'P' to set the second point. Then press 'O' to save your selection.
 - You can save a blueprint that is inside the two selection points using the 'O' key
-- You can load your saved bluepring with using the 'L' key
+- You can load your saved blueprint with using the 'L' key
 - You can cycle through rendering window size by pressing 'J', try it if your performance aren't great
 - You can cycle through rendering relative to your camera or your cursor by pressing 'K'
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.

@@ -31,6 +31,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 - add multiple page block selection
 - support rotation
 - veracity : block on flag shouldn't be allowed 
+- make blueprint from game blob and block instead of your array
 - implement the cursor select when middle click
     - 2 mode
         - if mode 1, you can copy paste selected blueprint into png + place blueprint

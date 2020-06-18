@@ -102,7 +102,6 @@ void onTick(CRules@ this)
 	{	
 		CBlob@ playerBlob = getLocalPlayerBlob();
 		ChangeIfNeeded();
-		if(playerBlob == null){return;} 
 		blockIndex = GiveBlockIndex(playerBlob);
 		if (blockIndex != oldBlockIndex)
 		{
@@ -112,16 +111,17 @@ void onTick(CRules@ this)
 		}
 		if(keyOJustPressed)
 		{
-			SaveBlueprintToPng(this, playerBlob);
+			SaveBlueprintToPng(this);
 		}
 		if(keyLJustPressed)
 		{
-			LoadBlueprintFromPng(this, playerBlob);
+			LoadBlueprintFromPng(this);
 		}
 		if(displayLoadedBlueprint)
 		{
 			LoadBlueprintDataToMapTileData();
 		}
+		if(playerBlob == null){return;} 
 	}
 }
 
@@ -134,7 +134,7 @@ void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
 	if (c is null) return;
-	CBlob@ playerBlob = getLocalPlayerBlob();
+	CPlayer@ playerBlob = getLocalPlayer();
 
 	if(c.isKeyJustPressed(KEY_KEY_H)) //activate or deactivate mesh rendering
 	{
@@ -170,7 +170,7 @@ void ChangeIfNeeded()
 
 		uint16 id = playerBlob.getNetworkID();
 
-		Vec2f temp = playerBlob.getAimPos();
+		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
@@ -192,29 +192,26 @@ void ChangeIfNeeded()
 		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
 	}
 
-	if(playerBlob != null)
+	if(c.isKeyJustPressed(KEY_KEY_I))
 	{
-		if(c.isKeyJustPressed(KEY_KEY_I))
-		{
-			Vec2f temp = playerBlob.getAimPos();
-			currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
-			uint16 indexX = (currentPlacementPosition.x-4)/8;
-			uint16 indexY = (currentPlacementPosition.y-4)/8; 
-			mouseSelect[0] = Vec2f(indexX,indexY);
-			print("First vector x : " + mouseSelect[0].x);
-			print("First vector y : " + mouseSelect[0].y);
-			
-		}
-		if(c.isKeyJustPressed(KEY_KEY_P))
-		{
-			Vec2f temp = playerBlob.getAimPos();
-			currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
-			uint16 indexX = (currentPlacementPosition.x-4)/8;
-			uint16 indexY = (currentPlacementPosition.y-4)/8; 
-			mouseSelect[1] = Vec2f(indexX, indexY);
-			print("second vector x : " + mouseSelect[1].x);
-			print("second vector y : " + mouseSelect[1].y);
-		}
+		Vec2f temp = c.getMouseWorldPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		mouseSelect[0] = Vec2f(indexX,indexY);
+		print("First vector x : " + mouseSelect[0].x);
+		print("First vector y : " + mouseSelect[0].y);
+		
+	}
+	if(c.isKeyJustPressed(KEY_KEY_P))
+	{
+		Vec2f temp = c.getMouseWorldPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		mouseSelect[1] = Vec2f(indexX, indexY);
+		print("second vector x : " + mouseSelect[1].x);
+		print("second vector y : " + mouseSelect[1].y);
 	}
 
 	if(c.isKeyJustPressed(KEY_KEY_J)) //this key serve to adjust the "chunk" the player can see.
@@ -249,15 +246,7 @@ void ChangeIfNeeded()
 	}
 	if (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
-		Vec2f temp;
-		if(playerBlob != null)
-		{
-			temp = playerBlob.getAimPos();
-		}
-		else
-		{
-			temp = Vec2f(0,0);
-		}
+		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
@@ -400,6 +389,10 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 
 int GiveBlockIndex(CBlob@ this)
 {
+	if(this == null)
+	{
+		return customMenuTurn;
+	}
 	int tileType = this.get_TileType("buildtile"); //48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
 	int tileBlob = this.get_u8("buildblob"); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
 	if(this.getName() != "builder")
@@ -453,10 +446,7 @@ void initRender(bool resetMapData = true)
 		uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 		dynamicMapTileData = _dynamicMapTileData;
 	}
-	
-	/*Vec2f p = this.getAimPos();
-	p.x+=15;
-	p.y-=15;*/
+
 	v_raw.push_back(Vertex(0, 0, 1000, x, 			y, 			SColor(0x70aacdff)));
 	v_raw.push_back(Vertex(0, 0, 1000, x+offsetx, 	y, 			SColor(0x70aacdff)));
 	v_raw.push_back(Vertex(0, 0, 1000, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
@@ -493,22 +483,13 @@ void RenderWidgetFor(CPlayer@ this)
 			justJoined = false;
 		}
 	}
-	CBlob@ playerBlob = this.getBlob();
+	CControls@ c = getControls();
 	Vec2f p;
-	if(playerBlob != null)
-	{
-		p = playerBlob.getAimPos();
-		p.x+=15;
-		p.y-=15;
-	}
-	else
-	{
-		p = Vec2f(0,0);
-	}
-
+	p = c.getMouseWorldPos();
+	p.x+=15;
+	p.y-=15;
 
 	//COLOR : 0xAARRGGBB
-	CControls@ c = getControls();
 	if(c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
 	{
 		toggleBlueprint = true;
@@ -551,10 +532,10 @@ void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
 {
 	CMap@ map = getMap();
 	Vec2f blobPosition;
-	CBlob@ playerBlob = this.getBlob();
-	if(renderingState == 1 && playerBlob != null)
+	CControls@ c = getControls();
+	if(renderingState == 1 && c != null)
 	{
-		blobPosition = playerBlob.getAimPos();
+		blobPosition = c.getMouseWorldPos();
 	}
 	else
 	{
@@ -671,7 +652,7 @@ void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
 
 //////////////////////////////////////LOADING AND SAVING IMPLEMENTATION SECTION BEGIN HERE/////////////////////////////////////////////////
 CFileImage@ save_image;
-void SaveBlueprintToPng(CRules@ this, CBlob@ localPlayerBlob)
+void SaveBlueprintToPng(CRules@ this)
 {
 	int startingXPosition = 0;
 	int endingXPosition = 10;
@@ -736,7 +717,7 @@ uint8[][] currentBlueprintData;
 int OButtonSelect = 0;
 int16 currentBlueprintWidth = 0;
 int16 currentBlueprintHeight = 0;
-void LoadBlueprintFromPng(CRules@ this, CBlob@ localPlayerBlob)
+void LoadBlueprintFromPng(CRules@ this)
 {
 	@save_image = CFileImage("DynamicBlueprints/1.png");
 	bool done = false;
@@ -815,10 +796,10 @@ void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16
 
 void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 {
-	CBlob@ playerBlob = getLocalPlayerBlob();
-	if(playerBlob != null && currentBlueprintData.size() > 0)
+	CControls@ c = getControls();
+	if(c != null && currentBlueprintData.size() > 0)
 	{
-		Vec2f temp = playerBlob.getAimPos();
+		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		if(indexX == -1 || indexY == -1 )
 		{
@@ -866,15 +847,7 @@ uint8[][] tileMapDataCopy;
 void deepCopyArray()
 {
 	CMap@ map = getMap();
-	uint8[][] _tileMapDataCopy(map.tilemapwidth, uint8[](map.tilemapheight, 0));
-	tileMapDataCopy = _tileMapDataCopy;
-	for(int y = 0; y < map.tilemapheight; y++) 
-	{
-		for(int x = 0; x < map.tilemapwidth; x++)
-		{
-			tileMapDataCopy[x][y] = dynamicMapTileData[x][y];
-		}
-	}
+	tileMapDataCopy = dynamicMapTileData;
 }
 SColor getColorFromBlockID(u8 blockID) 
 {

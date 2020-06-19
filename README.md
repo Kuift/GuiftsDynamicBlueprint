@@ -20,6 +20,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 - add the possibilities to have multiple blueprint
 - integrate save mechanics with a GUI elements
 - integrate load mechanics with a GUI elements
+- Optimise rendering by chunking : instead of rendering everything one shot each 5 tick or so, do smaller amount during these 5 ticks
 - Make the data being sent only to the right team
     - make the 48 64 196 205 block index value go to 1 2 4 5 
 - remove block once it's placed

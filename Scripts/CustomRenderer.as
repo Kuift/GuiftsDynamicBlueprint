@@ -528,42 +528,23 @@ void RenderWidgetFor(CPlayer@ this)
 int xRenderLimit = 37;
 int yRenderLimit = 21;
 int renderingState = 0; //0 = render relative to camera position, 1 = render relative to player position
-int partState = 0; // don't touch
-int indexState  = 0; // don't touch
-Vec2f positionState = Vec2f(0,0);
-bool holdState = false;
-//partToRender specify the current part that should be rendered, max part specify the number of part wanted
 void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
 {
-
 	CMap@ map = getMap();
 	Vec2f blobPosition;
 	CControls@ c = getControls();
-	if(holdState == false)
+	if(renderingState == 1 && c != null)
 	{
-		if(renderingState == 1 && c != null)
-		{
-			blobPosition = c.getMouseWorldPos();
-		}
-		else
-		{
-			blobPosition = getCamera().getPosition();
-		}
-		positionState = blobPosition;
-		holdState = true;
+		blobPosition = c.getMouseWorldPos();
 	}
 	else
 	{
-		blobPosition = positionState;
+		blobPosition = getCamera().getPosition();
 	}
 	int startingx = (blobPosition.x)/8 - xRenderLimit;
 	int startingy = (blobPosition.y)/8 - yRenderLimit;
 	int xConstraint = (blobPosition.x)/8 + xRenderLimit;
 	int yConstraint = (blobPosition.y)/8 + yRenderLimit;
-	
-	int xRenderingDist = (xConstraint-startingx);
-	int yRenderingDist = (yConstraint-startingy);
-
 
 	if (startingx < 0)
 	{
@@ -575,16 +556,7 @@ void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
 	}
 	f32 z = 1000;
 
-	if(partState >= yConstraint-8)
-	{
-		partState = 0;
-		indexState = 4;
-		holdState = false;
-	}
-	startingy = startingy + partState;
-	yConstraint = startingy + 8;
-	partState += 8;
-	int index = indexState;
+	int index = 4;
 	for(int y = startingy; y < map.tilemapheight && y < yConstraint; y++) 
 	{
 		for(int x = startingx; x < map.tilemapwidth && x < xConstraint; x++)
@@ -606,7 +578,6 @@ void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
 			index += 4;
 		}
 	}
-	indexState = index;
 }
 
 void initVertexAray(Vertex[] &v_raw, u16[] &v_i)

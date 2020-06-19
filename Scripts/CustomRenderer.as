@@ -460,7 +460,7 @@ void initRender(bool resetMapData = true)
 		
 	initVertexAray(v_raw, v_i);
 }
-int updateOptimisation = 1;
+int updateOptimisation = 0;
 void RenderWidgetFor(CPlayer@ this)
 {
 
@@ -508,7 +508,15 @@ void RenderWidgetFor(CPlayer@ this)
 
 	if(toggleBlueprint)
 	{
-		updateVertex(this, v_raw, dynamicMapTileData);
+		if(updateOptimisation == 0)
+		{
+			updateVertex(this, v_raw, dynamicMapTileData);
+		}
+		updateOptimisation += 1;
+		if(updateOptimisation >= 5)
+		{
+			updateOptimisation = 0;
+		}
 		everythingMesh.SetVertex(v_raw);
 		everythingMesh.SetIndices(v_i); 
 		everythingMesh.BuildMesh();
@@ -567,15 +575,15 @@ void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
 	}
 	f32 z = 1000;
 
-	if(partState >= yConstraint-4)
+	if(partState >= yConstraint-8)
 	{
 		partState = 0;
 		indexState = 4;
 		holdState = false;
 	}
 	startingy = startingy + partState;
-	yConstraint = startingy + 4;
-	partState += 4;
+	yConstraint = startingy + 8;
+	partState += 8;
 	int index = indexState;
 	for(int y = startingy; y < map.tilemapheight && y < yConstraint; y++) 
 	{

@@ -4,6 +4,7 @@ uint8[][] dynamicMapTileData;
 
 const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
 SMesh@ everythingMesh = SMesh();
+SMesh@ nonTileMesh = SMesh();
 SMaterial@ everythingMat = SMaterial();
 
 float x_size;
@@ -70,7 +71,10 @@ void Setup()
 
 		//mesh initial config 
 		everythingMesh.SetMaterial(everythingMat);
-		everythingMesh.SetHardwareMapping(SMesh::STATIC); //maybe MAP::STATIC instead
+		everythingMesh.SetHardwareMapping(SMesh::STATIC);
+
+		nonTileMesh.SetMaterial(everythingMat);
+		nonTileMesh.SetHardwareMapping(SMesh::STATIC);
 	}
 
 
@@ -113,7 +117,7 @@ void onTick(CRules@ this)
 		{
 			SaveBlueprintToPng(this);
 		}
-		if(keyLJustPressed)
+		if(keyLJustPressed && !displayLoadedBlueprint)
 		{
 			LoadBlueprintFromPng(this);
 		}
@@ -129,7 +133,8 @@ int last_changed = 0;
 bool toggleBlueprint = true;
 Vec2f currentPlacementPosition;
 int customMenuTurn;
-array<Vec2f> mouseSelect(2,Vec2f(0.0f,0.0f));
+array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
+bool displayMouseSelect = false;
 void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
@@ -143,17 +148,20 @@ void ChangeIfNeeded()
 
 	if(c.isKeyJustPressed(KEY_KEY_O))//load a png
 	{
+		displayMouseSelect = false;
 		keyOJustPressed = true;
 		print("saving blueprint...");
 	}
 
 	if(c.isKeyJustPressed(KEY_KEY_L))
 	{
+		displayMouseSelect = false;
 		keyLJustPressed = true;
 		print("loading blueprint...");
 	}
 	if(c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL))
 	{
+		displayMouseSelect = false;
 		if(displayLoadedBlueprint == true)
 		{
 			dynamicMapTileData = tileMapDataCopy;
@@ -199,6 +207,11 @@ void ChangeIfNeeded()
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		mouseSelect[0] = Vec2f(indexX,indexY);
+		displayMouseSelect = true;
+		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
+		{
+			displayMouseSelect = false;
+		}
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 		
@@ -210,6 +223,11 @@ void ChangeIfNeeded()
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		mouseSelect[1] = Vec2f(indexX, indexY);
+		displayMouseSelect = true;
+		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
+		{
+			displayMouseSelect = false;
+		}
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
@@ -423,6 +441,12 @@ u16[] v_i;
 //this is the highest performance option
 Vertex[] v_raw;
 
+
+u16[] v_indexNonTile;
+
+//this is the highest performance option
+Vertex[] v_vertexNonTile;
+
 bool resetTrigger = false;
 
 void ClearRenderState()
@@ -438,6 +462,8 @@ void initRender(bool resetMapData = true)
 {
 	v_i.clear();
 	v_raw.clear();
+	v_indexNonTile.clear();
+	v_vertexNonTile.clear();
 	Render::SetAlphaBlend(true);
 	
 	if(resetMapData)
@@ -457,6 +483,17 @@ void initRender(bool resetMapData = true)
 	v_i.push_back(0);
 	v_i.push_back(2);
 	v_i.push_back(3);
+
+	v_vertexNonTile.push_back(Vertex(0, 0, 1000, x, 			y, 			SColor(0x70aacdff)));
+	v_vertexNonTile.push_back(Vertex(0, 0, 1000, x+offsetx, 	y, 			SColor(0x70aacdff)));
+	v_vertexNonTile.push_back(Vertex(0, 0, 1000, x+offsetx, 	y+offsety, 	SColor(0x70aacdff)));
+	v_vertexNonTile.push_back(Vertex(0, 0, 1000, x, 			y+offsety, 	SColor(0x70aacdff)));
+	v_indexNonTile.push_back(0);
+	v_indexNonTile.push_back(1);
+	v_indexNonTile.push_back(2);
+	v_indexNonTile.push_back(0);
+	v_indexNonTile.push_back(2);
+	v_indexNonTile.push_back(3);
 		
 	initVertexAray(v_raw, v_i);
 }
@@ -506,6 +543,43 @@ void RenderWidgetFor(CPlayer@ this)
 		v_raw[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, x, 			y+offsety, 	SColor(0x00aacdff)));
 	}
 
+	if(displayMouseSelect) // this display the current selection zone
+	{ // 	mouseSelect[] use index value : when x = 2, it mean 16+4 in world coords
+		int x_size = Maths::Abs(mouseSelect[0].x*8-mouseSelect[1].x*8+4)/2;
+		int y_size =  Maths::Abs(mouseSelect[0].y*8-mouseSelect[1].y*8+4)/2;
+		int centerx;
+		int centery;
+		int z = 1000;
+		if(mouseSelect[0].x < mouseSelect[1].x)
+		{
+			centerx = mouseSelect[0].x*8 +x_size;
+		}
+		else
+		{
+			centerx = mouseSelect[1].x*8 + x_size;
+		}
+
+		if(mouseSelect[0].y < mouseSelect[1].y)
+		{
+			centery = mouseSelect[0].y *8 + y_size;
+		}
+		else
+		{
+			centery = mouseSelect[1].y *8 + y_size;
+		}
+		v_vertexNonTile[0] = Vertex(centerx - x_size, centery - y_size, z, getUVX(10), 			getUVY(10), 			SColor(0x30aacdff)); //upper left
+		v_vertexNonTile[1] = Vertex(centerx+4 + x_size, centery - y_size, z, getUVX(10)+offsetx, 	getUVY(10), 			SColor(0x30aacdff)); //upper right
+		v_vertexNonTile[2] = Vertex(centerx+4 + x_size, centery + y_size+4, z, getUVX(10)+offsetx, 	getUVY(10)+offsety, 	SColor(0x30aacdff)); //bottom right
+		v_vertexNonTile[3] = Vertex(centerx - x_size, centery + y_size+4, z, getUVX(10), 			getUVY(10)+offsety, 	SColor(0x30aacdff)); //bottom left
+	}
+	else
+	{
+		v_vertexNonTile[0] = (Vertex(p.x - x_size, p.y - y_size, 1000, x, 			y, 			SColor(0x00aacdff)));
+		v_vertexNonTile[1] = (Vertex(p.x + x_size, p.y - y_size, 1000, x+offsetx, 	y, 			SColor(0x00aacdff)));
+		v_vertexNonTile[2] = (Vertex(p.x + x_size, p.y + y_size, 1000, x+offsetx, 	y+offsety, 	SColor(0x00aacdff)));
+		v_vertexNonTile[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, x, 			y+offsety, 	SColor(0x00aacdff)));
+	}
+
 	if(toggleBlueprint)
 	{
 		if(updateOptimisation == 0)
@@ -522,6 +596,11 @@ void RenderWidgetFor(CPlayer@ this)
 		everythingMesh.BuildMesh();
 		everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
 		everythingMesh.RenderMeshWithMaterial();
+		nonTileMesh.SetVertex(v_vertexNonTile);
+		nonTileMesh.SetIndices(v_indexNonTile); 
+		nonTileMesh.BuildMesh();
+		nonTileMesh.SetDirty(SMesh::VERTEX_INDEX);
+		nonTileMesh.RenderMeshWithMaterial();
 	}
 
 }
@@ -658,7 +737,11 @@ void SaveBlueprintToPng(CRules@ this)
 	int endingXPosition = 10;
 	int startingYPosition = 0;
 	int endingYPosition = 10;
-
+	if(mouseSelect[0].x == mouseSelect[1].x || mouseSelect[0].y == mouseSelect[1].y)
+	{
+		mouseSelect[0] = Vec2f(1,1);
+		mouseSelect[1] = Vec2f(5,5);
+	}
 	if(mouseSelect[0].x > mouseSelect[1].x)
 	{
 		startingXPosition = mouseSelect[1].x;

@@ -36,7 +36,7 @@ array<string> filenames;
 void onInit(CRules@ this)
 {
 	searchForBlueprints(); // modify the global variable filenames to add to it every blueprint.png that is found
-	@inv = Inventory(Vec2f(100,100), filenames, 5+int((filenames.size())/15)); // constructor : Inventory(Vec2f position, int numberOfBlueprint, int number of item per rows)
+	@inv = Inventory(Vec2f(100,100), filenames); // constructor : Inventory(Vec2f position, int numberOfBlueprint, int number of item per rows)
 	currentBlueprintData.clear();
 	resetTrigger = true;
 	customMenuTurn = 1;
@@ -65,7 +65,7 @@ void onInit(CRules@ this)
 void searchForBlueprints()
 {
 	CFileMatcher@ files = CFileMatcher("blueprint_");
-	//files.printMatches();
+	files.reset();
 	while (files.iterating())
 	{
 		filenames.push_back(files.getCurrent());
@@ -128,14 +128,17 @@ void onTick(CRules@ this)
 {
 
 	if(isClient())
-	{	
-		string selectedBlueprint = inv.Update();
-		if( selectedBlueprint != "")
-		{		
-			print("Loading " + selectedBlueprint);
-			displayPrefabSelectionMenu = false;
-			triggerAPrefabLoad = true;
-			displayMouseSelect = false;
+	{	string selectedBlueprint = "";
+		if(toggleBlueprint && displayPrefabSelectionMenu)
+		{
+			selectedBlueprint = inv.Update();
+			if( selectedBlueprint != "")
+			{		
+				print("Loading " + selectedBlueprint);
+				displayPrefabSelectionMenu = false;
+				triggerAPrefabLoad = true;
+				displayMouseSelect = false;
+			}
 		}
 
 		CBlob@ playerBlob = getLocalPlayerBlob();
@@ -808,7 +811,8 @@ void SaveBlueprintToPng(CRules@ this)
 	int width = Maths::Abs(mouseSelect[0].x-mouseSelect[1].x);
 	int height =  Maths::Abs(mouseSelect[0].y-mouseSelect[1].y);
 	@save_image = CFileImage(width, height, true);
-	save_image.setFilename("DynamicBlueprints/blueprint_1.png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
+	int currentTime = Time();
+	save_image.setFilename("DynamicBlueprints/blueprint_" + currentTime + ".png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
 	save_image.setPixelOffset(0);
 
 	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)
@@ -830,6 +834,8 @@ void SaveBlueprintToPng(CRules@ this)
 		}
 		save_image.Save();
 		print("image saved.");
+		filenames.push_back("Maps/DynamicBlueprints/blueprint_" + currentTime + ".png");
+		inv.resizeGUI(filenames);
 	}
 	else
 	{

@@ -1,6 +1,6 @@
 #include "Item.as"
-
-shared class Inventory
+//thanks to epsilon for the initial inventory code i started with.
+class Inventory
 {
 	private Item@[] items;
 	private uint maxItems;
@@ -9,14 +9,16 @@ shared class Inventory
 	private uint width;
 	private uint height;
 	private bool hasMoved;
-
 	private Vec2f position;
 	private Vec2f cellDim(40, 40);
 
 	private string[] itemFilter;
 
-	Inventory(Vec2f position, array<string> filenames, uint itemsPerRow)
+	Inventory(Vec2f position, array<string> filenames)
 	{
+		//this next line serve to change the width of the gui depending on the number of item there is. by default it will be 5 items per rows. 
+		//if there are at least 15 items in filenames, then the width will increase by 1. 
+		int itemsPerRow = 5+int((filenames.size())/15);
 		this.hasMoved = false;
 		int nbOfItem = filenames.size();
 
@@ -49,6 +51,23 @@ shared class Inventory
 	void SetItemFilter(string[] names)
 	{
 		itemFilter = names;
+	}
+
+	void resizeGUI(array<string> filenames) // called each time a new blueprint is created
+	{
+		int itemsPerRows = 5+int((filenames.size())/15);
+		this.hasMoved = false;
+		int nbOfItem = filenames.size();
+
+		if(nbOfItem < itemsPerRows)
+		{
+			this.width = nbOfItem;
+		}
+
+		this.height = 1+(nbOfItem)/itemsPerRows;
+		this.maxItems = nbOfItem;
+
+		items.push_back(Item("Bp" + (filenames.size()-1), filenames[filenames.size()-1]));
 	}
 
 	bool AddItem(Item@ item)

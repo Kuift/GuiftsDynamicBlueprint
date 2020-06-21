@@ -1,17 +1,26 @@
+#include "Inventory.as"
+#include "Item.as"
+
+///those next 2 global variable are the only thing you can modify without breaking anything if you understand what they do.
+//you have to set the image size of the texture used for the tiles mesh.
+float pngWidth = 128.0f;
+float pngHeight = 256.0f;
+
+const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
+
 //This code has been started from the ScriptRenderExample.as script
 uint8[][] dynamicMapTileData;
 
-
-const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
 SMesh@ everythingMesh = SMesh();
 SMesh@ nonTileMesh = SMesh();
 SMaterial@ everythingMat = SMaterial();
+Inventory@ inv; 
 
 float x_size;
 float y_size;
 uint8 blockIndex;
-float pngWidth = 128.0f;
-float pngHeight = 256.0f;
+
+
 float x = (blockIndex % (pngWidth/8))/(pngWidth/8);
 float y = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
 float offsetx = 8/pngWidth;
@@ -19,10 +28,15 @@ float offsety = 8/pngHeight;
 
 bool justJoined = true;
 bool keyOJustPressed = false;
-bool keyLJustPressed = false;
+bool triggerAPrefabLoad = false;
+bool displayPrefabSelectionMenu = false;
+
+array<string> filenames;
 
 void onInit(CRules@ this)
 {
+	searchForBlueprints(); // modify the global variable filenames to add to it every blueprint.png that is found
+	@inv = Inventory(Vec2f(100,100), filenames, 5+int((filenames.size())/15)); // constructor : Inventory(Vec2f position, int numberOfBlueprint, int number of item per rows)
 	currentBlueprintData.clear();
 	resetTrigger = true;
 	customMenuTurn = 1;
@@ -35,7 +49,8 @@ void onInit(CRules@ this)
 	getDriver().SetShader('hq2x', false);*/
 	if(isClient())
 	{
-		int cb_id = Render::addScript(Render::layer_objects, "CustomRenderer.as", "RulesRenderFunction", 0.0f);
+		int cb_id = Render::addScript(Render::layer_postworld, "CustomRenderer.as", "RulesRenderFunction", 0.0f);
+		int cb_id2 = Render::addScript(Render::layer_prehud, "CustomRenderer.as", "RenderAdvancedGui", 0.0f);
 		Setup();
 	}
 	this.addCommandID("addBlocks");
@@ -46,6 +61,16 @@ void onInit(CRules@ this)
 	CMap@ map = getMap();
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
+}
+void searchForBlueprints()
+{
+	CFileMatcher@ files = CFileMatcher("blueprint_");
+	//files.printMatches();
+	while (files.iterating())
+	{
+		filenames.push_back(files.getCurrent());
+		print(files.getCurrent() + " blueprint has been found");
+	}
 }
 
 void RulesRenderFunction(int id)
@@ -98,12 +123,21 @@ void onRestart(CRules@ this)
 
 //toggle through each render type to give a working example of each call
 int oldBlockIndex = -1;
-
+bool antiVoid = false;
 void onTick(CRules@ this)
 {
 
 	if(isClient())
 	{	
+		string selectedBlueprint = inv.Update();
+		if( selectedBlueprint != "")
+		{		
+			print("Loading " + selectedBlueprint);
+			displayPrefabSelectionMenu = false;
+			triggerAPrefabLoad = true;
+			displayMouseSelect = false;
+		}
+
 		CBlob@ playerBlob = getLocalPlayerBlob();
 		ChangeIfNeeded();
 		blockIndex = GiveBlockIndex(playerBlob);
@@ -117,9 +151,13 @@ void onTick(CRules@ this)
 		{
 			SaveBlueprintToPng(this);
 		}
-		if(keyLJustPressed && !displayLoadedBlueprint)
+		if(triggerAPrefabLoad && !displayLoadedBlueprint)
 		{
-			LoadBlueprintFromPng(this);
+			LoadBlueprintFromPng(this,selectedBlueprint);
+		}
+		else
+		{
+			triggerAPrefabLoad = false;
 		}
 		if(displayLoadedBlueprint)
 		{
@@ -152,12 +190,15 @@ void ChangeIfNeeded()
 		keyOJustPressed = true;
 		print("saving blueprint...");
 	}
-
+	if(c.isKeyPressed(KEY_KEY_X))
+	{
+		displayPrefabSelectionMenu = true;
+		inv.setPosition(c.getMouseScreenPos());
+	}
 	if(c.isKeyJustPressed(KEY_KEY_L))
 	{
-		displayMouseSelect = false;
-		keyLJustPressed = true;
-		print("loading blueprint...");
+		displayPrefabSelectionMenu = !displayPrefabSelectionMenu;
+		print("Prefabs blueprint windows state changed");
 	}
 	if(c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL))
 	{
@@ -498,9 +539,10 @@ void initRender(bool resetMapData = true)
 	initVertexAray(v_raw, v_i);
 }
 int updateOptimisation = 0;
+
+
 void RenderWidgetFor(CPlayer@ this)
 {
-
 	Render::SetTransformWorldspace();
 	//ensure that there's no null pointer. there will always be something in the array
 	if(v_raw.size() <= 4)
@@ -720,13 +762,13 @@ void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
 	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x00aacdff)));
 }
 
-
-
-
-
-
-
-
+void RenderAdvancedGui(int id)
+{
+	if(toggleBlueprint && displayPrefabSelectionMenu)
+	{
+		inv.Render();
+	}
+}
 
 
 //////////////////////////////////////LOADING AND SAVING IMPLEMENTATION SECTION BEGIN HERE/////////////////////////////////////////////////
@@ -766,7 +808,7 @@ void SaveBlueprintToPng(CRules@ this)
 	int width = Maths::Abs(mouseSelect[0].x-mouseSelect[1].x);
 	int height =  Maths::Abs(mouseSelect[0].y-mouseSelect[1].y);
 	@save_image = CFileImage(width, height, true);
-	save_image.setFilename("DynamicBlueprints/1.png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
+	save_image.setFilename("DynamicBlueprints/blueprint_1.png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
 	save_image.setPixelOffset(0);
 
 	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)
@@ -800,9 +842,9 @@ uint8[][] currentBlueprintData;
 int OButtonSelect = 0;
 int16 currentBlueprintWidth = 0;
 int16 currentBlueprintHeight = 0;
-void LoadBlueprintFromPng(CRules@ this)
+void LoadBlueprintFromPng(CRules@ this, string imagePath)
 {
-	@save_image = CFileImage("DynamicBlueprints/1.png");
+	@save_image = CFileImage(imagePath);
 	bool done = false;
 
 	if (save_image.isLoaded())
@@ -829,13 +871,13 @@ void LoadBlueprintFromPng(CRules@ this)
 			}
 		}
 		deepCopyArray();
+		displayLoadedBlueprint = true;
 	}
 	else
 	{
 		print("couldn't load blueprint");
 	}
-	keyLJustPressed = false;
-	displayLoadedBlueprint = true;
+	triggerAPrefabLoad = false;
 }
 
 bool displayLoadedBlueprint = false;

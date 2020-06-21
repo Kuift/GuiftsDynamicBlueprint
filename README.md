@@ -16,9 +16,7 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- add the possibilities to have multiple blueprint
-- integrate save mechanics with a GUI elements
-- integrate load mechanics with a GUI elements
+- Fix save system so that it work without having to restart the game
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
 - Make the data being sent only to the right team

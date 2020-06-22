@@ -35,8 +35,6 @@ array<string> filenames;
 
 void onInit(CRules@ this)
 {
-	searchForBlueprints(); // modify the global variable filenames to add to it every blueprint.png that is found
-	@inv = Inventory(Vec2f(100,100), filenames); // constructor : Inventory(Vec2f position, int numberOfBlueprint, int number of item per rows)
 	currentBlueprintData.clear();
 	resetTrigger = true;
 	customMenuTurn = 1;
@@ -49,6 +47,8 @@ void onInit(CRules@ this)
 	getDriver().SetShader('hq2x', false);*/
 	if(isClient())
 	{
+		searchForBlueprints(); // modify the global variable filenames to add to it every blueprint.png that is found
+		@inv = Inventory(Vec2f(100,100), filenames); // constructor : Inventory(Vec2f position, int numberOfBlueprint, int number of item per rows)
 		int cb_id = Render::addScript(Render::layer_postworld, "CustomRenderer.as", "RulesRenderFunction", 0.0f);
 		int cb_id2 = Render::addScript(Render::layer_prehud, "CustomRenderer.as", "RenderAdvancedGui", 0.0f);
 		Setup();
@@ -62,6 +62,9 @@ void onInit(CRules@ this)
 	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
 }
+
+/* search for all png files path that start with "blueprint_" and
+put the path into a string array named filenames */
 void searchForBlueprints()
 {
 	CFileMatcher@ files = CFileMatcher("blueprint_");
@@ -866,10 +869,11 @@ void LoadBlueprintFromPng(CRules@ this, string imagePath)
 		u8 b;
 		while(save_image.nextPixel() && !done)
 		{
-			if(save_image.readPixel(a, r, g, b)) //this readpixel function is dank af, the argument given are the output of the function
+			if(save_image.readPixel(a, r, g, b)) ///the argument given are the output of the function
 			{
 				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = r;
-				//print("r value : " + r);
+				//only the red part of the image is used to store something.
+                //Therefore only retrieve the red value is retrieved.
 			}
 			else
 			{

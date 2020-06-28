@@ -467,12 +467,20 @@ uint16 GiveBlockIndex(CBlob@ this)
 	if(this == null)
 	{
 		resetRotation = true;
+		if(customMenuTurn == 10)
+		{
+			customMenuTurn += 1;
+		}
 		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
 	}
 	uint16 tileType = uint16(this.get_TileType("buildtile")); //48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
 	uint16 tileBlob = this.get_u8("buildblob"); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
 	if(this.getName() != "builder")
 	{
+		if(customMenuTurn == 10)
+		{
+			customMenuTurn += 1;
+		}
 		resetRotation = true;
 		return customMenuTurn | (currentRotation << 14);
 	}
@@ -481,7 +489,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		currentRotation = 0;
 		resetRotation = false;
 	}
-	print("current Page : " + this.get_u8("build page"));
+	uint8 currentPage = this.get_u8("build page");
 	if(tileType == 48 || tileType == 64 || tileType == 196 || tileType == 205)
 	{
 		if(tileType == 48)
@@ -502,9 +510,9 @@ uint16 GiveBlockIndex(CBlob@ this)
 		}
 		return tileType;
 	}
-	else if (tileBlob == 2 || tileBlob == 5 || tileBlob == 6 || tileBlob == 7 || tileBlob == 8 || tileBlob == 9 || tileBlob == 10)
+	else if (tileBlob == 2 || tileBlob == 5 || tileBlob == 6 || tileBlob == 7 || tileBlob == 8 || tileBlob == 9 || tileBlob == 10 || currentPage != 0)
 	{
-		return tileBlob + 1 | (currentRotation << 14);
+		return tileBlob + 1 + (currentPage*12) | (currentRotation << 14);
 	}
 	else
 	{

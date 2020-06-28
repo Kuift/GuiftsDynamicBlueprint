@@ -176,6 +176,7 @@ Vec2f currentPlacementPosition;
 uint16 customMenuTurn;
 array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
 bool displayMouseSelect = false;
+int mouseIndex = 1;
 void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
@@ -274,6 +275,27 @@ void ChangeIfNeeded()
 		}
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
+	}
+	if(c.isKeyJustPressed(KEY_MBUTTON))
+	{
+		Vec2f temp = c.getMouseWorldPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		if(mouseIndex == 0)
+		{
+			mouseIndex = 1;
+		}
+		else
+		{
+			mouseIndex = 0;
+		}
+		mouseSelect[mouseIndex] = Vec2f(indexX, indexY);
+		displayMouseSelect = true;
+		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
+		{
+			displayMouseSelect = false;
+		}
 	}
 
 	if(c.isKeyJustPressed(KEY_KEY_J)) //this key serve to adjust the "chunk" the player can see.
@@ -665,10 +687,10 @@ void RenderWidgetFor(CPlayer@ this)
 		{
 			centery = mouseSelect[1].y *8 + y_size;
 		}
-		v_vertexNonTile[0] = Vertex(centerx 	- x_size, centery - y_size, 	z, getUVX(10,0), getUVY(10,0), 	SColor(0x30aaefff)); //upper left
-		v_vertexNonTile[1] = Vertex(centerx + 4 + x_size, centery - y_size, 	z, getUVX(10,1), getUVY(10,1), 	SColor(0x30aaefff)); //upper right
-		v_vertexNonTile[2] = Vertex(centerx + 4 + x_size, centery + y_size + 4, z, getUVX(10,2), getUVY(10,2), 	SColor(0x30aaefff)); //bottom right
-		v_vertexNonTile[3] = Vertex(centerx 	- x_size, centery + y_size + 4, z, getUVX(10,3), getUVY(10,3), 	SColor(0x30aaefff)); //bottom left
+		v_vertexNonTile[0] = Vertex(centerx 	- x_size, centery - y_size, 	z, getUVX(10,0), getUVY(10,0), 	SColor(0x30aacdff)); //upper left
+		v_vertexNonTile[1] = Vertex(centerx + 4 + x_size, centery - y_size, 	z, getUVX(10,1), getUVY(10,1), 	SColor(0x30aacdff)); //upper right
+		v_vertexNonTile[2] = Vertex(centerx + 4 + x_size, centery + y_size + 4, z, getUVX(10,2), getUVY(10,2), 	SColor(0x30aacdff)); //bottom right
+		v_vertexNonTile[3] = Vertex(centerx 	- x_size, centery + y_size + 4, z, getUVX(10,3), getUVY(10,3), 	SColor(0x30aacdff)); //bottom left
 	}
 	else
 	{

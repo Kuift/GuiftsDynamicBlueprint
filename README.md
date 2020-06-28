@@ -16,10 +16,10 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- implement the cursor select when middle click
 - support rotation
-- make chat command to disable live editing
 - add multiple page block selection
+- make chat command to disable live editing
+- implement the cursor select when middle click
 - add more to the REEE.PNG
     - add the logics entities
 - Make the data being sent only to the right team

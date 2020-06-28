@@ -824,7 +824,7 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 	}
 	if(blockID == 44)
 	{
-		ultraoffsety = offsety;
+		ultraoffsety = offsety*3/8;
 	}
 	vertexNumber += uvyCurrentRotation;
 	if(vertexNumber > 3)

@@ -19,13 +19,9 @@ Inventory@ inv;
 float x_size;
 float y_size;
 uint16 blockIndex;
-uint8 currentRotation = 0;
+uint16 currentRotation = 0;
 
 
-float currentImageTextureX = (blockIndex % (pngWidth/8))/(pngWidth/8);
-float currentImageTextureY = int(blockIndex / (pngWidth/8)) / (pngHeight/8);
-float offsetx = 8/pngWidth;
-float offsety = 8/pngHeight;
 
 bool justJoined = true;
 bool keyOJustPressed = false;
@@ -41,7 +37,7 @@ void onInit(CRules@ this)
 	customMenuTurn = 1;
 	x_size = 4;
 	y_size = 4;
-	blockIndex = 48;
+	blockIndex = 1;
 	/*getDriver().ForceStartShaders();
 	getDriver().AddShader("customShader");
 	getDriver().SetShader("customShader", true);
@@ -177,7 +173,7 @@ void onTick(CRules@ this)
 int last_changed = 0;
 bool toggleBlueprint = true;
 Vec2f currentPlacementPosition;
-int customMenuTurn;
+uint16 customMenuTurn;
 array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
 bool displayMouseSelect = false;
 void ChangeIfNeeded()
@@ -355,17 +351,18 @@ void ChangeIfNeeded()
 				customMenuTurn = 11;
 			}
 		}
+	}
 
-		if(c.isKeyJustPressed(KEY_SPACE))
+	if(c.isKeyJustPressed(KEY_SPACE))
+	{
+		if(blockIndex > 2 && blockIndex != 4 && blockIndex != 5)
+		if(currentRotation <= 0)
 		{
-			if(currentRotation >= 3)
-			{
-				currentRotation = 0;
-			}
-			else
-			{
-				currentRotation += 1;
-			}
+			currentRotation = 3;
+		}
+		else
+		{
+			currentRotation -= 1;
 		}
 	}
 }
@@ -464,26 +461,50 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 }
 
 
-
-int GiveBlockIndex(CBlob@ this)
+bool resetRotation = false;
+uint16 GiveBlockIndex(CBlob@ this)
 {
 	if(this == null)
 	{
-		return customMenuTurn;
+		resetRotation = true;
+		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
 	}
-	int tileType = this.get_TileType("buildtile"); //48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
-	int tileBlob = this.get_u8("buildblob"); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
+	uint16 tileType = uint16(this.get_TileType("buildtile")); //48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
+	uint16 tileBlob = this.get_u8("buildblob"); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
 	if(this.getName() != "builder")
 	{
-		return customMenuTurn;
+		resetRotation = true;
+		return customMenuTurn | (currentRotation << 14);
 	}
+	if(resetRotation == true)
+	{
+		currentRotation = 0;
+		resetRotation = false;
+	}
+	print("current Page : " + this.get_u8("build page"));
 	if(tileType == 48 || tileType == 64 || tileType == 196 || tileType == 205)
 	{
+		if(tileType == 48)
+		{
+			tileType = 1;
+		}
+		else if(tileType == 64)
+		{
+			tileType = 2;
+		}
+		else if(tileType == 196)
+		{
+			tileType = 4;
+		}
+		else if (tileType == 205)
+		{
+			tileType = 5;
+		}
 		return tileType;
 	}
 	else if (tileBlob == 2 || tileBlob == 5 || tileBlob == 6 || tileBlob == 7 || tileBlob == 8 || tileBlob == 9 || tileBlob == 10)
 	{
-		return tileBlob + 1;
+		return tileBlob + 1 | (currentRotation << 14);
 	}
 	else
 	{
@@ -740,44 +761,73 @@ void initVertexAray(Vertex[] &v_raw, u16[] &v_i)
 	}
 }
 
-float getUVX(int blockID, int vertexNumber)
+float offsetx = 8/pngWidth;
+float offsety = 8/pngHeight;
+uint16 oldBlockID = 0;
+float oldModuloCalc = 0;
+uint16 uvxCurrentRotation = 0;
+float getUVX(uint16 blockID, int vertexNumber)
 {
+	if(oldBlockID != blockID)//prevent from doing unecessary calculation.
+	{
+		oldBlockID = blockID;
+		oldModuloCalc = (((blockID % (pngWidth/8))/(pngWidth/8)) << 2 ) >> 2;//the << and >> operator remove the rotation bits from the answer.
+		uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
+	}
+	vertexNumber += uvxCurrentRotation;
+	if(vertexNumber > 3)
+	{
+		vertexNumber -= 4;
+	}
 	//vertex number position : 0 = upper left, 1 = upper right, 2 = bottom right, 3 = bottom left
 	if(vertexNumber == 0)
 	{
-		return (blockID % (pngWidth/8))/(pngWidth/8);
+		return oldModuloCalc;
 	}
 	else if(vertexNumber == 1)
 	{
-		return (blockID % (pngWidth/8))/(pngWidth/8) + offsetx;
+		return oldModuloCalc + offsetx;
 	}
 	else if(vertexNumber == 2)
 	{
-		return (blockID % (pngWidth/8))/(pngWidth/8) + offsetx;
+		return oldModuloCalc + offsetx;
 	}
 	else
 	{
-		return (blockID % (pngWidth/8))/(pngWidth/8);
+		return oldModuloCalc;
 	}
 }
-
+uint16 oldBlockID2 = 0;
+float oldModuloCalc2 = 0;
+uint16 uvyCurrentRotation = 0;
 float getUVY(int blockID, int vertexNumber)
 {
+	if(oldBlockID != blockID)//prevent from doing unecessary calculation.
+	{
+		oldBlockID2 = blockID;
+		oldModuloCalc2 = ((int(blockID / (pngWidth/8)) / (pngHeight/8)) << 2) >> 2; //the << and >> operator remove the rotation bits from the answer.
+		uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
+	}
+	vertexNumber += uvyCurrentRotation;
+	if(vertexNumber > 3)
+	{
+		vertexNumber -= 4;
+	}
 	if(vertexNumber == 0)
 	{
-		return int(blockID / (pngWidth/8)) / (pngHeight/8);
+		return oldModuloCalc2;
 	}
 	else if(vertexNumber == 1)
 	{
-		return int(blockID / (pngWidth/8)) / (pngHeight/8);
+		return oldModuloCalc2;
 	}
 	else if(vertexNumber == 2)
 	{
-		return int(blockID / (pngWidth/8)) / (pngHeight/8) + offsety;
+		return oldModuloCalc2 + offsety;
 	}
 	else
 	{
-		return int(blockID / (pngWidth/8)) / (pngHeight/8) + offsety;
+		return oldModuloCalc2 + offsety;
 	}
 }
 
@@ -1026,8 +1076,9 @@ uint16[][] tileMapDataCopy;
 void deepCopyArray()
 {
 	CMap@ map = getMap();
-	tileMapDataCopy = dynamicMapTileData;
+	tileMapDataCopy = dynamicMapTileData; // this should do a shallow copy according to angelscript's documentation but it doesn't ¯\_(ツ)_/¯
 }
+
 SColor getColorFromBlockID(u8 blockID) 
 {
 	// 48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall

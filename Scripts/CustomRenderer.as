@@ -497,9 +497,13 @@ uint16 GiveBlockIndex(CBlob@ this)
 	if(this == null)
 	{
 		resetRotation = true;
-		if(customMenuTurn == 10)
+		if(customMenuTurn == 10)//these if statement are there because those blob have irregular dimension.
 		{
-			return 80;
+			return 80;//return code for workshop
+		}
+		if(customMenuTurn == 8)
+		{
+			return 88;//return code for ladder
 		}
 		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
 	}
@@ -507,9 +511,13 @@ uint16 GiveBlockIndex(CBlob@ this)
 	uint16 tileBlob = uint16(this.get_u8("buildblob")); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
 	if(this.getName() != "builder")
 	{
-		if(customMenuTurn == 10)
+		if(customMenuTurn == 10)//these if statement are there because those blob have irregular dimension.
 		{
-			return 80;
+			return 80;//return code for workshop
+		}
+		if(customMenuTurn == 8)
+		{
+			return 88;//return code for ladder
 		}
 		resetRotation = true;
 		return customMenuTurn | (currentRotation << 14);
@@ -549,6 +557,10 @@ uint16 GiveBlockIndex(CBlob@ this)
 		if(tileBlob == 9 && currentPage == 0)
 		{
 			return 80; // if we get to the workshop, since the workshop has special dimension, we send a special id
+		}
+		if(tileBlob == 7 && currentPage == 0)
+		{
+			return 88;
 		}
 		return tileBlob + 1 + (currentPage*12) | (currentRotation << 14);
 	}
@@ -848,7 +860,7 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	float ultraoffsety = 0;
-	if(blockID == 80) // if we receive the workshop number, we give special dimension
+	if(blockID == 80 || blockID == 88) // if we receive the workshop or the ladder number, we give special dimension
 	{
 		ultraoffsety = offsety*2;
 	}
@@ -889,7 +901,7 @@ int getSizeX(int blockID)
 }
 int getSizeY(int blockID)
 {
-	if(blockID == 80)//80 is an empty workshop
+	if(blockID == 80 || blockID == 88)//80 is an empty workshop 88 is a ladder.
 	{
 		return 12;
 	}

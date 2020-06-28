@@ -119,6 +119,7 @@ void onRestart(CRules@ this)
 		Setup();
 	}
 	resetTrigger = true;
+	currentRotation = 0;
 }
 
 

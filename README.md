@@ -17,7 +17,6 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 
 ## TODO:
 - make chat command to disable live editing
-- implement the cursor select when middle click
 - Make the data being sent only to the right team
     - make the 48 64 196 205 block index value go to 1 2 4 5 
 - Wait for engine fix for your save system to completely work

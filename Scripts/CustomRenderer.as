@@ -176,7 +176,6 @@ Vec2f currentPlacementPosition;
 uint16 customMenuTurn;
 array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
 bool displayMouseSelect = false;
-int mouseIndex = 1;
 void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
@@ -282,20 +281,29 @@ void ChangeIfNeeded()
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
-		if(mouseIndex == 0)
+		mouseSelect[0] = Vec2f(indexX, indexY);
+		displayMouseSelect = false;
+		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
 		{
-			mouseIndex = 1;
+			displayMouseSelect = false;
 		}
-		else
-		{
-			mouseIndex = 0;
-		}
-		mouseSelect[mouseIndex] = Vec2f(indexX, indexY);
+		print("First vector x : " + mouseSelect[0].x);
+		print("First vector y : " + mouseSelect[0].y);
+	}
+	else if(c.isKeyPressed(KEY_MBUTTON))
+	{
+		Vec2f temp = c.getMouseWorldPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		mouseSelect[1] = Vec2f(indexX, indexY);
 		displayMouseSelect = true;
 		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
 		{
 			displayMouseSelect = false;
 		}
+		print("second vector x : " + mouseSelect[1].x);
+		print("second vector y : " + mouseSelect[1].y);
 	}
 
 	if(c.isKeyJustPressed(KEY_KEY_J)) //this key serve to adjust the "chunk" the player can see.

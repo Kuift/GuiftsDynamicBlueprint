@@ -474,7 +474,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
 	}
 	uint16 tileType = uint16(this.get_TileType("buildtile")); //48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
-	uint16 tileBlob = this.get_u8("buildblob"); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
+	uint16 tileBlob = uint16(this.get_u8("buildblob")); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
 	if(this.getName() != "builder")
 	{
 		if(customMenuTurn == 10)
@@ -489,7 +489,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		currentRotation = 0;
 		resetRotation = false;
 	}
-	uint8 currentPage = this.get_u8("build page");
+	uint16 currentPage = uint16(this.get_u8("build page"));
 	if(tileType == 48 || tileType == 64 || tileType == 196 || tileType == 205)
 	{
 		if(tileType == 48)
@@ -509,6 +509,10 @@ uint16 GiveBlockIndex(CBlob@ this)
 			tileType = 5;
 		}
 		return tileType;
+	}
+	else if(tileBlob == 255 && currentPage != 0 )
+	{
+		return blockIndex;
 	}
 	else if (tileBlob == 2 || tileBlob == 5 || tileBlob == 6 || tileBlob == 7 || tileBlob == 8 || tileBlob == 9 || tileBlob == 10 || currentPage != 0)
 	{
@@ -771,17 +775,10 @@ void initVertexAray(Vertex[] &v_raw, u16[] &v_i)
 
 float offsetx = 8/pngWidth;
 float offsety = 8/pngHeight;
-uint16 oldBlockID = 0;
-float oldModuloCalc = 0;
-uint16 uvxCurrentRotation = 0;
-float getUVX(uint16 blockID, int vertexNumber)
+float getUVX(uint16 blockID, uint16 vertexNumber)
 {
-	if(oldBlockID != blockID)//prevent from doing unecessary calculation.
-	{
-		oldBlockID = blockID;
-		oldModuloCalc = (((blockID % (pngWidth/8))/(pngWidth/8)) << 2 ) >> 2;//the << and >> operator remove the rotation bits from the answer.
-		uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
-	}
+	float ModuloCalc = (((blockID << 2) >> 2) % (pngWidth/8))/(pngWidth/8) ;//the << and >> operator remove the rotation bits from the answer.
+	uint16 uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	vertexNumber += uvxCurrentRotation;
 	if(vertexNumber > 3)
 	{
@@ -790,32 +787,27 @@ float getUVX(uint16 blockID, int vertexNumber)
 	//vertex number position : 0 = upper left, 1 = upper right, 2 = bottom right, 3 = bottom left
 	if(vertexNumber == 0)
 	{
-		return oldModuloCalc;
+		return ModuloCalc;
 	}
 	else if(vertexNumber == 1)
 	{
-		return oldModuloCalc + offsetx;
+		return ModuloCalc + offsetx;
 	}
 	else if(vertexNumber == 2)
 	{
-		return oldModuloCalc + offsetx;
+		return ModuloCalc + offsetx;
 	}
 	else
 	{
-		return oldModuloCalc;
+		return ModuloCalc;
 	}
 }
-uint16 oldBlockID2 = 0;
-float oldModuloCalc2 = 0;
-uint16 uvyCurrentRotation = 0;
+
 float getUVY(int blockID, int vertexNumber)
 {
-	if(oldBlockID != blockID)//prevent from doing unecessary calculation.
-	{
-		oldBlockID2 = blockID;
-		oldModuloCalc2 = ((int(blockID / (pngWidth/8)) / (pngHeight/8)) << 2) >> 2; //the << and >> operator remove the rotation bits from the answer.
-		uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
-	}
+
+	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the answer.
+	uint16 uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	vertexNumber += uvyCurrentRotation;
 	if(vertexNumber > 3)
 	{
@@ -823,19 +815,19 @@ float getUVY(int blockID, int vertexNumber)
 	}
 	if(vertexNumber == 0)
 	{
-		return oldModuloCalc2;
+		return ModuloCalc;
 	}
 	else if(vertexNumber == 1)
 	{
-		return oldModuloCalc2;
+		return ModuloCalc;
 	}
 	else if(vertexNumber == 2)
 	{
-		return oldModuloCalc2 + offsety;
+		return ModuloCalc + offsety;
 	}
 	else
 	{
-		return oldModuloCalc2 + offsety;
+		return ModuloCalc + offsety;
 	}
 }
 

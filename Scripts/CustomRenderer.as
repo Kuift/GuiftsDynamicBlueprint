@@ -9,7 +9,7 @@ float pngHeight = 256.0f;
 const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
 
 //This code has been started from the ScriptRenderExample.as script
-uint8[][] dynamicMapTileData;
+uint16[][] dynamicMapTileData;
 
 SMesh@ everythingMesh = SMesh();
 SMesh@ nonTileMesh = SMesh();
@@ -18,7 +18,7 @@ Inventory@ inv;
 
 float x_size;
 float y_size;
-uint8 blockIndex;
+uint16 blockIndex;
 
 
 float x = (blockIndex % (pngWidth/8))/(pngWidth/8);
@@ -59,7 +59,7 @@ void onInit(CRules@ this)
 	this.addCommandID("giveAllBlocks");
 	this.addCommandID("sendBlueprint");
 	CMap@ map = getMap();
-	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
 }
 
@@ -114,7 +114,7 @@ void onRestart(CRules@ this)
 	currentBlueprintData.clear();
 	networkBlueprintData.clear();
 	CMap@ map = getMap();
-	uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
 	if(isClient())
 	{
@@ -241,7 +241,7 @@ void ChangeIfNeeded()
 		{
 			for(int x = 0; x < currentBlueprintWidth; x++) 
 			{
-				params.write_u8(currentBlueprintData[x][y]);
+				params.write_u16(currentBlueprintData[x][y]);
 			}
 		}
 		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
@@ -325,7 +325,7 @@ void ChangeIfNeeded()
 					CBitStream params;
 					params.write_u16(indexX);
 					params.write_u16(indexY);
-					params.write_u8(blockIndex);
+					params.write_u16(blockIndex);
 					getRules().SendCommand(getRules().getCommandID("addBlocks"), params);
 				}
 			}
@@ -365,7 +365,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
     {
         uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
-		uint8 receivedBlockIndex = params.read_u8();
+		uint16 receivedBlockIndex = params.read_u16();
 		
 		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
 		/*if(isClient())
@@ -396,7 +396,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		{
 			for(int x = 0; x < map.tilemapwidth; x++)
 			{
-					insideparams.write_u8(dynamicMapTileData[x][y]);
+					insideparams.write_u16(dynamicMapTileData[x][y]);
 			}
 		}
 		getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
@@ -411,7 +411,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 			{
 				for(int x = 0; x < map.tilemapwidth; x++)
 				{
-					dynamicMapTileData[x][y] = params.read_u8();
+					dynamicMapTileData[x][y] = params.read_u16();
 					//setVertexMatrix(dynamicMapTileData, v_raw, x, y);
 				}
 			}
@@ -436,13 +436,13 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 			uint16 bpHeight = params.read_u16();
 			uint16 indx = params.read_u16();
 			uint16 indy = params.read_u16();
-			uint8[][] _networkBlueprintData(bpWidth, uint8[](bpHeight, 0));
+			uint16[][] _networkBlueprintData(bpWidth, uint16[](bpHeight, 0));
 			networkBlueprintData = _networkBlueprintData;
 			for(int y = 0; y < bpHeight; y++)// iterate through all the element of the current blueprint and send it 
 			{
 				for(int x = 0; x < bpWidth; x++) 
 				{
-					networkBlueprintData[x][y] = params.read_u8();
+					networkBlueprintData[x][y] = params.read_u16();
 				}
 			}
 			LoadBlueprintDataToMapTileDataFromNetwork(indx,indy,bpWidth,bpHeight);
@@ -516,7 +516,7 @@ void initRender(bool resetMapData = true)
 	if(resetMapData)
 	{
 		CMap@ map = getMap();
-		uint8[][] _dynamicMapTileData(map.tilemapwidth, uint8[](map.tilemapheight, 0));
+		uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 		dynamicMapTileData = _dynamicMapTileData;
 	}
 
@@ -655,7 +655,7 @@ void RenderWidgetFor(CPlayer@ this)
 int xRenderLimit = 37;
 int yRenderLimit = 21;
 int renderingState = 0; //0 = render relative to camera position, 1 = render relative to player position
-void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint8[][] &tileData)
+void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint16[][] &tileData)
 {
 	CMap@ map = getMap();
 	Vec2f blobPosition;
@@ -737,7 +737,7 @@ float getUVY(int blockID)
 	return int(blockID / (pngWidth/8)) / (pngHeight/8);
 }
 
-void setVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
+void setVertexMatrix(uint16[][] &position, Vertex[] &v_raw, int x, int y)
 {
 	f32 z = 1000;
 
@@ -755,7 +755,7 @@ void setVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
 	v_raw[ind+3] = (Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y]), 			getUVY(position[x][y])+offsety, 	SColor(0x70aacdff)));
 }
 
-void unsetVertexMatrix(uint8[][] &position, Vertex[] &v_raw, int x, int y)
+void unsetVertexMatrix(uint16[][] &position, Vertex[] &v_raw, int x, int y)
 {
 	f32 z = 1000;
 
@@ -847,7 +847,7 @@ void SaveBlueprintToPng(CRules@ this)
 	keyOJustPressed = false;
 }
 
-uint8[][] currentBlueprintData;
+uint16[][] currentBlueprintData;
 int OButtonSelect = 0;
 int16 currentBlueprintWidth = 0;
 int16 currentBlueprintHeight = 0;
@@ -861,7 +861,7 @@ void LoadBlueprintFromPng(CRules@ this, string imagePath)
 		currentBlueprintWidth = save_image.getWidth();
 		currentBlueprintHeight = save_image.getHeight();
 		save_image.setPixelOffset(-1);
-		uint8[][] _currentBlueprintData(currentBlueprintWidth, uint8[](currentBlueprintHeight, 0));
+		uint16[][] _currentBlueprintData(currentBlueprintWidth, uint16[](currentBlueprintHeight, 0));
 		currentBlueprintData = _currentBlueprintData;
 		u8 a;
 		u8 r;
@@ -891,7 +891,7 @@ void LoadBlueprintFromPng(CRules@ this, string imagePath)
 }
 
 bool displayLoadedBlueprint = false;
-uint8[][] networkBlueprintData;
+uint16[][] networkBlueprintData;
 void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16 bpWidth, int16 bpHeight)
 {
 	uint16 startingx = indexX - Maths::Ceil(float(bpWidth)/2.0f);
@@ -978,7 +978,7 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 	}
 }
 
-uint8[][] tileMapDataCopy;
+uint16[][] tileMapDataCopy;
 void deepCopyArray()
 {
 	CMap@ map = getMap();

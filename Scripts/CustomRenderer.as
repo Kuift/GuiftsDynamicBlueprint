@@ -469,7 +469,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		resetRotation = true;
 		if(customMenuTurn == 10)
 		{
-			customMenuTurn += 1;
+			return 80;
 		}
 		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
 	}
@@ -479,7 +479,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 	{
 		if(customMenuTurn == 10)
 		{
-			customMenuTurn += 1;
+			return 80;
 		}
 		resetRotation = true;
 		return customMenuTurn | (currentRotation << 14);
@@ -516,6 +516,10 @@ uint16 GiveBlockIndex(CBlob@ this)
 	}
 	else if (tileBlob == 2 || tileBlob == 5 || tileBlob == 6 || tileBlob == 7 || tileBlob == 8 || tileBlob == 9 || tileBlob == 10 || currentPage != 0)
 	{
+		if(tileBlob == 9 && currentPage == 0)
+		{
+			return 80; // if we get to the workshop, since the workshop has special dimension, we send a special id
+		}
 		return tileBlob + 1 + (currentPage*12) | (currentRotation << 14);
 	}
 	else
@@ -621,13 +625,13 @@ void RenderWidgetFor(CPlayer@ this)
 	p.y-=15;
 
 	//COLOR : 0xAARRGGBB
-	if(c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
+	if(c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) // this display the blueprint mod cursor
 	{
 		toggleBlueprint = true;
-		v_raw[0] = (Vertex(p.x - x_size, p.y - y_size, 1000, getUVX(blockIndex,0),getUVY(blockIndex,0),SColor(0x70aacdff)));
-		v_raw[1] = (Vertex(p.x + x_size, p.y - y_size, 1000, getUVX(blockIndex,1),getUVY(blockIndex,1),SColor(0x70aacdff)));
-		v_raw[2] = (Vertex(p.x + x_size, p.y + y_size, 1000, getUVX(blockIndex,2),getUVY(blockIndex,2),SColor(0x70aacdff)));
-		v_raw[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, getUVX(blockIndex,3),getUVY(blockIndex,3),SColor(0x70aacdff)));
+		v_raw[0] = (Vertex(p.x - getSizeX(blockIndex), p.y - getSizeY(blockIndex), 1000, getUVX(blockIndex,0),getUVY(blockIndex,0),SColor(0x70aacdff)));
+		v_raw[1] = (Vertex(p.x + getSizeX(blockIndex), p.y - getSizeY(blockIndex), 1000, getUVX(blockIndex,1),getUVY(blockIndex,1),SColor(0x70aacdff)));
+		v_raw[2] = (Vertex(p.x + getSizeX(blockIndex), p.y + getSizeY(blockIndex), 1000, getUVX(blockIndex,2),getUVY(blockIndex,2),SColor(0x70aacdff)));
+		v_raw[3] = (Vertex(p.x - getSizeX(blockIndex), p.y + getSizeY(blockIndex), 1000, getUVX(blockIndex,3),getUVY(blockIndex,3),SColor(0x70aacdff)));
 	}
 	else
 	{
@@ -661,10 +665,10 @@ void RenderWidgetFor(CPlayer@ this)
 		{
 			centery = mouseSelect[1].y *8 + y_size;
 		}
-		v_vertexNonTile[0] = Vertex(centerx 	- x_size, centery - y_size, 	z, getUVX(10,0), getUVY(10,0), 	SColor(0x30aacdff)); //upper left
-		v_vertexNonTile[1] = Vertex(centerx + 4 + x_size, centery - y_size, 	z, getUVX(10,1), getUVY(10,1), 	SColor(0x30aacdff)); //upper right
-		v_vertexNonTile[2] = Vertex(centerx + 4 + x_size, centery + y_size + 4, z, getUVX(10,2), getUVY(10,2), 	SColor(0x30aacdff)); //bottom right
-		v_vertexNonTile[3] = Vertex(centerx 	- x_size, centery + y_size + 4, z, getUVX(10,3), getUVY(10,3), 	SColor(0x30aacdff)); //bottom left
+		v_vertexNonTile[0] = Vertex(centerx 	- x_size, centery - y_size, 	z, getUVX(10,0), getUVY(10,0), 	SColor(0x30aaefff)); //upper left
+		v_vertexNonTile[1] = Vertex(centerx + 4 + x_size, centery - y_size, 	z, getUVX(10,1), getUVY(10,1), 	SColor(0x30aaefff)); //upper right
+		v_vertexNonTile[2] = Vertex(centerx + 4 + x_size, centery + y_size + 4, z, getUVX(10,2), getUVY(10,2), 	SColor(0x30aaefff)); //bottom right
+		v_vertexNonTile[3] = Vertex(centerx 	- x_size, centery + y_size + 4, z, getUVX(10,3), getUVY(10,3), 	SColor(0x30aaefff)); //bottom left
 	}
 	else
 	{
@@ -736,10 +740,10 @@ void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint16[][] &tileData)
 		{
 			if(tileData[x][y] != 0)
 			{
-				v_raw[index]   = Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(tileData[x][y],0),getUVY(tileData[x][y],0),SColor(0x70aacdff));
-				v_raw[index+1] = Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(tileData[x][y],1),getUVY(tileData[x][y],1),SColor(0x70aacdff));
-				v_raw[index+2] = Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(tileData[x][y],2),getUVY(tileData[x][y],2),SColor(0x70aacdff));
-				v_raw[index+3] = Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(tileData[x][y],3),getUVY(tileData[x][y],3),SColor(0x70aacdff));
+				v_raw[index]   = Vertex(x*8+4 - getSizeX(tileData[x][y]), y*8+4 - getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],0),getUVY(tileData[x][y],0),SColor(0x70aacdff));
+				v_raw[index+1] = Vertex(x*8+4 + getSizeX(tileData[x][y]), y*8+4 - getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],1),getUVY(tileData[x][y],1),SColor(0x70aacdff));
+				v_raw[index+2] = Vertex(x*8+4 + getSizeX(tileData[x][y]), y*8+4 + getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],2),getUVY(tileData[x][y],2),SColor(0x70aacdff));
+				v_raw[index+3] = Vertex(x*8+4 - getSizeX(tileData[x][y]), y*8+4 + getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],3),getUVY(tileData[x][y],3),SColor(0x70aacdff));
 			}
 			else
 			{
@@ -779,6 +783,11 @@ float getUVX(uint16 blockID, uint16 vertexNumber)
 {
 	float ModuloCalc = (((blockID << 2) >> 2) % (pngWidth/8))/(pngWidth/8) ;//the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
+	float ultraoffsetx = 0;
+	if(blockID == 80)
+	{
+		ultraoffsetx = offsetx*4;
+	}
 	vertexNumber += uvxCurrentRotation;
 	if(vertexNumber > 3)
 	{
@@ -791,11 +800,11 @@ float getUVX(uint16 blockID, uint16 vertexNumber)
 	}
 	else if(vertexNumber == 1)
 	{
-		return ModuloCalc + offsetx;
+		return ModuloCalc + offsetx + ultraoffsetx;
 	}
 	else if(vertexNumber == 2)
 	{
-		return ModuloCalc + offsetx;
+		return ModuloCalc + offsetx + ultraoffsetx;
 	}
 	else
 	{
@@ -808,6 +817,15 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 
 	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
+	float ultraoffsety = 0;
+	if(blockID == 80) // if we receive the workshop number, we give special dimension
+	{
+		ultraoffsety = offsety*2;
+	}
+	if(blockID == 44)
+	{
+		ultraoffsety = offsety;
+	}
 	vertexNumber += uvyCurrentRotation;
 	if(vertexNumber > 3)
 	{
@@ -823,14 +841,34 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 	}
 	else if(vertexNumber == 2)
 	{
-		return ModuloCalc + offsety;
+		return ModuloCalc + offsety + ultraoffsety;
 	}
 	else
 	{
-		return ModuloCalc + offsety;
+		return ModuloCalc + offsety + ultraoffsety;
 	}
 }
 
+int getSizeX(int blockID)
+{
+	if(blockID == 80)//80 is an empty workshop
+	{
+		return 20;
+	}
+	return x_size;
+}
+int getSizeY(int blockID)
+{
+	if(blockID == 80)//80 is an empty workshop
+	{
+		return 12;
+	}
+	if(blockID == 44)//44 is a spiker
+	{
+		return 4;
+	}
+	return y_size;
+}
 void setVertexMatrix(uint16[][] &position, Vertex[] &v_raw, int x, int y)
 {
 	f32 z = 1000;
@@ -843,10 +881,10 @@ void setVertexMatrix(uint16[][] &position, Vertex[] &v_raw, int x, int y)
 	print("y : " + y);
 	print("width : " + map.tilemapwidth);
 	print("height : " + map.tilemapheight);
-	v_raw[ind] =	(Vertex(x*8+4 - x_size, y*8+4 - y_size, z, getUVX(position[x][y],0),getUVY(position[x][y],0),SColor(0x70aacdff)));
-	v_raw[ind+1] = 	(Vertex(x*8+4 + x_size, y*8+4 - y_size, z, getUVX(position[x][y],1),getUVY(position[x][y],1),SColor(0x70aacdff)));
-	v_raw[ind+2] = 	(Vertex(x*8+4 + x_size, y*8+4 + y_size, z, getUVX(position[x][y],2),getUVY(position[x][y],2),SColor(0x70aacdff)));
-	v_raw[ind+3] = 	(Vertex(x*8+4 - x_size, y*8+4 + y_size, z, getUVX(position[x][y],3),getUVY(position[x][y],3),SColor(0x70aacdff)));
+	v_raw[ind] =	(Vertex(x*8+4 - getSizeX(position[x][y]), y*8+4 - getSizeY(position[x][y]), z, getUVX(position[x][y],0),getUVY(position[x][y],0),SColor(0x70aacdff)));
+	v_raw[ind+1] = 	(Vertex(x*8+4 + getSizeX(position[x][y]), y*8+4 - getSizeY(position[x][y]), z, getUVX(position[x][y],1),getUVY(position[x][y],1),SColor(0x70aacdff)));
+	v_raw[ind+2] = 	(Vertex(x*8+4 + getSizeX(position[x][y]), y*8+4 + getSizeY(position[x][y]), z, getUVX(position[x][y],2),getUVY(position[x][y],2),SColor(0x70aacdff)));
+	v_raw[ind+3] = 	(Vertex(x*8+4 - getSizeX(position[x][y]), y*8+4 + getSizeY(position[x][y]), z, getUVX(position[x][y],3),getUVY(position[x][y],3),SColor(0x70aacdff)));
 }
 
 void unsetVertexMatrix(uint16[][] &position, Vertex[] &v_raw, int x, int y)

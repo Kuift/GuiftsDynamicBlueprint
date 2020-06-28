@@ -16,16 +16,11 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- add multiple page block selection
-- add more to the REEE.PNG
-    - add the logics entities
 - make chat command to disable live editing
 - implement the cursor select when middle click
 - Make the data being sent only to the right team
     - make the 48 64 196 205 block index value go to 1 2 4 5 
-- support multiple uv size/blob size other than 8x8
-    - remove offset from placeentities, put an offset array or do something to make it possible to have different size entities
-- Fix save system so that it work without having to restart the game
+- Wait for engine fix for your save system to completely work
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
 - remove block once it's placed

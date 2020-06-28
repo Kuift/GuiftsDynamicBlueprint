@@ -85,6 +85,7 @@ void Setup()
 	//ensure that we don't duplicate a texture
 	if(!Texture::exists(REEEPPNG))
 	{
+		print("creating texture...");
 		Texture::createFromFile(REEEPPNG,"/Sprites/REEE.png");
 		//initial config for the material that will be applied to the mesh
 		everythingMat.AddTexture(REEEPPNG, 0);
@@ -503,7 +504,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		}
 		if(customMenuTurn == 8)
 		{
-			return 88;//return code for ladder
+			return 88; //| (currentRotation << 14);//return code for ladder
 		}
 		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
 	}
@@ -517,7 +518,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		}
 		if(customMenuTurn == 8)
 		{
-			return 88;//return code for ladder
+			return 88; //| (currentRotation << 14);//return code for ladder
 		}
 		resetRotation = true;
 		return customMenuTurn | (currentRotation << 14);
@@ -560,7 +561,7 @@ uint16 GiveBlockIndex(CBlob@ this)
 		}
 		if(tileBlob == 7 && currentPage == 0)
 		{
-			return 88;
+			return 88; //| (currentRotation << 14);
 		}
 		return tileBlob + 1 + (currentPage*12) | (currentRotation << 14);
 	}
@@ -826,9 +827,14 @@ float getUVX(uint16 blockID, uint16 vertexNumber)
 	float ModuloCalc = (((blockID << 2) >> 2) % (pngWidth/8))/(pngWidth/8) ;//the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	float ultraoffsetx = 0;
-	if(blockID == 80)
+	blockID = (blockID << 2) >> 2;
+	if(blockID == 80)//80 is workshop
 	{
 		ultraoffsetx = offsetx*4;
+	}
+	if(blockID == 88)//88 is ladder
+	{
+		ultraoffsetx= offsetx*2/8;
 	}
 	vertexNumber += uvxCurrentRotation;
 	if(vertexNumber > 3)
@@ -860,11 +866,12 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	float ultraoffsety = 0;
+	blockID = (blockID << 2) >> 2;
 	if(blockID == 80 || blockID == 88) // if we receive the workshop or the ladder number, we give special dimension
 	{
 		ultraoffsety = offsety*2;
 	}
-	if(blockID == 44)
+	if(blockID == 44)//44 is a spiker
 	{
 		ultraoffsety = offsety*3/8;
 	}
@@ -893,14 +900,20 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 
 int getSizeX(int blockID)
 {
+	blockID = (blockID << 2) >> 2;
 	if(blockID == 80)//80 is an empty workshop
 	{
 		return 20;
+	}
+	if(blockID == 88)
+	{
+		return 5;
 	}
 	return x_size;
 }
 int getSizeY(int blockID)
 {
+	blockID = (blockID << 2) >> 2;
 	if(blockID == 80 || blockID == 88)//80 is an empty workshop 88 is a ladder.
 	{
 		return 12;

@@ -777,7 +777,7 @@ float offsetx = 8/pngWidth;
 float offsety = 8/pngHeight;
 float getUVX(uint16 blockID, uint16 vertexNumber)
 {
-	float ModuloCalc = (((blockID << 2) >> 2) % (pngWidth/8))/(pngWidth/8) ;//the << and >> operator remove the rotation bits from the answer.
+	float ModuloCalc = (((blockID << 2) >> 2) % (pngWidth/8))/(pngWidth/8) ;//the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	vertexNumber += uvxCurrentRotation;
 	if(vertexNumber > 3)
@@ -803,10 +803,10 @@ float getUVX(uint16 blockID, uint16 vertexNumber)
 	}
 }
 
-float getUVY(int blockID, int vertexNumber)
+float getUVY(uint16 blockID, uint16 vertexNumber)
 {
 
-	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the answer.
+	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the blockID.
 	uint16 uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
 	vertexNumber += uvyCurrentRotation;
 	if(vertexNumber > 3)

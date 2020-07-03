@@ -1,0 +1,42 @@
+```plantuml
+@startuml
+class Inventory
+{
+	- items:Item@[]
+	- maxItems:uint
+	- selectedItem:Item@
+	- displacementSpeed:float
+	- width:uint
+	- height:uint
+	- hasMoved:bool
+	- position:Vec2f
+	- cellDim:Vec2f
+	- itemFilter:string[]
+
+	+ Inventory(position:Vec2f, filenames:array<string>)
+	+ setPosition(newpos:Vec2f):void
+	+ SetItemFilter(names:string[]):void
+	+ resizeGUI(filenames:array<string>):void
+	+ AddItem(item:Item@):bool
+	+ AddItem(item:Item@, index:uint):bool
+	+ RemoveItem(item:Item@):void
+	+ RemoveItem(x:uint, y:uint):void
+	+ RemoveItem(index:uint):void
+	+ getItem(x:uint, y:uint):Item@
+	+ getItem(index:uint):Item@
+	+ getItemIndex(item:Item@):int
+	+ hasItem(item:Item@):bool
+	+ hasItem(x:uint, y:uint):bool
+	+ hasItem(index:uint):bool
+	+ canAddItem(item:Item@):bool
+	+ Update():String
+	+ Render():void
+	+ hasSelectedItem():bool
+	+ getCellAtPoint(point:Vec2f):int
+	- getIndex(x:uint, y:uint):uint
+}
+
+CustomRenderer  -down-> Inventory
+
+@enduml
+```

@@ -21,8 +21,6 @@ float y_size;
 uint16 blockIndex;
 uint16 currentRotation = 0;
 
-
-
 bool justJoined = true;
 bool keyOJustPressed = false;
 bool triggerAPrefabLoad = false;
@@ -32,6 +30,7 @@ array<string> filenames;
 
 void onInit(CRules@ this)
 {
+	this.set_bool("blueprint_liveEdit", true);
 	currentBlueprintData.clear();
 	resetTrigger = true;
 	customMenuTurn = 1;
@@ -130,7 +129,8 @@ void onTick(CRules@ this)
 {
 
 	if(isClient())
-	{	string selectedBlueprint = "";
+	{	
+		string selectedBlueprint = "";
 		if(toggleBlueprint && displayPrefabSelectionMenu)
 		{
 			selectedBlueprint = inv.Update();
@@ -235,12 +235,24 @@ void ChangeIfNeeded()
 		params.write_u16(indexX);
 		params.write_u16(indexY);
 
-
-		for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it 
+		if(flipBlueprint)
 		{
-			for(int x = 0; x < currentBlueprintWidth; x++) 
+			for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it 
 			{
-				params.write_u16(currentBlueprintData[x][y]);
+				for(int x = 0; x < currentBlueprintWidth; x++) 
+				{
+					params.write_u16(currentBlueprintData[currentBlueprintWidth-x][y]);
+				}
+			}
+		}
+		else
+		{
+			for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it 
+			{
+				for(int x = 0; x < currentBlueprintWidth; x++) 
+				{
+					params.write_u16(currentBlueprintData[x][y]);
+				}
 			}
 		}
 		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
@@ -338,7 +350,7 @@ void ChangeIfNeeded()
 			renderingState = 0;
 		}
 	}
-	if (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL))
+	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && getRules().get_bool("blueprint_liveEdit"))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -385,7 +397,7 @@ void ChangeIfNeeded()
 		}
 	}
 
-	if(c.isKeyJustPressed(KEY_SPACE))
+	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false)
 	{
 		if(blockIndex > 2 && blockIndex != 4 && blockIndex != 5)
 		if(currentRotation <= 0)
@@ -396,6 +408,10 @@ void ChangeIfNeeded()
 		{
 			currentRotation -= 1;
 		}
+	}
+	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true)
+	{
+		flipBlueprint = !flipBlueprint;
 	}
 }
 
@@ -1112,6 +1128,7 @@ void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16
 	}
 }
 
+bool flipBlueprint = false;
 void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 {
 	CControls@ c = getControls();
@@ -1148,15 +1165,32 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 		}
 		int xbp = 0;
 		int ybp = 0;
-		for(int yp = startingy; yp < endingy; yp++)
+		if(flipBlueprint) // if it's true, we flip the blueprint on the y axis
 		{
-			for(int xp = startingx; xp < endingx; xp++)
+			for(int yp = startingy; yp < endingy; yp++)
 			{
-				dynamicMapTileData[xp][yp] = currentBlueprintData[xbp][ybp];
-				xbp += 1;
+				for(int xp = startingx; xp < endingx; xp++)
+				{
+					dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp];
+					xbp += 1;
+				}
+				xbp = 0;
+				ybp += 1;
 			}
-			xbp = 0;
-			ybp += 1;
+		}
+		else
+		{
+			for(int yp = startingy; yp < endingy; yp++)
+			{
+				for(int xp = startingx; xp < endingx; xp++)
+				{
+						
+					dynamicMapTileData[xp][yp] = currentBlueprintData[xbp][ybp];
+					xbp += 1;
+				}
+				xbp = 0;
+				ybp += 1;
+			}
 		}
 	}
 }

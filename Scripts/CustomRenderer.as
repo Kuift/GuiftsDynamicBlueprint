@@ -241,7 +241,7 @@ void ChangeIfNeeded()
 			{
 				for(int x = 0; x < currentBlueprintWidth; x++) 
 				{
-					params.write_u16(currentBlueprintData[currentBlueprintWidth-x][y]);
+					params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y]);
 				}
 			}
 		}

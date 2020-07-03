@@ -1014,12 +1014,6 @@ void SaveBlueprintToPng(CRules@ this)
 			{
 				Vec2f pixelpos = save_image.getPixelPosition();
 				SColor pixelColor = getColorFromBlockID(dynamicMapTileData[xp][yp]);
-				uint p = pixelColor.getRed();
-				if(p != dynamicMapTileData[xp][yp])
-				{
-					print("pixelColor : " + p);
-					print("map data : " + dynamicMapTileData[xp][yp]);
-				}
 				save_image.setPixelAtPosition(width - (endingXPosition - xp), height - (endingYPosition - yp), pixelColor, false);
 			}
 		}
@@ -1059,7 +1053,8 @@ void LoadBlueprintFromPng(CRules@ this, string imagePath)
 		{
 			if(save_image.readPixel(a, r, g, b)) ///the argument given are the output of the function
 			{
-				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = r;
+				//r contain the block id and b contain the rotation data
+				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = uint16(r) | uint16(b)<<14;
 				//only the red part of the image is used to store something.
                 //Therefore only retrieve the red value is retrieved.
 			}
@@ -1173,29 +1168,31 @@ void deepCopyArray()
 	tileMapDataCopy = dynamicMapTileData; // this should do a shallow copy according to angelscript's documentation but it doesn't ¯\_(ツ)_/¯
 }
 
-SColor getColorFromBlockID(u8 blockID) 
+SColor getColorFromBlockID(u16 blockID) 
 {
+	uint16 currentRotation = blockID >> 14;//retrieve the last 2 bits that contain the rotation data
+	blockID = blockID << 2 >> 2;//remove the rotation bits from the blockID so that the ID fit within 8 bits
 	// 48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
 	// 3 = stone door, 6 = wooden doors, 7 = trap, 8 = ladder, 9 = platform, 10 = workshop, 11 = spike
+	if(blockID == 0)
+	{
+		return SColor(0,0,0,0);
+	}
 	if(blockID == 48 || blockID == 1)
 	{
-		return SColor(255,1,0,0);
+		return SColor(255,1,0,currentRotation);
 	}
 	if(blockID == 64 || blockID == 2)
 	{
-		return SColor(255,2,0,0);
+		return SColor(255,2,0,currentRotation);
 	}
 	if(blockID == 196 || blockID == 4)
 	{
-		return SColor(255,4,0,0);
+		return SColor(255,4,0,currentRotation);
 	}
 	if(blockID == 205 || blockID == 5)
 	{
-		return SColor(255,5,0,0);
+		return SColor(255,5,0,currentRotation);
 	}
-	if(blockID >= 3 && blockID <= 11)
-	{
-		return SColor(255,blockID,0,0);
-	}
-	return SColor(0,0,0,0);
+	return SColor(255,blockID,0,currentRotation);
 }

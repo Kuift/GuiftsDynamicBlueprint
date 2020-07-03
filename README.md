@@ -16,23 +16,28 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- make chat command to clear all blueprints
+- make blob stop attacking when in edit mode
+- make spectator camera stop moving with mouse when editing
+- remove block once it's placed
+    - also add a command to disable that
+- make editing mode toggleable instead of having to hold
+- Make the data being sent only to the right team
+- fix rotation bug : get the direction of hold object directly.
+- f1 tips
+- make a voting system on blueprints
+- Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - make a way organize all your blueprint in menu/improve menu
     - a config image that tell you which blueprint number is in which menu
-- make editing mode toggleable instead of having to hold
-- make blob stock attacking when in edit mode
-- make spectator camera stop moving with mouse when editing
-- Make the data being sent only to the right team
-    - make the 48 64 196 205 block index value go to 1 2 4 5 
-- Wait for engine fix for your save system to completely work
-- Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
-- remove block once it's placed
-- f1 tips
 - dynamics notes/implement the ping mod
 - cleanup code, remove the global variable
 - veracity : block on flag shouldn't be allowed 
 - optimise even more blueprint data sharing
     - getLocalPlayer().getNetworkID() == netID this may not work as you think it does : even when netid != localnetid, code is being executed.
+- Wait for engine fix for your save system to completely work -> remind the engine devs about it
+- make chat command to clear all blueprints
+- overseer idea
+    - an addon to existing gamemode that add a 30 to 60 seconds delay before the beginning of a match to plan blueprints building
+    - an gamemode in which there is one overseer and the other ppl have to build what the overseer want otherwise they lose
 
 ## Code structure

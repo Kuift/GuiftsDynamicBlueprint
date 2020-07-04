@@ -18,12 +18,12 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 ## TODO:
 - make blob stop attacking when in edit mode
 - make spectator camera stop moving with mouse when editing
+- f1 tips
 - remove block once it's placed
     - also add a command to disable that
 - make editing mode toggleable instead of having to hold
 - Make the data being sent only to the right team
 - fix rotation bug : get the direction of hold object directly.
-- f1 tips
 - make a voting system on blueprints
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - make a way organize all your blueprint in menu/improve menu

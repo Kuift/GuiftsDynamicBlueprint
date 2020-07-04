@@ -234,7 +234,7 @@ void ChangeIfNeeded()
 		params.write_u16(currentBlueprintHeight);
 		params.write_u16(indexX);
 		params.write_u16(indexY);
-		flipBlueprint = false; // to remove once it's functionnal
+
 		if(flipBlueprint)
 		{
 			for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it 
@@ -411,7 +411,7 @@ void ChangeIfNeeded()
 	}
 	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true)
 	{
-		flipBlueprint = !flipBlueprint;
+		flipBlueprint = false;//change this when everything will work
 	}
 }
 
@@ -479,7 +479,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	{
 		uint16 netID = params.read_u16();
 		CPlayer@ playerBlob = getLocalPlayer();
-		bool condition = false;
+		bool condition = true;
 		if(playerBlob == null)
 		{
 			condition = true;
@@ -1165,7 +1165,6 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 		}
 		int xbp = 0;
 		int ybp = 0;
-		flipBlueprint = false; // to remove once the flip feature is functionnal
 		if(flipBlueprint) // if it's true, we flip the blueprint on the y axis
 		{
 			for(int yp = startingy; yp < endingy; yp++)

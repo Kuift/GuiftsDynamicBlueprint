@@ -18,11 +18,17 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 
 ## TODO:
 ### Live editor todo:
-* make if possible to rotate 3d object larger than 8x8
+* make if possible to rotate 2d sprite larger than 8x8
 * make blob stop attacking when in edit mode
 * make spectator camera stop moving with mouse when editing
 * make editing mode toggleable instead of having to hold
 * fix rotation bug : get the direction of held object directly.
+* add saw
+* add trampoline
+* add catapult
+* add ballista
+* add custom shop
+* ability to place all the relevant block at the blueprint location
 
 ### CTF improvement todo:
 - f1 tips
@@ -46,7 +52,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 - Wait for engine fix for your save system to completely work -> remind the engine devs about it
 
 ### Blueprint promotion todo:
-- overseer idea
+- Overseer idea
     - an addon to existing gamemode that add a 30 to 60 seconds delay before the beginning of a match to plan blueprints building
     - an gamemode in which there is one overseer and the other ppl have to build what the overseer want otherwise they lose
     - kind of an addon/gamemode where there's one overseer per team that tell the team what to do

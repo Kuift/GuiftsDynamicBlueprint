@@ -258,7 +258,20 @@ void ChangeIfNeeded()
 			{
 				for(int x = 0; x < currentBlueprintWidth; x++) 
 				{
-					params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y]);
+					uint16 currentRotation = currentBlueprintData[currentBlueprintWidth-1-x][y] >> 14;
+					if(currentRotation == 3)
+					{
+						params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y] & 0b0111111111111111); // flip direction of blocks that point to the right
+					}
+					else if(currentRotation == 1)
+					{
+						params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y] | 0b1000000000000000); // flip direction of blocks that point to the right
+					}
+					else
+					{
+						params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y]);
+					}
+					
 				}
 			}
 		}

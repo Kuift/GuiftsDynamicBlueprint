@@ -9,6 +9,7 @@
 - You can load your saved blueprints by using the 'L' key or using the 'X' key
 - You can cycle through rendering window size by pressing 'J', try it if your performance aren't great
 - You can cycle through rendering relative to your camera or your cursor by pressing 'K'
+- As a moderator, you can enable or disable live blueprint editing using the !bp_edit_toggle command
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 
@@ -16,29 +17,38 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
-- make if possible to rotate 3d object larger than 8x8
-- make blob stop attacking when in edit mode
-- make spectator camera stop moving with mouse when editing
+### Live editor todo:
+* make if possible to rotate 3d object larger than 8x8
+* make blob stop attacking when in edit mode
+* make spectator camera stop moving with mouse when editing
+* make editing mode toggleable instead of having to hold
+* fix rotation bug : get the direction of held object directly.
+
+### CTF improvement todo:
 - f1 tips
 - remove block once it's placed
     - also add a command to disable that
-- make editing mode toggleable instead of having to hold
 - Make the data being sent only to the right team
 - make a voting system on blueprints
-- fix rotation bug : get the direction of hold object directly.
+- make chat command to clear all blueprints
+- configurable delay between the placement of blueprint to prevent spam
+
+### Overall improvement todo:
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
+- Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
 - make a way organize all your blueprint in menu/improve menu
     - a config image that tell you which blueprint number is in which menu
-- Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
 - dynamics notes/implement the ping mod
 - cleanup code, remove the global variable
 - veracity : block on flag shouldn't be allowed 
 - optimise even more blueprint data sharing
     - getLocalPlayer().getNetworkID() == netID this may not work as you think it does : even when netid != localnetid, code is being executed.
 - Wait for engine fix for your save system to completely work -> remind the engine devs about it
-- make chat command to clear all blueprints
+
+### Blueprint promotion todo:
 - overseer idea
     - an addon to existing gamemode that add a 30 to 60 seconds delay before the beginning of a match to plan blueprints building
     - an gamemode in which there is one overseer and the other ppl have to build what the overseer want otherwise they lose
+    - kind of an addon/gamemode where there's one overseer per team that tell the team what to do
 
 ## Code structure

@@ -496,7 +496,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	{
 		uint16 netID = params.read_u16();
 		CPlayer@ playerBlob = getLocalPlayer();
-		bool condition = true; // put this to false when you finish debugging the flip
+		bool condition = false;
 		if(playerBlob == null)
 		{
 			condition = true;

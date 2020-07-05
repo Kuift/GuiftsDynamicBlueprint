@@ -109,14 +109,9 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 			this.SetCurrentState(GAME);
 			return true;
 		}
-		else if(text_in == "!bp_edit_true")
+		else if(text_in == "!bp_edit_toggle")
 		{
 			this.set_bool("blueprint_liveEdit", true);
-			return true;
-		}
-		else if(text_in == "!bp_edit_false")
-		{
-			this.set_bool("blueprint_liveEdit", false);
 			return true;
 		}
 	}

@@ -25,12 +25,12 @@ bool justJoined = true;
 bool keyOJustPressed = false;
 bool triggerAPrefabLoad = false;
 bool displayPrefabSelectionMenu = false;
-
+u8 enableLiveEdit = 1;
 array<string> filenames;
 
 void onInit(CRules@ this)
 {
-	this.set_bool("blueprint_liveEdit", true);
+	this.set_bool("blueprint_liveEdit", false);
 	currentBlueprintData.clear();
 	resetTrigger = true;
 	customMenuTurn = 1;
@@ -54,6 +54,8 @@ void onInit(CRules@ this)
 	this.addCommandID("getAllBlocks");
 	this.addCommandID("giveAllBlocks");
 	this.addCommandID("sendBlueprint");
+	this.addCommandID("setLiveEdit");
+	this.addCommandID("getLiveEdit");
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -127,7 +129,22 @@ int oldBlockIndex = -1;
 bool antiVoid = false;
 void onTick(CRules@ this)
 {
-
+	if(this.get_bool("blueprint_liveEdit")) // if the !bp_edit_toggle command is executed, the following is executed to enable or disable live editing.
+	{
+		this.set_bool("blueprint_liveEdit",false);
+		if(enableLiveEdit == 1)
+		{
+			enableLiveEdit = 0;
+		}
+		else
+		{
+			enableLiveEdit = 1;
+		}
+		CBitStream params;
+		params.write_u8(enableLiveEdit);
+		this.SendCommand(this.getCommandID("setLiveEdit"), params);
+		
+	}
 	if(isClient())
 	{	
 		string selectedBlueprint = "";
@@ -237,7 +254,7 @@ void ChangeIfNeeded()
 
 		if(flipBlueprint)
 		{
-			for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it 
+			for(int y = 0; y < currentBlueprintHeight; y++)// iterate through all the element of the current blueprint and send it but flipped
 			{
 				for(int x = 0; x < currentBlueprintWidth; x++) 
 				{
@@ -350,7 +367,7 @@ void ChangeIfNeeded()
 			renderingState = 0;
 		}
 	}
-	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && getRules().get_bool("blueprint_liveEdit"))
+	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1)
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -411,7 +428,7 @@ void ChangeIfNeeded()
 	}
 	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true)
 	{
-		flipBlueprint = false;//change this when everything will work
+		flipBlueprint = !flipBlueprint;
 	}
 }
 
@@ -479,7 +496,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	{
 		uint16 netID = params.read_u16();
 		CPlayer@ playerBlob = getLocalPlayer();
-		bool condition = true;
+		bool condition = true; // put this to false when you finish debugging the flip
 		if(playerBlob == null)
 		{
 			condition = true;
@@ -504,6 +521,19 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 				}
 			}
 			LoadBlueprintDataToMapTileDataFromNetwork(indx,indy,bpWidth,bpHeight);
+		}
+	}
+	if(cmd == this.getCommandID("setLiveEdit"))
+	{
+		enableLiveEdit = params.read_u8();
+	}
+	if(cmd == this.getCommandID("getLiveEdit"))
+	{
+		if(!isClient())
+		{	
+			CBitStream insideparams;
+			insideparams.write_u8(enableLiveEdit);
+			this.SendCommand(this.getCommandID("setLiveEdit"), insideparams);
 		}
 	}
 }
@@ -671,6 +701,8 @@ void RenderWidgetFor(CPlayer@ this)
 		resetTrigger = false;
 		if (this != null && justJoined)
 		{
+			CBitStream emptyparams;
+			getRules().SendCommand(getRules().getCommandID("getLiveEdit"),emptyparams);
 			uint16 id = this.getNetworkID();
 			CBitStream params;
 			params.write_u16(id);
@@ -1108,7 +1140,7 @@ void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16
 	CMap@ map = getMap();
 	if(endingx >= map.tilemapwidth)
 	{
-		endingx = map.tilemapwidth;
+		endingx = map.tilemapwidth-1;
 	}
 	if(endingy >= map.tilemapheight)
 	{
@@ -1157,7 +1189,7 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 		CMap@ map = getMap();
 		if(endingx >= map.tilemapwidth)
 		{
-			endingx = map.tilemapwidth;
+			endingx = map.tilemapwidth-1;
 		}
 		if(endingy >= map.tilemapheight)
 		{
@@ -1171,7 +1203,19 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 			{
 				for(int xp = startingx; xp < endingx; xp++)
 				{
-					dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp];
+					uint16 currentRotation = currentBlueprintData[xbp][ybp] >> 14;
+					if(currentRotation == 3)
+					{
+						dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp] & 0b0111111111111111; // set the rotation to 1
+					}
+					else if(currentRotation == 1)
+					{
+						dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp] | 0b1000000000000000; // set the rotation to 3
+					}
+					else
+					{
+						dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp];
+					}
 					xbp += 1;
 				}
 				xbp = 0;

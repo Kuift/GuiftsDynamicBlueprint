@@ -16,6 +16,7 @@
 add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
 
 ## TODO:
+- make if possible to rotate 3d object larger than 8x8
 - make blob stop attacking when in edit mode
 - make spectator camera stop moving with mouse when editing
 - f1 tips
@@ -23,8 +24,8 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
     - also add a command to disable that
 - make editing mode toggleable instead of having to hold
 - Make the data being sent only to the right team
-- fix rotation bug : get the direction of hold object directly.
 - make a voting system on blueprints
+- fix rotation bug : get the direction of hold object directly.
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - make a way organize all your blueprint in menu/improve menu
     - a config image that tell you which blueprint number is in which menu

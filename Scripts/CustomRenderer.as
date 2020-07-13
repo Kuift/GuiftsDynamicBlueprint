@@ -126,7 +126,6 @@ void onRestart(CRules@ this)
 
 //toggle through each render type to give a working example of each call
 int oldBlockIndex = -1;
-bool antiVoid = false;
 void onTick(CRules@ this)
 {
 	if(this.get_bool("blueprint_liveEdit")) // if the !bp_edit_toggle command is executed, the following is executed to enable or disable live editing.
@@ -1191,9 +1190,9 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 		uint16 startingy = indexY - Maths::Ceil(float(currentBlueprintHeight)/2.0f);
 		uint16 endingx = indexX + int(currentBlueprintWidth/2);
 		uint16 endingy = indexY + int(currentBlueprintHeight/2);
-		if(startingx < 0)
+		if(startingx < 1)
 		{
-			startingx = 0;
+			startingx = 1;
 		}
 		if(startingy < 0)
 		{
@@ -1219,15 +1218,15 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 					uint16 currentRotation = currentBlueprintData[xbp][ybp] >> 14;
 					if(currentRotation == 3)
 					{
-						dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp] & 0b0111111111111111; // set the rotation to 1
+						dynamicMapTileData[endingx - xp + startingx-1][yp] = currentBlueprintData[xbp][ybp] & 0b0111111111111111; // set the rotation to 1
 					}
 					else if(currentRotation == 1)
 					{
-						dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp] | 0b1000000000000000; // set the rotation to 3
+						dynamicMapTileData[endingx - xp + startingx-1][yp] = currentBlueprintData[xbp][ybp] | 0b1000000000000000; // set the rotation to 3
 					}
 					else
 					{
-						dynamicMapTileData[endingx - xp + startingx][yp] = currentBlueprintData[xbp][ybp];
+						dynamicMapTileData[endingx - xp + startingx-1][yp] = currentBlueprintData[xbp][ybp];
 					}
 					xbp += 1;
 				}

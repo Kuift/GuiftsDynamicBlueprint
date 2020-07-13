@@ -18,6 +18,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 
 ## TODO:
 ### Live editor todo:
+* make selection actually select the right area
 * make if possible to rotate 2d sprite larger than 8x8
 * make blob stop attacking when in edit mode
 * make spectator camera stop moving with mouse when editing
@@ -40,12 +41,12 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 - configurable delay between the placement of blueprint to prevent spam
 
 ### Overall improvement todo:
+- cleanup code, remove the global variable, make the project oop based
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
 - make a way organize all your blueprint in menu/improve menu
     - a config image that tell you which blueprint number is in which menu
 - dynamics notes/implement the ping mod
-- cleanup code, remove the global variable
 - veracity : block on flag shouldn't be allowed 
 - optimise even more blueprint data sharing
     - getLocalPlayer().getNetworkID() == netID this may not work as you think it does : even when netid != localnetid, code is being executed.

@@ -36,7 +36,32 @@ class Inventory
 	- getIndex(x:uint, y:uint):uint
 }
 
+class blueprint
+{
+ + SaveBlueprintToPng(CRules@ this) : void
+}
+interface blockmesh
+{
+}
+interface hasControls
+{
+	+checkControls:bool
+}
+class stone implements blockmesh
+{
+
+}
+class selector
+{
+
+}
+class world
+{
+	+setRenderDistance()
+}
+
 CustomRenderer  -down-> Inventory
+Inventory --> Item
 
 @enduml
 ```

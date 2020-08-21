@@ -32,6 +32,7 @@ array<string> filenames;
 
 void onInit(CRules@ this)
 {
+	set_bool("has_overseer", false)
 	this.set_bool("blueprint_liveEdit", false);
 	currentBlueprintData.clear();
 	resetTrigger = true;
@@ -600,12 +601,14 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	if(cmd == this.getCommandID("removeAllOverseer"))
 	{
 		isOverseer = false;
+		set_bool("has_overseer", false)
 	}
 	if(cmd == this.getCommandID("setOverseer"))
 	{
 		uint16 netID = params.read_u16();
 		if(getLocalPlayer().getNetworkID() == netID)
 		{
+			set_bool("has_overseer", true)
 			CBitStream localparams;
 			isOverseer = true;
 			localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");

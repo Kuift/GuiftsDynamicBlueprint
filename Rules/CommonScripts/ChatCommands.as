@@ -78,9 +78,8 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 		}
 	}
 
-	
+	string[]@ tokens = (text_in.substr(0, text_in.size())).split(" ");
 	// commands that don't rely on sv_test being on (sv_test = 1)
-
 	if (isMod)
 	{
 		if (text_in == "!bot")
@@ -114,23 +113,32 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 			this.set_bool("blueprint_liveEdit", true);
 			return true;
 		}
-		else if(text_in == "!bp_overlord_toggle")
+		else if(text_in == "!bp_overseer_toggle")
 		{
-			this.set_bool("blueprint_overlord_mode", true);
+			this.set_bool("blueprint_Overseer_mode", true);
 			return true;
 		}
-		else if(text_in == "!bp_overlord_none")
+		else if(text_in == "!bp_overseer_none")
 		{
-			this.set_bool("blueprint_overlord_none", true);
+			this.set_bool("blueprint_Overseer_none", true);
 			return true;
 		}
-		else if(text_in == "!bp_overlord_set")
+		else if(tokens[0] == "!bp_overseer_set")
 		{
-			CBitStream params;
-			this.set_bool("blueprint_overlord_set", true);
-			this.set_u16("overlord_netid", getPlayerByUsername("guift").getNetworkID());
-			params.write_string("******************* Guift is now a overlord! *******************");
-			getRules().SendCommand(getRules().getCommandID("SendChatMessage"), params);
+			string name = "guift";
+			if(tokens.size()>1){name = tokens[1];}
+			this.set_bool("blueprint_Overseer_set", true);
+			if( getPlayerByUsername(name) == null)
+			{
+				print("INVALID NAME");
+				CBitStream localparams;
+				localparams.write_string("Error : invalid username");
+				getRules().SendCommand(getRules().getCommandID("SendChatMessage"), localparams);
+			}
+			else
+			{
+				this.set_u16("Overseer_netid", getPlayerByUsername(name).getNetworkID());
+			}
 			return true;
 		}
 	}

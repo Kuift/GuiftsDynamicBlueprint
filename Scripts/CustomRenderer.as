@@ -2,7 +2,7 @@
 #include "Item.as"
 
 u8 enableLiveEdit = 1; //EDIT THIS TO 0 IF YOU DON'T WANT TO ALLOW LIVE EDIT BY DEFAULT
-u8 enableOverlord = 0; //EDIT THIS TO 1 IF YOU WANT TO ENABLE OVERLORD BY DEFAULT
+u8 enableOverseer = 0; //EDIT THIS TO 1 IF YOU WANT TO ENABLE Overseer BY DEFAULT
 
 ///those next 2 global variable are the only thing you can modify without breaking anything if you understand what they do.
 //you have to set the image size of the texture used for the tiles mesh.
@@ -58,10 +58,10 @@ void onInit(CRules@ this)
 	this.addCommandID("sendBlueprint");
 	this.addCommandID("setLiveEdit");
 	this.addCommandID("getLiveEdit");
-	this.addCommandID("setOverlordMode");
-	this.addCommandID("getOverlordMode");
-	this.addCommandID("removeAllOverlord");
-	this.addCommandID("setOverlord");
+	this.addCommandID("setOverseerMode");
+	this.addCommandID("getOverseerMode");
+	this.addCommandID("removeAllOverseer");
+	this.addCommandID("setOverseer");
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -150,34 +150,34 @@ void onTick(CRules@ this)
 		this.SendCommand(this.getCommandID("setLiveEdit"), params);
 		
 	}
-	if(this.get_bool("blueprint_overlord_mode")) // if the !bp_overlord_toggle command is executed, the following is executed to enable or disable overlord gamemode.
+	if(this.get_bool("blueprint_Overseer_mode")) // if the !bp_Overseer_toggle command is executed, the following is executed to enable or disable Overseer gamemode.
 	{
-		this.set_bool("blueprint_overlord_mode",false);
-		if(enableOverlord == 1)
+		this.set_bool("blueprint_Overseer_mode",false);
+		if(enableOverseer == 1)
 		{
-			enableOverlord = 0;
+			enableOverseer = 0;
 		}
 		else
 		{
-			enableOverlord = 1;
+			enableOverseer = 1;
 		}
 		CBitStream params;
-		params.write_u8(enableOverlord);
-		this.SendCommand(this.getCommandID("setOverlordMode"), params);
+		params.write_u8(enableOverseer);
+		this.SendCommand(this.getCommandID("setOverseerMode"), params);
 		
 	}
-	if(this.get_bool("blueprint_overlord_none"))//triggered when the !bp_overlord_none command is executed. It will proceed to remove all overlord in the current game
+	if(this.get_bool("blueprint_Overseer_none"))//triggered when the !bp_Overseer_none command is executed. It will proceed to remove all Overseer in the current game
 	{
-		this.set_bool("blueprint_overlord_none",false);
+		this.set_bool("blueprint_Overseer_none",false);
 		CBitStream params;
-		this.SendCommand(this.getCommandID("removeAllOverlord"), params);
+		this.SendCommand(this.getCommandID("removeAllOverseer"), params);
 	}
-	if(this.get_bool("blueprint_overlord_set"))//triggered when the !bp_overlord_set command is executed. It will proceed to make the selected player a overlord.
+	if(this.get_bool("blueprint_Overseer_set"))//triggered when the !bp_Overseer_set command is executed. It will proceed to make the selected player a Overseer.
 	{
-		this.set_bool("blueprint_overlord_set",false);
+		this.set_bool("blueprint_Overseer_set",false);
 		CBitStream params;
-		params.write_u16(this.get_u16("overlord_netid"));
-		this.SendCommand(this.getCommandID("setOverlord"), params);
+		params.write_u16(this.get_u16("Overseer_netid"));
+		this.SendCommand(this.getCommandID("setOverseer"), params);
 	}
 	if(isClient())
 	{	
@@ -240,23 +240,23 @@ void ChangeIfNeeded()
 		toggleBlueprint = !toggleBlueprint;
 	}
 
-	if(c.isKeyJustPressed(KEY_KEY_O) && (enableOverlord == 0 || isOverlord))//load a png
+	if(c.isKeyJustPressed(KEY_KEY_O) && (enableOverseer == 0 || isOverseer))//load a png
 	{
 		displayMouseSelect = false;
 		keyOJustPressed = true;
 		print("saving blueprint...");
 	}
-	if(c.isKeyPressed(KEY_KEY_X) && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyPressed(KEY_KEY_X) && (enableOverseer == 0 || isOverseer))
 	{
 		displayPrefabSelectionMenu = true;
 		inv.setPosition(c.getMouseScreenPos());
 	}
-	if(c.isKeyJustPressed(KEY_KEY_L) && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyJustPressed(KEY_KEY_L) && (enableOverseer == 0 || isOverseer))
 	{
 		displayPrefabSelectionMenu = !displayPrefabSelectionMenu;
 		print("Prefabs blueprint windows state changed");
 	}
-	if((c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL)) && (enableOverlord == 0 || isOverlord))
+	if((c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL)) && (enableOverseer == 0 || isOverseer))
 	{
 		displayMouseSelect = false;
 		if(displayLoadedBlueprint == true)
@@ -267,7 +267,7 @@ void ChangeIfNeeded()
 		}
 	}
 
-	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true && (enableOverseer == 0 || isOverseer))
 	{
 		displayLoadedBlueprint = false; // if the player selected a blueprint and pressed left click, then we send the blueprint to everybody
 
@@ -322,7 +322,7 @@ void ChangeIfNeeded()
 		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
 	}
 
-	if(c.isKeyJustPressed(KEY_KEY_I) && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyJustPressed(KEY_KEY_I) && (enableOverseer == 0 || isOverseer))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -338,7 +338,7 @@ void ChangeIfNeeded()
 		print("First vector y : " + mouseSelect[0].y);
 		
 	}
-	if(c.isKeyJustPressed(KEY_KEY_P) && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyJustPressed(KEY_KEY_P) && (enableOverseer == 0 || isOverseer))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -353,7 +353,7 @@ void ChangeIfNeeded()
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
-	if(c.isKeyJustPressed(KEY_MBUTTON) && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyJustPressed(KEY_MBUTTON) && (enableOverseer == 0 || isOverseer))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -368,7 +368,7 @@ void ChangeIfNeeded()
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 	}
-	else if(c.isKeyPressed(KEY_MBUTTON) && (enableOverlord == 0 || isOverlord))
+	else if(c.isKeyPressed(KEY_MBUTTON) && (enableOverseer == 0 || isOverseer))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -414,7 +414,7 @@ void ChangeIfNeeded()
 			renderingState = 0;
 		}
 	}
-	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1 && (enableOverlord == 0 || isOverlord))
+	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1 && (enableOverseer == 0 || isOverseer))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -461,7 +461,7 @@ void ChangeIfNeeded()
 		}
 	}
 
-	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false && (enableOverlord == 0 || isOverlord))
+	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false && (enableOverseer == 0 || isOverseer))
 	{
 		if(blockIndex > 2 && blockIndex != 4 && blockIndex != 5)
 		if(currentRotation <= 0)
@@ -473,7 +473,7 @@ void ChangeIfNeeded()
 			currentRotation -= 1;
 		}
 	}
-	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true && (enableOverlord == 0 || isOverlord))
+	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true && (enableOverseer == 0 || isOverseer))
 	{
 		flipBlueprint = !flipBlueprint;
 	}
@@ -584,29 +584,32 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		}
 	}
 
-	if(cmd == this.getCommandID("setOverlordMode"))
+	if(cmd == this.getCommandID("setOverseerMode"))
 	{
-		enableOverlord = params.read_u8();
+		enableOverseer = params.read_u8();
 	}
-	if(cmd == this.getCommandID("getOverlordMode"))
+	if(cmd == this.getCommandID("getOverseerMode"))
 	{
 		if(!isClient())
 		{	
 			CBitStream insideparams;
-			insideparams.write_u8(enableOverlord);
+			insideparams.write_u8(enableOverseer);
 			this.SendCommand(this.getCommandID("setLiveEdit"), insideparams);
 		}
 	}
-	if(cmd == this.getCommandID("removeAllOverlord"))
+	if(cmd == this.getCommandID("removeAllOverseer"))
 	{
-		isOverlord = false;
+		isOverseer = false;
 	}
-	if(cmd == this.getCommandID("setOverlord"))
+	if(cmd == this.getCommandID("setOverseer"))
 	{
 		uint16 netID = params.read_u16();
 		if(getLocalPlayer().getNetworkID() == netID)
 		{
-			isOverlord = true;
+			CBitStream localparams;
+			isOverseer = true;
+			localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");
+			getRules().SendCommand(getRules().getCommandID("SendChatMessage"), localparams);
 		}
 	}
 }
@@ -776,7 +779,7 @@ void RenderWidgetFor(CPlayer@ this)
 		{
 			CBitStream emptyparams;
 			getRules().SendCommand(getRules().getCommandID("getLiveEdit"),emptyparams);
-			getRules().SendCommand(getRules().getCommandID("getOverlordMode"),emptyparams);
+			getRules().SendCommand(getRules().getCommandID("getOverseerMode"),emptyparams);
 			uint16 id = this.getNetworkID();
 			CBitStream params;
 			params.write_u16(id);
@@ -1349,8 +1352,8 @@ SColor getColorFromBlockID(u16 blockID)
 	return SColor(255,blockID,0,currentRotation);
 }
 
-//OVERLORD GAMEMODE RELATED FUNCTIONS
-bool isOverlord = false;
+//Overseer GAMEMODE RELATED FUNCTIONS
+bool isOverseer = false;
 
 bool mapFitBlueprint()
 {	

@@ -612,6 +612,13 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 			getRules().SendCommand(getRules().getCommandID("SendChatMessage"), localparams);
 		}
 	}
+	if(cmd == this.getCommandID("checkOverseerWinCondition"))
+	{
+		if(!isClient())
+		{
+			this.set_bool("overseer_win_condition", mapFitBlueprint());
+		}
+	}
 }
 
 

@@ -1,6 +1,9 @@
 #include "Inventory.as"
 #include "Item.as"
 
+u8 enableLiveEdit = 1; //EDIT THIS TO 0 IF YOU DON'T WANT TO ALLOW LIVE EDIT BY DEFAULT
+u8 enableOverlord = 0; //EDIT THIS TO 1 IF YOU WANT TO ENABLE OVERLORD BY DEFAULT
+
 ///those next 2 global variable are the only thing you can modify without breaking anything if you understand what they do.
 //you have to set the image size of the texture used for the tiles mesh.
 float pngWidth = 128.0f;
@@ -25,7 +28,6 @@ bool justJoined = true;
 bool keyOJustPressed = false;
 bool triggerAPrefabLoad = false;
 bool displayPrefabSelectionMenu = false;
-u8 enableLiveEdit = 1;
 array<string> filenames;
 
 void onInit(CRules@ this)
@@ -56,6 +58,10 @@ void onInit(CRules@ this)
 	this.addCommandID("sendBlueprint");
 	this.addCommandID("setLiveEdit");
 	this.addCommandID("getLiveEdit");
+	this.addCommandID("setOverlordMode");
+	this.addCommandID("getOverlordMode");
+	this.addCommandID("removeAllOverlord");
+	this.addCommandID("setOverlord");
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -144,6 +150,35 @@ void onTick(CRules@ this)
 		this.SendCommand(this.getCommandID("setLiveEdit"), params);
 		
 	}
+	if(this.get_bool("blueprint_overlord_mode")) // if the !bp_overlord_toggle command is executed, the following is executed to enable or disable overlord gamemode.
+	{
+		this.set_bool("blueprint_overlord_mode",false);
+		if(enableOverlord == 1)
+		{
+			enableOverlord = 0;
+		}
+		else
+		{
+			enableOverlord = 1;
+		}
+		CBitStream params;
+		params.write_u8(enableOverlord);
+		this.SendCommand(this.getCommandID("setOverlordMode"), params);
+		
+	}
+	if(this.get_bool("blueprint_overlord_none"))//triggered when the !bp_overlord_none command is executed. It will proceed to remove all overlord in the current game
+	{
+		this.set_bool("blueprint_overlord_none",false);
+		CBitStream params;
+		this.SendCommand(this.getCommandID("removeAllOverlord"), params);
+	}
+	if(this.get_bool("blueprint_overlord_set"))//triggered when the !bp_overlord_set command is executed. It will proceed to make the selected player a overlord.
+	{
+		this.set_bool("blueprint_overlord_set",false);
+		CBitStream params;
+		params.write_u16(this.get_u16("overlord_netid"));
+		this.SendCommand(this.getCommandID("setOverlord"), params);
+	}
 	if(isClient())
 	{	
 		string selectedBlueprint = "";
@@ -205,23 +240,23 @@ void ChangeIfNeeded()
 		toggleBlueprint = !toggleBlueprint;
 	}
 
-	if(c.isKeyJustPressed(KEY_KEY_O))//load a png
+	if(c.isKeyJustPressed(KEY_KEY_O) && (enableOverlord == 0 || isOverlord))//load a png
 	{
 		displayMouseSelect = false;
 		keyOJustPressed = true;
 		print("saving blueprint...");
 	}
-	if(c.isKeyPressed(KEY_KEY_X))
+	if(c.isKeyPressed(KEY_KEY_X) && (enableOverlord == 0 || isOverlord))
 	{
 		displayPrefabSelectionMenu = true;
 		inv.setPosition(c.getMouseScreenPos());
 	}
-	if(c.isKeyJustPressed(KEY_KEY_L))
+	if(c.isKeyJustPressed(KEY_KEY_L) && (enableOverlord == 0 || isOverlord))
 	{
 		displayPrefabSelectionMenu = !displayPrefabSelectionMenu;
 		print("Prefabs blueprint windows state changed");
 	}
-	if(c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL))
+	if((c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL)) && (enableOverlord == 0 || isOverlord))
 	{
 		displayMouseSelect = false;
 		if(displayLoadedBlueprint == true)
@@ -232,7 +267,7 @@ void ChangeIfNeeded()
 		}
 	}
 
-	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true)
+	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true && (enableOverlord == 0 || isOverlord))
 	{
 		displayLoadedBlueprint = false; // if the player selected a blueprint and pressed left click, then we send the blueprint to everybody
 
@@ -287,7 +322,7 @@ void ChangeIfNeeded()
 		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
 	}
 
-	if(c.isKeyJustPressed(KEY_KEY_I))
+	if(c.isKeyJustPressed(KEY_KEY_I) && (enableOverlord == 0 || isOverlord))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -303,7 +338,7 @@ void ChangeIfNeeded()
 		print("First vector y : " + mouseSelect[0].y);
 		
 	}
-	if(c.isKeyJustPressed(KEY_KEY_P))
+	if(c.isKeyJustPressed(KEY_KEY_P) && (enableOverlord == 0 || isOverlord))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -318,7 +353,7 @@ void ChangeIfNeeded()
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
-	if(c.isKeyJustPressed(KEY_MBUTTON))
+	if(c.isKeyJustPressed(KEY_MBUTTON) && (enableOverlord == 0 || isOverlord))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -333,7 +368,7 @@ void ChangeIfNeeded()
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 	}
-	else if(c.isKeyPressed(KEY_MBUTTON))
+	else if(c.isKeyPressed(KEY_MBUTTON) && (enableOverlord == 0 || isOverlord))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -379,7 +414,7 @@ void ChangeIfNeeded()
 			renderingState = 0;
 		}
 	}
-	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1)
+	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1 && (enableOverlord == 0 || isOverlord))
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -426,7 +461,7 @@ void ChangeIfNeeded()
 		}
 	}
 
-	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false)
+	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false && (enableOverlord == 0 || isOverlord))
 	{
 		if(blockIndex > 2 && blockIndex != 4 && blockIndex != 5)
 		if(currentRotation <= 0)
@@ -438,7 +473,7 @@ void ChangeIfNeeded()
 			currentRotation -= 1;
 		}
 	}
-	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true)
+	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true && (enableOverlord == 0 || isOverlord))
 	{
 		flipBlueprint = !flipBlueprint;
 	}
@@ -546,6 +581,32 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 			CBitStream insideparams;
 			insideparams.write_u8(enableLiveEdit);
 			this.SendCommand(this.getCommandID("setLiveEdit"), insideparams);
+		}
+	}
+
+	if(cmd == this.getCommandID("setOverlordMode"))
+	{
+		enableOverlord = params.read_u8();
+	}
+	if(cmd == this.getCommandID("getOverlordMode"))
+	{
+		if(!isClient())
+		{	
+			CBitStream insideparams;
+			insideparams.write_u8(enableOverlord);
+			this.SendCommand(this.getCommandID("setLiveEdit"), insideparams);
+		}
+	}
+	if(cmd == this.getCommandID("removeAllOverlord"))
+	{
+		isOverlord = false;
+	}
+	if(cmd == this.getCommandID("setOverlord"))
+	{
+		uint16 netID = params.read_u16();
+		if(getLocalPlayer().getNetworkID() == netID)
+		{
+			isOverlord = true;
 		}
 	}
 }
@@ -715,6 +776,7 @@ void RenderWidgetFor(CPlayer@ this)
 		{
 			CBitStream emptyparams;
 			getRules().SendCommand(getRules().getCommandID("getLiveEdit"),emptyparams);
+			getRules().SendCommand(getRules().getCommandID("getOverlordMode"),emptyparams);
 			uint16 id = this.getNetworkID();
 			CBitStream params;
 			params.write_u16(id);
@@ -1285,4 +1347,54 @@ SColor getColorFromBlockID(u16 blockID)
 		return SColor(255,5,0,currentRotation);
 	}
 	return SColor(255,blockID,0,currentRotation);
+}
+
+//OVERLORD GAMEMODE RELATED FUNCTIONS
+bool isOverlord = false;
+
+bool mapFitBlueprint()
+{	
+	CMap@ map = getMap();
+
+	for( int y = 0; y < map.tilemapheight; y++ ) 
+		{
+			for(int x = 0; x < map.tilemapwidth; x++)
+			{
+				uint16 tileType = map.getTile(Vec2f((x*8)+4,(y*8)+4)).type;
+				if(tileType == 48 || tileType == 64 || tileType == 196 || tileType == 205)
+				{
+					if(tileType == 48)
+					{
+						tileType = 1;
+					}
+					else if(tileType == 64)
+					{
+						tileType = 2;
+					}
+					else if(tileType == 196)
+					{
+						tileType = 4;
+					}
+					else if (tileType == 205)
+					{
+						tileType = 5;
+					}
+				}
+				if(dynamicMapTileData[x][y] == 1 || dynamicMapTileData[x][y] == 2 || dynamicMapTileData[x][y] == 4 || dynamicMapTileData[x][y] == 5)
+				{
+					if(tileType != dynamicMapTileData[x][y])
+					{
+						print("tiletype : " + tileType);
+						print("target pos : " + Vec2f((x*8)+4,(y*8)+4));
+						print("player pos : " + getLocalPlayerBlob().getPosition());
+						print("mouse pos : " + getControls().getMouseWorldPos());
+						print("dynamicMapTileData[x][y] : " + dynamicMapTileData[x][y]);
+						print("REACHED FALSE");
+						return false;
+					}
+				}
+			}
+		}
+	print("REACHED TRUE");
+	return true;
 }

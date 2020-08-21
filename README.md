@@ -10,6 +10,8 @@
 - You can cycle through rendering window size by pressing 'J', try it if your performance aren't great
 - You can cycle through rendering relative to your camera or your cursor by pressing 'K'
 - As a moderator, you can enable or disable live blueprint editing using the !bp_edit_toggle command
+- As a moderator, you can enable or disable the overlord mode using the !bp_overlord_toggle command.
+    - When overlord command is enabled, only the selected overlord with the command "" can place and edit blueprints
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 
@@ -19,7 +21,7 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 ## TODO:
 ### Live editor todo:
 * make selection actually select the right area
-* make if possible to rotate 2d sprite larger than 8x8
+* make it possible to rotate 2d sprite larger than 8x8
 * make blob stop attacking when in edit mode
 * make spectator camera stop moving with mouse when editing
 * make editing mode toggleable instead of having to hold
@@ -42,6 +44,8 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
 
 ### Overall improvement todo:
 - cleanup code, remove the global variable, make the project oop based
+    - make a new inventory system and put all the blocks in there.
+    - make a make object, make it so that you can easily iterate through it
 - Optimisation : Make the inventory GUI part of a mesh and maybe use only 1 render function.
 - Optimisation : Create multiple vertex array as chunk and render only the chunk near the camera.
 - make a way organize all your blueprint in menu/improve menu

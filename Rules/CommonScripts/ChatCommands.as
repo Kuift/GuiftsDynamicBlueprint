@@ -114,6 +114,25 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 			this.set_bool("blueprint_liveEdit", true);
 			return true;
 		}
+		else if(text_in == "!bp_overlord_toggle")
+		{
+			this.set_bool("blueprint_overlord_mode", true);
+			return true;
+		}
+		else if(text_in == "!bp_overlord_none")
+		{
+			this.set_bool("blueprint_overlord_none", true);
+			return true;
+		}
+		else if(text_in == "!bp_overlord_set")
+		{
+			CBitStream params;
+			this.set_bool("blueprint_overlord_set", true);
+			this.set_u16("overlord_netid", getPlayerByUsername("guift").getNetworkID());
+			params.write_string("******************* Guift is now a overlord! *******************");
+			getRules().SendCommand(getRules().getCommandID("SendChatMessage"), params);
+			return true;
+		}
 	}
 
 	// spawning things

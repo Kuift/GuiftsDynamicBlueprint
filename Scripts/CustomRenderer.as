@@ -608,12 +608,16 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	{
 		uint16 netID = params.read_u16();
 		this.set_bool("has_overseer", true);
-		if(getLocalPlayer().getNetworkID() == netID)
+		CPlayer@ player = getLocalPlayer();
+		if (player != null)
 		{
-			CBitStream localparams;
-			isOverseer = true;
-			localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");
-			getRules().SendCommand(getRules().getCommandID("SendChatMessage"), localparams);
+			if(getLocalPlayer().getNetworkID() == netID)
+			{
+				CBitStream localparams;
+				isOverseer = true;
+				localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");
+				getRules().SendCommand(getRules().getCommandID("SendChatMessage"), localparams);
+			}
 		}
 	}
 	if(cmd == this.getCommandID("checkOverseerWinCondition"))

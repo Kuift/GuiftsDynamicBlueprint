@@ -11,7 +11,7 @@
 - You can cycle through rendering relative to your camera or your cursor by pressing 'K'
 - As a moderator, you can enable or disable live blueprint editing using the "!bp_edit_toggle" command
 - As a moderator, you can enable or disable the overseer mode using the "!bp_overseer_toggle" command.
-    - When the overseer mode is enabled, only the selected overseers with the command "!bp_overseer_set Username" can place and edit 
+    - When the overseer mode is enabled, only the selected overseers with the command "!bp_overseer_set Username" can place and edit blueprints
     - The moderator can use the command "!bp_overseer_none" to remove the overseer role from each player
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code

@@ -32,7 +32,7 @@ array<string> filenames;
 
 void onInit(CRules@ this)
 {
-	set_bool("has_overseer", false)
+	this.set_bool("has_overseer", false);
 	this.set_bool("blueprint_liveEdit", false);
 	currentBlueprintData.clear();
 	resetTrigger = true;
@@ -63,6 +63,7 @@ void onInit(CRules@ this)
 	this.addCommandID("getOverseerMode");
 	this.addCommandID("removeAllOverseer");
 	this.addCommandID("setOverseer");
+	this.addCommandID("checkOverseerWinCondition");
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -601,14 +602,14 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	if(cmd == this.getCommandID("removeAllOverseer"))
 	{
 		isOverseer = false;
-		set_bool("has_overseer", false)
+		this.set_bool("has_overseer", false);
 	}
 	if(cmd == this.getCommandID("setOverseer"))
 	{
 		uint16 netID = params.read_u16();
 		if(getLocalPlayer().getNetworkID() == netID)
 		{
-			set_bool("has_overseer", true)
+			this.set_bool("has_overseer", true);
 			CBitStream localparams;
 			isOverseer = true;
 			localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");

@@ -603,16 +603,24 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	{
 		isOverseer = false;
 		this.set_bool("has_overseer", false);
+		print("removed all overseer");
 	}
 	if(cmd == this.getCommandID("setOverseer"))
 	{
 		uint16 netID = params.read_u16();
-		this.set_bool("has_overseer", true);
+		if(!isClient())
+		{
+			this.set_bool("has_overseer", true);
+		}
 		CPlayer@ player = getLocalPlayer();
+		print("got in trigger 7");
 		if (player != null)
 		{
+			this.set_bool("has_overseer", true);
+			print("got in trigger 6");
 			if(getLocalPlayer().getNetworkID() == netID)
 			{
+				print("got in trigger 5");
 				CBitStream localparams;
 				isOverseer = true;
 				localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");
@@ -1404,7 +1412,6 @@ bool mapFitBlueprint()
 					{
 						print("tiletype : " + tileType);
 						print("target pos : " + Vec2f((x*8)+4,(y*8)+4));
-						print("player pos : " + getLocalPlayerBlob().getPosition());
 						print("mouse pos : " + getControls().getMouseWorldPos());
 						print("dynamicMapTileData[x][y] : " + dynamicMapTileData[x][y]);
 						print("REACHED FALSE");

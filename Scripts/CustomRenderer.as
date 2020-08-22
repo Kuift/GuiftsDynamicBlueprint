@@ -607,9 +607,9 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	if(cmd == this.getCommandID("setOverseer"))
 	{
 		uint16 netID = params.read_u16();
+		this.set_bool("has_overseer", true);
 		if(getLocalPlayer().getNetworkID() == netID)
 		{
-			this.set_bool("has_overseer", true);
 			CBitStream localparams;
 			isOverseer = true;
 			localparams.write_string("******************* "+getPlayerByNetworkId(netID).getUsername()+" now is a Overseer! *******************");

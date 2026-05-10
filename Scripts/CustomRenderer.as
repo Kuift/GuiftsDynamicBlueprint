@@ -1,8 +1,10 @@
 #include "Inventory.as"
 #include "Item.as"
+#include "AIBEventLog.as"
+#include "BlueprintMemory.as"
 
 u8 enableLiveEdit = 1; //EDIT THIS TO 0 IF YOU DON'T WANT TO ALLOW LIVE EDIT BY DEFAULT
-u8 enableOverseer = 0; //EDIT THIS TO 1 IF YOU WANT TO ENABLE Overseer BY DEFAULT
+u8 enableOverseer = 1; //EDIT THIS TO 1 IF YOU WANT TO ENABLE Overseer BY DEFAULT
 
 ///those next 2 global variable are the only thing you can modify without breaking anything if you understand what they do.
 //you have to set the image size of the texture used for the tiles mesh.
@@ -10,6 +12,11 @@ float pngWidth = 128.0f;
 float pngHeight = 256.0f;
 
 const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
+const u8 AIB_RENDERER_JOB_STONE = 1;
+const u8 AIB_RENDERER_STATE_FIND_STONE = 7;
+const string AIB_BLUEPRINT_DATA_KEY = "aibuilder blueprint data";
+const string AIB_BLUEPRINT_WIDTH_KEY = "aibuilder blueprint width";
+const string AIB_BLUEPRINT_HEIGHT_KEY = "aibuilder blueprint height";
 
 //This code has been started from the ScriptRenderExample.as script
 uint16[][] dynamicMapTileData;
@@ -29,10 +36,11 @@ bool keyOJustPressed = false;
 bool triggerAPrefabLoad = false;
 bool displayPrefabSelectionMenu = false;
 array<string> filenames;
+array<RuntimeBlueprint@> runtimeBlueprints;
 
 void onInit(CRules@ this)
 {
-	this.set_bool("has_overseer", false);
+	this.set_bool("has_overseer", true);
 	this.set_bool("blueprint_liveEdit", false);
 	currentBlueprintData.clear();
 	resetTrigger = true;
@@ -64,6 +72,8 @@ void onInit(CRules@ this)
 	this.addCommandID("removeAllOverseer");
 	this.addCommandID("setOverseer");
 	this.addCommandID("checkOverseerWinCondition");
+	this.addCommandID("aibuilderToggleTreeSelection");
+	this.addCommandID("aibuilderToggleStoneSelection");
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -96,22 +106,22 @@ void Setup()
 	{
 		print("creating texture...");
 		Texture::createFromFile(REEEPPNG,"/Sprites/REEE.png");
-		//initial config for the material that will be applied to the mesh
-		everythingMat.AddTexture(REEEPPNG, 0);
-		everythingMat.DisableAllFlags();
-		everythingMat.SetFlag(SMaterial::COLOR_MASK, true);
-		everythingMat.SetFlag(SMaterial::ZBUFFER, true);
-		everythingMat.SetFlag(SMaterial::ZWRITE_ENABLE, true);
-		everythingMat.SetMaterialType(SMaterial::TRANSPARENT_VERTEX_ALPHA);
-
-		//mesh initial config 
-		everythingMesh.SetMaterial(everythingMat);
-		everythingMesh.SetHardwareMapping(SMesh::STATIC);
-
-		nonTileMesh.SetMaterial(everythingMat);
-		nonTileMesh.SetHardwareMapping(SMesh::STATIC);
 	}
 
+	//initial config for the material that will be applied to the mesh
+	everythingMat.AddTexture(REEEPPNG, 0);
+	everythingMat.DisableAllFlags();
+	everythingMat.SetFlag(SMaterial::COLOR_MASK, true);
+	everythingMat.SetFlag(SMaterial::ZBUFFER, true);
+	everythingMat.SetFlag(SMaterial::ZWRITE_ENABLE, true);
+	everythingMat.SetMaterialType(SMaterial::TRANSPARENT_VERTEX_ALPHA);
+
+	//mesh initial config
+	everythingMesh.SetMaterial(everythingMat);
+	everythingMesh.SetHardwareMapping(SMesh::STATIC);
+
+	nonTileMesh.SetMaterial(everythingMat);
+	nonTileMesh.SetHardwareMapping(SMesh::STATIC);
 
 }
 
@@ -128,6 +138,7 @@ void onRestart(CRules@ this)
 		Setup();
 	}
 	resetTrigger = true;
+	blueprintMeshDirty = true;
 	currentRotation = 0;
 }
 
@@ -184,20 +195,26 @@ void onTick(CRules@ this)
 	if(isClient())
 	{	
 		string selectedBlueprint = "";
-		if(toggleBlueprint && displayPrefabSelectionMenu)
+		bool treeButtonConsumed = UpdateTreeSelectionButton();
+		bool stoneButtonConsumed = UpdateStoneSelectionButton();
+		if(toggleBlueprint && displayPrefabSelectionMenu && !treeButtonConsumed && !stoneButtonConsumed)
 		{
 			selectedBlueprint = inv.Update();
 			if( selectedBlueprint != "")
 			{		
 				print("Loading " + selectedBlueprint);
 				displayPrefabSelectionMenu = false;
+				AIB_CloseSelectionModes();
 				triggerAPrefabLoad = true;
 				displayMouseSelect = false;
 			}
 		}
 
 		CBlob@ playerBlob = getLocalPlayerBlob();
-		ChangeIfNeeded();
+		if(!treeButtonConsumed && !stoneButtonConsumed)
+		{
+			ChangeIfNeeded();
+		}
 		blockIndex = GiveBlockIndex(playerBlob);
 		/*if (blockIndex != oldBlockIndex)
 		{
@@ -231,6 +248,15 @@ Vec2f currentPlacementPosition;
 uint16 customMenuTurn;
 array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
 bool displayMouseSelect = false;
+bool aibTreeSelectMode = false;
+bool aibTreeSelecting = false;
+bool aibTreeButtonPressed = false;
+Vec2f aibTreeButtonPosition = Vec2f(100, 66);
+bool aibStoneSelectMode = false;
+bool aibStoneSelecting = false;
+bool aibStoneButtonPressed = false;
+Vec2f aibStoneButtonPosition = Vec2f(100, 98);
+
 void ChangeIfNeeded()
 {
 	CControls@ c = getControls();
@@ -251,22 +277,81 @@ void ChangeIfNeeded()
 	if(c.isKeyPressed(KEY_KEY_X) && (enableOverseer == 0 || isOverseer))
 	{
 		displayPrefabSelectionMenu = true;
+		aibTreeButtonPosition = c.getMouseScreenPos() + Vec2f(0, -34);
+		aibStoneButtonPosition = c.getMouseScreenPos() + Vec2f(0, -66);
 		inv.setPosition(c.getMouseScreenPos());
 	}
 	if(c.isKeyJustPressed(KEY_KEY_L) && (enableOverseer == 0 || isOverseer))
 	{
 		displayPrefabSelectionMenu = !displayPrefabSelectionMenu;
+		if(!displayPrefabSelectionMenu)
+		{
+			AIB_CloseSelectionModes();
+		}
 		print("Prefabs blueprint windows state changed");
 	}
 	if((c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL)) && (enableOverseer == 0 || isOverseer))
 	{
 		displayMouseSelect = false;
+		aibTreeSelecting = false;
+		aibStoneSelecting = false;
+		if (aibTreeSelectMode)
+		{
+			aibTreeSelectMode = false;
+		}
+		if (aibStoneSelectMode)
+		{
+			aibStoneSelectMode = false;
+		}
 		if(displayLoadedBlueprint == true)
 		{
 			dynamicMapTileData = tileMapDataCopy;
 			displayLoadedBlueprint = false;
 			currentBlueprintData.clear();
+			blueprintMeshDirty = true;
 		}
+	}
+
+	if(aibTreeSelectMode && (enableOverseer == 0 || isOverseer))
+	{
+		if(c.isKeyJustPressed(KEY_LBUTTON))
+		{
+			AIB_BeginTreeSelection(c.getMouseWorldPos());
+		}
+		else if(aibTreeSelecting && c.isKeyPressed(KEY_LBUTTON))
+		{
+			AIB_UpdateTreeSelection(c.getMouseWorldPos());
+		}
+		else if(aibTreeSelecting && !c.isKeyPressed(KEY_LBUTTON))
+		{
+			AIB_UpdateTreeSelection(c.getMouseWorldPos());
+			AIB_SendTreeSelection();
+			aibTreeSelecting = false;
+			displayMouseSelect = false;
+		}
+
+		return;
+	}
+
+	if(aibStoneSelectMode && (enableOverseer == 0 || isOverseer))
+	{
+		if(c.isKeyJustPressed(KEY_LBUTTON))
+		{
+			AIB_BeginStoneSelection(c.getMouseWorldPos());
+		}
+		else if(aibStoneSelecting && c.isKeyPressed(KEY_LBUTTON))
+		{
+			AIB_UpdateStoneSelection(c.getMouseWorldPos());
+		}
+		else if(aibStoneSelecting && !c.isKeyPressed(KEY_LBUTTON))
+		{
+			AIB_UpdateStoneSelection(c.getMouseWorldPos());
+			AIB_SendStoneSelection();
+			aibStoneSelecting = false;
+			displayMouseSelect = false;
+		}
+
+		return;
 	}
 
 	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true && (enableOverseer == 0 || isOverseer))
@@ -492,6 +577,8 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint16 receivedBlockIndex = params.read_u16();
 		
 		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
+		blueprintMeshDirty = true;
+		AIB_PublishBlueprintForBuilders();
 		/*if(isClient())
 		{
 			setVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
@@ -504,6 +591,8 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		uint16 positiony = params.read_u16();
 		
 		dynamicMapTileData[positionx][positiony] = 0;
+		blueprintMeshDirty = true;
+		AIB_PublishBlueprintForBuilders();
 		/*if(isClient())
 		{
 			unsetVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
@@ -539,6 +628,8 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 					//setVertexMatrix(dynamicMapTileData, v_raw, x, y);
 				}
 			}
+			blueprintMeshDirty = true;
+			AIB_PublishBlueprintForBuilders();
 		}
 	}
 	if(cmd == this.getCommandID("sendBlueprint") && dynamicMapTileData.size() > 0)
@@ -570,6 +661,8 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 				}
 			}
 			LoadBlueprintDataToMapTileDataFromNetwork(indx,indy,bpWidth,bpHeight);
+			blueprintMeshDirty = true;
+			AIB_PublishBlueprintForBuilders();
 		}
 	}
 	if(cmd == this.getCommandID("setLiveEdit"))
@@ -633,6 +726,26 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		if(!isClient())
 		{
 			this.set_bool("overseer_win_condition", mapFitBlueprint());
+		}
+	}
+	if(cmd == this.getCommandID("aibuilderToggleTreeSelection"))
+	{
+		u16 x1 = params.read_u16();
+		u16 y1 = params.read_u16();
+		u16 x2 = params.read_u16();
+		u16 y2 = params.read_u16();
+		AIB_ToggleTreesInSelection(x1, y1, x2, y2);
+	}
+	if(cmd == this.getCommandID("aibuilderToggleStoneSelection"))
+	{
+		u16 x1 = params.read_u16();
+		u16 y1 = params.read_u16();
+		u16 x2 = params.read_u16();
+		u16 y2 = params.read_u16();
+		AIB_ToggleStoneInSelection(x1, y1, x2, y2);
+		if(isServer())
+		{
+			AIB_RetargetStoneBuilders();
 		}
 	}
 }
@@ -734,6 +847,8 @@ u16[] v_indexNonTile;
 Vertex[] v_vertexNonTile;
 
 bool resetTrigger = false;
+bool blueprintMeshDirty = true;
+const int MAX_BLUEPRINT_QUADS = 16000; // u16 indices support at most 65535 vertices.
 
 void ClearRenderState()
 {
@@ -761,8 +876,8 @@ void initRender(bool resetMapData = true)
 
 	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,0),getUVY(blockIndex,0),SColor(0x70aacdff)));
 	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,1),getUVY(blockIndex,1),SColor(0x70aacdff)));
-	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,2),getUVY(blockIndex,2), 	SColor(0x70aacdff)));
-	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,3),getUVY(blockIndex,3), 	SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,2),getUVY(blockIndex,2),SColor(0x70aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,3),getUVY(blockIndex,3),SColor(0x70aacdff)));
 	v_i.push_back(0);
 	v_i.push_back(1);
 	v_i.push_back(2);
@@ -780,8 +895,8 @@ void initRender(bool resetMapData = true)
 	v_indexNonTile.push_back(0);
 	v_indexNonTile.push_back(2);
 	v_indexNonTile.push_back(3);
-		
-	initVertexAray(v_raw, v_i);
+
+	blueprintMeshDirty = true;
 }
 int updateOptimisation = 0;
 
@@ -790,7 +905,7 @@ void RenderWidgetFor(CPlayer@ this)
 {
 	Render::SetTransformWorldspace();
 	//ensure that there's no null pointer. there will always be something in the array
-	if(v_raw.size() <= 4)
+	if(v_raw.size() < 4)
 	{
 		resetTrigger = true;
 	}
@@ -857,116 +972,519 @@ void RenderWidgetFor(CPlayer@ this)
 		{
 			centery = mouseSelect[1].y *8 + y_size;
 		}
-		v_vertexNonTile[0] = Vertex(centerx 	- x_size, centery - y_size, 	z, getUVX(10,0), getUVY(10,0), 	SColor(0x30aacdff)); //upper left
-		v_vertexNonTile[1] = Vertex(centerx + 4 + x_size, centery - y_size, 	z, getUVX(10,1), getUVY(10,1), 	SColor(0x30aacdff)); //upper right
-		v_vertexNonTile[2] = Vertex(centerx + 4 + x_size, centery + y_size + 4, z, getUVX(10,2), getUVY(10,2), 	SColor(0x30aacdff)); //bottom right
-		v_vertexNonTile[3] = Vertex(centerx 	- x_size, centery + y_size + 4, z, getUVX(10,3), getUVY(10,3), 	SColor(0x30aacdff)); //bottom left
+		v_raw[0] = Vertex(centerx 	- x_size, centery - y_size, 	z, getUVX(10,0), getUVY(10,0), 	SColor(0x30aacdff)); //upper left
+		v_raw[1] = Vertex(centerx + 4 + x_size, centery - y_size, 	z, getUVX(10,1), getUVY(10,1), 	SColor(0x30aacdff)); //upper right
+		v_raw[2] = Vertex(centerx + 4 + x_size, centery + y_size + 4, z, getUVX(10,2), getUVY(10,2), 	SColor(0x30aacdff)); //bottom right
+		v_raw[3] = Vertex(centerx 	- x_size, centery + y_size + 4, z, getUVX(10,3), getUVY(10,3), 	SColor(0x30aacdff)); //bottom left
 	}
 	else
 	{
-		v_vertexNonTile[0] = (Vertex(p.x - x_size, p.y - y_size, 1000, getUVX(blockIndex,0), getUVY(blockIndex,0), 	SColor(0x00aacdff)));
-		v_vertexNonTile[1] = (Vertex(p.x + x_size, p.y - y_size, 1000, getUVX(blockIndex,1), getUVY(blockIndex,1), 	SColor(0x00aacdff)));
-		v_vertexNonTile[2] = (Vertex(p.x + x_size, p.y + y_size, 1000, getUVX(blockIndex,2), getUVY(blockIndex,2), 	SColor(0x00aacdff)));
-		v_vertexNonTile[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, getUVX(blockIndex,3), getUVY(blockIndex,3), 	SColor(0x00aacdff)));
+		v_raw[0] = (Vertex(p.x - x_size, p.y - y_size, 1000, getUVX(blockIndex,0), getUVY(blockIndex,0), 	SColor(0x00aacdff)));
+		v_raw[1] = (Vertex(p.x + x_size, p.y - y_size, 1000, getUVX(blockIndex,1), getUVY(blockIndex,1), 	SColor(0x00aacdff)));
+		v_raw[2] = (Vertex(p.x + x_size, p.y + y_size, 1000, getUVX(blockIndex,2), getUVY(blockIndex,2), 	SColor(0x00aacdff)));
+		v_raw[3] = (Vertex(p.x - x_size, p.y + y_size, 1000, getUVX(blockIndex,3), getUVY(blockIndex,3), 	SColor(0x00aacdff)));
 	}
 
 	if(toggleBlueprint)
 	{
-		if(updateOptimisation == 0)
+		if(blueprintMeshDirty)
 		{
 			updateVertex(this, v_raw, dynamicMapTileData);
-		}
-		updateOptimisation += 1;
-		if(updateOptimisation >= 5)
-		{
-			updateOptimisation = 0;
+			everythingMesh.SetVertex(v_raw);
+			everythingMesh.SetIndices(v_i);
+			if(v_raw.size() > 0)
+			{
+				everythingMesh.BuildMesh();
+				everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
+			}
+			else
+			{
+				everythingMesh.BuildMesh();
+				everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
+			}
+			blueprintMeshDirty = false;
 		}
 		everythingMesh.SetVertex(v_raw);
 		everythingMesh.SetIndices(v_i); 
 		everythingMesh.BuildMesh();
 		everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
 		everythingMesh.RenderMeshWithMaterial();
-		nonTileMesh.SetVertex(v_vertexNonTile);
-		nonTileMesh.SetIndices(v_indexNonTile); 
-		nonTileMesh.BuildMesh();
-		nonTileMesh.SetDirty(SMesh::VERTEX_INDEX);
-		nonTileMesh.RenderMeshWithMaterial();
 	}
+
+	RenderSelectedTreeMarkers();
 
 }
 int xRenderLimit = 37;
 int yRenderLimit = 21;
 int renderingState = 0; //0 = render relative to camera position, 1 = render relative to player position
-void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint16[][] &tileData)
+
+void AIB_BeginTreeSelection(Vec2f worldPos)
+{
+	aibTreeSelecting = true;
+	AIB_SetSelectionCorner(0, worldPos);
+	AIB_SetSelectionCorner(1, worldPos);
+	displayMouseSelect = false;
+}
+
+void AIB_UpdateTreeSelection(Vec2f worldPos)
+{
+	AIB_SetSelectionCorner(1, worldPos);
+	displayMouseSelect = mouseSelect[0].x != mouseSelect[1].x || mouseSelect[0].y != mouseSelect[1].y;
+}
+
+void AIB_SetSelectionCorner(const u8 index, Vec2f worldPos)
+{
+	int tileX = int(worldPos.x / 8);
+	int tileY = int(worldPos.y / 8);
+	if(tileX < 0) tileX = 0;
+	if(tileY < 0) tileY = 0;
+	mouseSelect[index] = Vec2f(tileX, tileY);
+}
+
+void AIB_SendTreeSelection()
+{
+	if(mouseSelect[0].x == mouseSelect[1].x && mouseSelect[0].y == mouseSelect[1].y)
+	{
+		return;
+	}
+
+	u16 x1 = u16(mouseSelect[0].x < mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
+	u16 y1 = u16(mouseSelect[0].y < mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
+	u16 x2 = u16(mouseSelect[0].x > mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
+	u16 y2 = u16(mouseSelect[0].y > mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
+
+	CBitStream params;
+	params.write_u16(x1);
+	params.write_u16(y1);
+	params.write_u16(x2);
+	params.write_u16(y2);
+	AIB_LogEvent("ui", "select_trees_rect", AIB_EventPlayerRef(getLocalPlayer()), "rect=" + x1 + "," + y1 + "," + x2 + "," + y2);
+	getRules().SendCommand(getRules().getCommandID("aibuilderToggleTreeSelection"), params);
+}
+
+void AIB_BeginStoneSelection(Vec2f worldPos)
+{
+	aibStoneSelecting = true;
+	AIB_SetSelectionCorner(0, worldPos);
+	AIB_SetSelectionCorner(1, worldPos);
+	displayMouseSelect = true;
+}
+
+void AIB_UpdateStoneSelection(Vec2f worldPos)
+{
+	AIB_SetSelectionCorner(1, worldPos);
+}
+
+void AIB_SendStoneSelection()
+{
+	if(mouseSelect[0].x == mouseSelect[1].x && mouseSelect[0].y == mouseSelect[1].y)
+	{
+		return;
+	}
+
+	u16 x1 = u16(mouseSelect[0].x < mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
+	u16 y1 = u16(mouseSelect[0].y < mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
+	u16 x2 = u16(mouseSelect[0].x > mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
+	u16 y2 = u16(mouseSelect[0].y > mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
+
+	CBitStream params;
+	params.write_u16(x1);
+	params.write_u16(y1);
+	params.write_u16(x2);
+	params.write_u16(y2);
+	AIB_LogEvent("ui", "select_stone_rect", AIB_EventPlayerRef(getLocalPlayer()), "rect=" + x1 + "," + y1 + "," + x2 + "," + y2);
+	getRules().SendCommand(getRules().getCommandID("aibuilderToggleStoneSelection"), params);
+}
+
+bool UpdateTreeSelectionButton()
+{
+	if(!(enableOverseer == 0 || isOverseer))
+	{
+		aibTreeButtonPressed = false;
+		return false;
+	}
+	if(!displayPrefabSelectionMenu)
+	{
+		aibTreeButtonPressed = false;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null)
+	{
+		aibTreeButtonPressed = false;
+		return false;
+	}
+
+	bool hover = AIB_MouseInTreeButton(controls.getMouseScreenPos());
+	bool leftPressed = controls.isKeyJustPressed(KEY_LBUTTON);
+
+	if(hover && leftPressed)
+	{
+		aibTreeButtonPressed = true;
+		return true;
+	}
+
+	if(aibTreeButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hover)
+		{
+			aibTreeSelectMode = !aibTreeSelectMode;
+			aibStoneSelectMode = false;
+			aibTreeSelecting = false;
+			aibStoneSelecting = false;
+			displayMouseSelect = false;
+			displayPrefabSelectionMenu = !aibTreeSelectMode;
+			AIB_LogEvent("ui", aibTreeSelectMode ? "select_trees_open" : "select_trees_confirm", AIB_EventPlayerRef(getLocalPlayer()), "button_pos=" + AIB_EventPos(aibTreeButtonPosition));
+		}
+		aibTreeButtonPressed = false;
+		return true;
+	}
+
+	return aibTreeButtonPressed || (hover && controls.isKeyPressed(KEY_LBUTTON));
+}
+
+bool AIB_MouseInTreeButton(Vec2f mouse)
+{
+	Vec2f min = aibTreeButtonPosition;
+	Vec2f max = min + Vec2f(178, 28);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool UpdateStoneSelectionButton()
+{
+	if(!(enableOverseer == 0 || isOverseer))
+	{
+		aibStoneButtonPressed = false;
+		return false;
+	}
+	if(!displayPrefabSelectionMenu)
+	{
+		aibStoneButtonPressed = false;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null)
+	{
+		aibStoneButtonPressed = false;
+		return false;
+	}
+
+	bool hover = AIB_MouseInStoneButton(controls.getMouseScreenPos());
+	bool leftPressed = controls.isKeyJustPressed(KEY_LBUTTON);
+
+	if(hover && leftPressed)
+	{
+		aibStoneButtonPressed = true;
+		return true;
+	}
+
+	if(aibStoneButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hover)
+		{
+			aibStoneSelectMode = !aibStoneSelectMode;
+			aibTreeSelectMode = false;
+			aibStoneSelecting = false;
+			aibTreeSelecting = false;
+			displayMouseSelect = false;
+			displayPrefabSelectionMenu = !aibStoneSelectMode;
+			AIB_LogEvent("ui", aibStoneSelectMode ? "select_stone_open" : "select_stone_confirm", AIB_EventPlayerRef(getLocalPlayer()), "button_pos=" + AIB_EventPos(aibStoneButtonPosition));
+		}
+		aibStoneButtonPressed = false;
+		return true;
+	}
+
+	return aibStoneButtonPressed || (hover && controls.isKeyPressed(KEY_LBUTTON));
+}
+
+bool AIB_MouseInStoneButton(Vec2f mouse)
+{
+	Vec2f min = aibStoneButtonPosition;
+	Vec2f max = min + Vec2f(178, 28);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+void AIB_CloseSelectionModes()
+{
+	aibTreeSelectMode = false;
+	aibTreeSelecting = false;
+	aibTreeButtonPressed = false;
+	aibStoneSelectMode = false;
+	aibStoneSelecting = false;
+	aibStoneButtonPressed = false;
+	displayMouseSelect = false;
+}
+
+void AIB_ToggleTreesInSelection(const u16 x1, const u16 y1, const u16 x2, const u16 y2)
+{
+	CBlob@[] trees;
+	getBlobsByTag("tree", @trees);
+	for(uint i = 0; i < trees.length; i++)
+	{
+		CBlob@ tree = trees[i];
+		if(tree is null) continue;
+
+		Vec2f pos = tree.getPosition();
+		u16 tx = u16(pos.x / 8);
+		u16 ty = u16(pos.y / 8);
+		if(tx < x1 || tx > x2 || ty < y1 || ty > y2)
+		{
+			continue;
+		}
+
+		bool selected = !tree.get_bool("aibuilder selected tree");
+		tree.set_bool("aibuilder selected tree", selected);
+		tree.Sync("aibuilder selected tree", true);
+		AIB_LogEvent("ui", "toggle_tree", AIB_EventBlobRef(tree), "selected=" + (selected ? "true" : "false") + " rect=" + x1 + "," + y1 + "," + x2 + "," + y2);
+		if(selected)
+		{
+			tree.Tag("aibuilder selected tree");
+		}
+		else
+		{
+			tree.Untag("aibuilder selected tree");
+		}
+	}
+}
+
+array<Vec2f>@ AIB_GetSelectedStoneTiles()
+{
+	CRules@ rules = getRules();
+	array<Vec2f>@ stones = null;
+	if(!rules.get("aibuilder selected stone tiles", @stones))
+	{
+		array<Vec2f> empty;
+		rules.set("aibuilder selected stone tiles", empty);
+		rules.get("aibuilder selected stone tiles", @stones);
+	}
+	return stones;
+}
+
+void AIB_ToggleStoneInSelection(const u16 x1, const u16 y1, const u16 x2, const u16 y2)
 {
 	CMap@ map = getMap();
-	Vec2f blobPosition;
-	CControls@ c = getControls();
-	if(renderingState == 1 && c != null)
-	{
-		blobPosition = c.getMouseWorldPos();
-	}
-	else
-	{
-		blobPosition = getCamera().getPosition();
-	}
-	int startingx = (blobPosition.x)/8 - xRenderLimit;
-	int startingy = (blobPosition.y)/8 - yRenderLimit;
-	int xConstraint = (blobPosition.x)/8 + xRenderLimit;
-	int yConstraint = (blobPosition.y)/8 + yRenderLimit;
+	if(map is null) return;
 
-	if (startingx < 0)
-	{
-		startingx = 0;
-	}
-	if (startingy < 0)
-	{
-		startingy = 0;
-	}
-	f32 z = 1000;
+	array<Vec2f>@ stones = AIB_GetSelectedStoneTiles();
+	if(stones is null) return;
 
-	int index = 4;
-	for(int y = startingy; y < map.tilemapheight && y < yConstraint; y++) 
+	const int startX = Maths::Max(0, int(x1));
+	const int startY = Maths::Max(0, int(y1));
+	const int endX = Maths::Min(int(x2), map.tilemapwidth - 1);
+	const int endY = Maths::Min(int(y2), map.tilemapheight - 1);
+	if(startX > endX || startY > endY) return;
+
+	for(int y = startY; y <= endY; y++)
 	{
-		for(int x = startingx; x < map.tilemapwidth && x < xConstraint; x++)
+		for(int x = startX; x <= endX; x++)
 		{
-			if(tileData[x][y] != 0)
+			Vec2f tile = Vec2f(x * map.tilesize, y * map.tilesize);
+			if(!AIB_IsSelectableStoneTile(tile)) continue;
+
+			int index = AIB_FindSelectedStoneIndex(stones, u16(x), u16(y));
+			bool selected = index < 0;
+			if(selected)
 			{
-				v_raw[index]   = Vertex(x*8+4 - getSizeX(tileData[x][y]), y*8+4 - getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],0),getUVY(tileData[x][y],0),SColor(0x70aacdff));
-				v_raw[index+1] = Vertex(x*8+4 + getSizeX(tileData[x][y]), y*8+4 - getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],1),getUVY(tileData[x][y],1),SColor(0x70aacdff));
-				v_raw[index+2] = Vertex(x*8+4 + getSizeX(tileData[x][y]), y*8+4 + getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],2),getUVY(tileData[x][y],2),SColor(0x70aacdff));
-				v_raw[index+3] = Vertex(x*8+4 - getSizeX(tileData[x][y]), y*8+4 + getSizeY(tileData[x][y]), z, getUVX(tileData[x][y],3),getUVY(tileData[x][y],3),SColor(0x70aacdff));
+				stones.push_back(Vec2f(x, y));
 			}
 			else
 			{
-				v_raw[index]   = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
-				v_raw[index+1] = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
-				v_raw[index+2] = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
-				v_raw[index+3] = Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff));
+				stones.removeAt(index);
 			}
-			index += 4;
+			AIB_LogEvent("ui", "toggle_stone", "stone:" + x + "," + y, "selected=" + (selected ? "true" : "false") + " rect=" + x1 + "," + y1 + "," + x2 + "," + y2);
+		}
+	}
+}
+
+void AIB_RetargetStoneBuilders()
+{
+	CBlob@[] builders;
+	getBlobsByName("aibuilder", @builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder is null || builder.hasTag("dead")) continue;
+		if(builder.get_u8("ai builder job") != AIB_RENDERER_JOB_STONE) continue;
+
+		builder.set_u8("ai builder state", AIB_RENDERER_STATE_FIND_STONE);
+		builder.set_netid("ai builder target", 0);
+		builder.set_Vec2f("ai builder destination", Vec2f_zero);
+		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
+		builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
+		builder.Sync("ai builder state", true);
+	}
+}
+
+int AIB_FindSelectedStoneIndex(array<Vec2f>@ stones, const u16 x, const u16 y)
+{
+	if(stones is null) return -1;
+	for(uint i = 0; i < stones.length; i++)
+	{
+		if(u16(stones[i].x) == x && u16(stones[i].y) == y)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool AIB_IsSelectableStoneTile(Vec2f tile)
+{
+	CMap@ map = getMap();
+	if(map is null) return false;
+
+	TileType type = map.getTile(tile).type;
+	return map.isTileStone(type) || map.isTileThickStone(type);
+}
+
+void RenderSelectedTreeMarkers()
+{
+	v_vertexNonTile.clear();
+	v_indexNonTile.clear();
+
+	CBlob@[] trees;
+	getBlobsByTag("tree", @trees);
+	for(uint i = 0; i < trees.length; i++)
+	{
+		CBlob@ tree = trees[i];
+		if(tree is null || !tree.get_bool("aibuilder selected tree")) continue;
+
+		AddTreeSelectionQuad(v_vertexNonTile, v_indexNonTile, tree.getPosition() + Vec2f(0, -14));
+	}
+
+	array<Vec2f>@ stones = AIB_GetSelectedStoneTiles();
+	CMap@ map = getMap();
+	if(stones !is null && map !is null)
+	{
+		for(uint i = 0; i < stones.length; i++)
+		{
+			Vec2f tile = Vec2f(stones[i].x * map.tilesize, stones[i].y * map.tilesize);
+			if(!AIB_IsSelectableStoneTile(tile)) continue;
+
+			AddStoneSelectionQuad(v_vertexNonTile, v_indexNonTile, tile + Vec2f(map.tilesize * 0.5f, map.tilesize * 0.5f));
+		}
+	}
+
+	if(v_vertexNonTile.size() == 0)
+	{
+		return;
+	}
+
+	nonTileMesh.SetVertex(v_vertexNonTile);
+	nonTileMesh.SetIndices(v_indexNonTile);
+	nonTileMesh.BuildMesh();
+	nonTileMesh.SetDirty(SMesh::VERTEX_INDEX);
+	nonTileMesh.RenderMeshWithMaterial();
+}
+
+void AddTreeSelectionQuad(Vertex[] &vertices, u16[] &indices, Vec2f pos)
+{
+	u16 index = u16(vertices.size());
+	f32 z = 1000;
+	SColor color = SColor(0xfffffb20);
+	vertices.push_back(Vertex(pos.x - 9, pos.y - 9, z, 0.0f, 0.0f, color));
+	vertices.push_back(Vertex(pos.x + 9, pos.y - 9, z, offsetx, 0.0f, color));
+	vertices.push_back(Vertex(pos.x + 9, pos.y + 9, z, offsetx, offsety, color));
+	vertices.push_back(Vertex(pos.x - 9, pos.y + 9, z, 0.0f, offsety, color));
+	indices.push_back(index);
+	indices.push_back(index + 1);
+	indices.push_back(index + 2);
+	indices.push_back(index);
+	indices.push_back(index + 2);
+	indices.push_back(index + 3);
+}
+
+void AddStoneSelectionQuad(Vertex[] &vertices, u16[] &indices, Vec2f pos)
+{
+	u16 index = u16(vertices.size());
+	f32 z = 1000;
+	SColor color = SColor(0xfffffb20);
+	vertices.push_back(Vertex(pos.x - 6, pos.y - 6, z, 0.0f, 0.0f, color));
+	vertices.push_back(Vertex(pos.x + 6, pos.y - 6, z, offsetx, 0.0f, color));
+	vertices.push_back(Vertex(pos.x + 6, pos.y + 6, z, offsetx, offsety, color));
+	vertices.push_back(Vertex(pos.x - 6, pos.y + 6, z, 0.0f, offsety, color));
+	indices.push_back(index);
+	indices.push_back(index + 1);
+	indices.push_back(index + 2);
+	indices.push_back(index);
+	indices.push_back(index + 2);
+	indices.push_back(index + 3);
+}
+
+void AddBlueprintQuad(Vertex[] &vertices, u16[] &indices, int x, int y, uint16 blockID)
+{
+	u16 index = uint16(vertices.size());
+	f32 z = 1000;
+
+	vertices.push_back(Vertex(x*8+4 - getSizeX(blockID), y*8+4 - getSizeY(blockID), z, getUVX(blockID,0), getUVY(blockID,0), SColor(0x70aacdff)));
+	vertices.push_back(Vertex(x*8+4 + getSizeX(blockID), y*8+4 - getSizeY(blockID), z, getUVX(blockID,1), getUVY(blockID,1), SColor(0x70aacdff)));
+	vertices.push_back(Vertex(x*8+4 + getSizeX(blockID), y*8+4 + getSizeY(blockID), z, getUVX(blockID,2), getUVY(blockID,2), SColor(0x70aacdff)));
+	vertices.push_back(Vertex(x*8+4 - getSizeX(blockID), y*8+4 + getSizeY(blockID), z, getUVX(blockID,3), getUVY(blockID,3), SColor(0x70aacdff)));
+
+	indices.push_back(index);
+	indices.push_back(index+1);
+	indices.push_back(index+2);
+	indices.push_back(index);
+	indices.push_back(index+2);
+	indices.push_back(index+3);
+}
+
+void updateVertex(CPlayer@ this, Vertex[] &v_raw, uint16[][] &tileData)
+{
+	CMap@ map = getMap();
+	v_raw.clear();
+	v_i.clear();
+
+	if(map is null || tileData.size() == 0)
+	{
+		return;
+	}
+
+	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,0),getUVY(blockIndex,0),SColor(0x00aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,1),getUVY(blockIndex,1),SColor(0x00aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,2),getUVY(blockIndex,2),SColor(0x00aacdff)));
+	v_raw.push_back(Vertex(0, 0, 1000, getUVX(blockIndex,3),getUVY(blockIndex,3),SColor(0x00aacdff)));
+	v_i.push_back(0);
+	v_i.push_back(1);
+	v_i.push_back(2);
+	v_i.push_back(0);
+	v_i.push_back(2);
+	v_i.push_back(3);
+
+	int width = Maths::Min(map.tilemapwidth, tileData.size());
+	int height = map.tilemapheight;
+	int quadCount = 0;
+	for(int y = 0; y < height; y++)
+	{
+		for(int x = 0; x < width; x++)
+		{
+			if(y >= tileData[x].size())
+			{
+				continue;
+			}
+
+			if(tileData[x][y] == 0)
+			{
+				continue;
+			}
+
+			if(quadCount >= MAX_BLUEPRINT_QUADS)
+			{
+				print("Blueprint renderer reached the mesh quad limit. Some blueprint blocks were skipped.");
+				return;
+			}
+
+			AddBlueprintQuad(v_raw, v_i, x, y, tileData[x][y]);
+			quadCount++;
 		}
 	}
 }
 
 void initVertexAray(Vertex[] &v_raw, u16[] &v_i)
 {
-	CMap@ map = getMap();
-	int index = v_i[v_i.size()-1] + 1;
-	for(int i = 0; i < xRenderLimit*yRenderLimit*4; i++)
-	{
-		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-		v_raw.push_back(Vertex(0, 0, 0, 0, 	0, 	SColor(0x00aacdff)));
-		v_i.push_back(index);
-		v_i.push_back(index+1);
-		v_i.push_back(index+2);
-		v_i.push_back(index);
-		v_i.push_back(index+2);
-		v_i.push_back(index+3);
-		index += 4;
-	}
+	// Kept as a compatibility stub. Blueprint quads are now generated sparsely in updateVertex().
 }
 
 float offsetx = 8/pngWidth;
@@ -1110,6 +1628,85 @@ void RenderAdvancedGui(int id)
 	{
 		inv.Render();
 	}
+
+	RenderTreeSelectionButton();
+	RenderStoneSelectionButton();
+}
+
+void RenderTreeSelectionButton()
+{
+	if(!(enableOverseer == 0 || isOverseer))
+	{
+		return;
+	}
+	if(!displayPrefabSelectionMenu)
+	{
+		return;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null)
+	{
+		return;
+	}
+
+	Vec2f min = aibTreeButtonPosition;
+	Vec2f max = min + Vec2f(178, 28);
+	Vec2f mouse = controls.getMouseScreenPos();
+	bool hover = AIB_MouseInTreeButton(mouse);
+
+	SColor fill = SColor(0xffdadada);
+	if(aibTreeButtonPressed)
+	{
+		fill = SColor(0xff666666);
+	}
+	else if(hover)
+	{
+		fill = SColor(0xff8a8a8a);
+	}
+	SColor border = SColor(0xff202020);
+	GUI::DrawRectangle(min, max, border);
+	GUI::DrawRectangle(min + Vec2f(1, 1), max - Vec2f(1, 1), fill);
+
+	GUI::DrawTextCentered(aibTreeSelectMode ? "Confirm trees selection" : "Select trees", (min + max) / 2.0f, SColor(0xff101010));
+}
+
+void RenderStoneSelectionButton()
+{
+	if(!(enableOverseer == 0 || isOverseer))
+	{
+		return;
+	}
+	if(!displayPrefabSelectionMenu)
+	{
+		return;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null)
+	{
+		return;
+	}
+
+	Vec2f min = aibStoneButtonPosition;
+	Vec2f max = min + Vec2f(178, 28);
+	Vec2f mouse = controls.getMouseScreenPos();
+	bool hover = AIB_MouseInStoneButton(mouse);
+
+	SColor fill = SColor(0xffdadada);
+	if(aibStoneButtonPressed)
+	{
+		fill = SColor(0xff666666);
+	}
+	else if(hover)
+	{
+		fill = SColor(0xff8a8a8a);
+	}
+	SColor border = SColor(0xff202020);
+	GUI::DrawRectangle(min, max, border);
+	GUI::DrawRectangle(min + Vec2f(1, 1), max - Vec2f(1, 1), fill);
+
+	GUI::DrawTextCentered(aibStoneSelectMode ? "Confirm stone selection" : "Select stone to mine", (min + max) / 2.0f, SColor(0xff101010));
 }
 
 
@@ -1151,23 +1748,35 @@ void SaveBlueprintToPng(CRules@ this)
 	int height =  Maths::Abs(mouseSelect[0].y-mouseSelect[1].y);
 	@save_image = CFileImage(width, height, true);
 	int currentTime = Time();
+	string blueprintPath = "Maps/DynamicBlueprints/blueprint_" + currentTime + ".png";
 	save_image.setFilename("DynamicBlueprints/blueprint_" + currentTime + ".png", ImageFileBase::IMAGE_FILENAME_BASE_MAPS);
 	save_image.setPixelOffset(0);
 
 	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)
 	{
+		RuntimeBlueprint@ runtimeBlueprint = RuntimeBlueprint(blueprintPath, width + 1, height + 1);
 		for (int yp = startingYPosition; yp < endingYPosition+1; yp++)
 		{
 			for(int xp = startingXPosition; xp < endingXPosition+1; xp++)
 			{
 				Vec2f pixelpos = save_image.getPixelPosition();
-				SColor pixelColor = getColorFromBlockID(dynamicMapTileData[xp][yp]);
+				uint16 blockData = dynamicMapTileData[xp][yp];
+				SColor pixelColor = getColorFromBlockID(blockData);
+				int imageX = width - (endingXPosition - xp);
+				int imageY = height - (endingYPosition - yp);
 				save_image.setPixelAtPosition(width - (endingXPosition - xp), height - (endingYPosition - yp), pixelColor, false);
+				if(runtimeBlueprint !is null &&
+					imageX >= 0 && imageX < runtimeBlueprint.width &&
+					imageY >= 0 && imageY < runtimeBlueprint.height)
+				{
+					runtimeBlueprint.data[imageX][imageY] = blockData;
+				}
 			}
 		}
 		save_image.Save();
 		print("image saved.");
-		filenames.push_back("Maps/DynamicBlueprints/blueprint_" + currentTime + ".png");
+		StoreRuntimeBlueprint(runtimeBlueprint);
+		filenames.push_back(blueprintPath);
 		inv.resizeGUI(filenames);
 	}
 	else
@@ -1181,12 +1790,92 @@ uint16[][] currentBlueprintData;
 int OButtonSelect = 0;
 int16 currentBlueprintWidth = 0;
 int16 currentBlueprintHeight = 0;
+
+void StoreRuntimeBlueprint(RuntimeBlueprint@ blueprint)
+{
+	if(blueprint is null || blueprint.path == "")
+	{
+		return;
+	}
+
+	for(uint i = 0; i < runtimeBlueprints.length; i++)
+	{
+		if(runtimeBlueprints[i] !is null && runtimeBlueprints[i].path == blueprint.path)
+		{
+			@runtimeBlueprints[i] = blueprint;
+			return;
+		}
+	}
+
+	runtimeBlueprints.push_back(blueprint);
+}
+
+RuntimeBlueprint@ GetRuntimeBlueprint(const string &in imagePath)
+{
+	for(uint i = 0; i < runtimeBlueprints.length; i++)
+	{
+		RuntimeBlueprint@ blueprint = runtimeBlueprints[i];
+		if(blueprint !is null && blueprint.path == imagePath)
+		{
+			return blueprint;
+		}
+	}
+
+	return null;
+}
+
+bool LoadBlueprintFromMemory(const string &in imagePath)
+{
+	RuntimeBlueprint@ blueprint = GetRuntimeBlueprint(imagePath);
+	if(blueprint is null)
+	{
+		return false;
+	}
+
+	currentBlueprintWidth = blueprint.width;
+	currentBlueprintHeight = blueprint.height;
+	uint16[][] _currentBlueprintData(currentBlueprintWidth, uint16[](currentBlueprintHeight, 0));
+	currentBlueprintData = _currentBlueprintData;
+
+	for(int x = 0; x < currentBlueprintWidth; x++)
+	{
+		for(int y = 0; y < currentBlueprintHeight; y++)
+		{
+			currentBlueprintData[x][y] = blueprint.data[x][y];
+		}
+	}
+
+	deepCopyArray();
+	displayLoadedBlueprint = true;
+	triggerAPrefabLoad = false;
+	print("loaded runtime blueprint " + imagePath);
+	return true;
+}
+
 void LoadBlueprintFromPng(CRules@ this, string imagePath)
 {
+	if(LoadBlueprintFromMemory(imagePath))
+	{
+		return;
+	}
+
 	@save_image = CFileImage(imagePath);
 	bool done = false;
-
+	bool proceed = false;
 	if (save_image.isLoaded())
+	{
+		proceed = true;
+	}
+	else
+	{
+		@save_image = CFileImage("../Cache/"+imagePath.substr(23));
+		print("HERE'S THE SUBSTRINGS : " + "../Cache/"+imagePath.substr(23));
+		if(save_image.isLoaded())
+		{
+			proceed = true;
+		}
+	}
+	if (proceed)
 	{
 		currentBlueprintWidth = save_image.getWidth();
 		currentBlueprintHeight = save_image.getHeight();
@@ -1258,6 +1947,8 @@ void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16
 		xbp = 0;
 		ybp += 1;
 	}
+	blueprintMeshDirty = true;
+	AIB_PublishBlueprintForBuilders();
 }
 
 bool flipBlueprint = false;
@@ -1336,10 +2027,41 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 				ybp += 1;
 			}
 		}
+		blueprintMeshDirty = true;
+		AIB_PublishBlueprintForBuilders();
 	}
 }
 
 uint16[][] tileMapDataCopy;
+void AIB_PublishBlueprintForBuilders()
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if(rules is null || map is null || dynamicMapTileData.size() == 0)
+	{
+		return;
+	}
+
+	array<u16> blueprint;
+	blueprint.set_length(map.tilemapwidth * map.tilemapheight);
+	for(int y = 0; y < map.tilemapheight; y++)
+	{
+		for(int x = 0; x < map.tilemapwidth; x++)
+		{
+			u16 value = 0;
+			if(x < dynamicMapTileData.size() && y < dynamicMapTileData[x].size())
+			{
+				value = dynamicMapTileData[x][y];
+			}
+			blueprint[y * map.tilemapwidth + x] = value;
+		}
+	}
+
+	rules.set(AIB_BLUEPRINT_DATA_KEY, blueprint);
+	rules.set_u16(AIB_BLUEPRINT_WIDTH_KEY, map.tilemapwidth);
+	rules.set_u16(AIB_BLUEPRINT_HEIGHT_KEY, map.tilemapheight);
+}
+
 void deepCopyArray()
 {
 	CMap@ map = getMap();
@@ -1376,7 +2098,7 @@ SColor getColorFromBlockID(u16 blockID)
 }
 
 //Overseer GAMEMODE RELATED FUNCTIONS
-bool isOverseer = false;
+bool isOverseer = true;
 
 bool mapFitBlueprint()
 {	

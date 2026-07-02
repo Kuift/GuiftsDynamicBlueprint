@@ -6,6 +6,7 @@
 #include "MakeSeed.as";
 #include "MakeCrate.as";
 #include "MakeScroll.as";
+#include "BlueprintCommon.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
 const uint ChatCommandDelay = 3 * 30; // Cooldown in seconds
@@ -49,6 +50,68 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 	if (player is null)
 		return true;
 
+	// Moderator-only runtime control for KAG's TCP RCON listener. A password
+	// must already be configured; accepting one through chat would leak it to logs.
+	if (text_in == "!tcpr" || text_in == "!tcpr status" || text_in == "!tcpr on" || text_in == "!tcpr off")
+	{
+		if (!player.isMod())
+		{
+			SendChatMessage(this, player, "[TCPR] moderator access required", SColor(255, 255, 80, 80));
+			return false;
+		}
+
+		if (text_in == "!tcpr on")
+		{
+			if (sv_rconpassword == "")
+			{
+				SendChatMessage(this, player, "[TCPR] set sv_rconpassword in KAG/autoconfig.cfg first", SColor(255, 255, 80, 80));
+				return false;
+			}
+
+			SendChatMessage(this, player, "[TCPR] runtime mutation is unavailable; set sv_tcpr = 1 in autoconfig.cfg and restart", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		if (text_in == "!tcpr off")
+		{
+			SendChatMessage(this, player, "[TCPR] runtime mutation is unavailable; set sv_tcpr = 0 in autoconfig.cfg and restart", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		const string state = sv_tcpr ? "enabled" : "disabled";
+		SendChatMessage(this, player, "[TCPR] " + state + " on sv_port " + sv_port, SColor(255, 100, 210, 255));
+		return false;
+	}
+
+	// Only explicit moderator commands are forwarded to the local TCPR bridge.
+	// Ordinary chat never leaves the game.
+	if (text_in == "!codex" || text_in.substr(0, 7) == "!codex ")
+	{
+		if (!player.isMod())
+		{
+			SendChatMessage(this, player, "[Codex] moderator access required", SColor(255, 255, 80, 80));
+			return false;
+		}
+
+		string request = text_in.size() > 7 ? text_in.substr(7, text_in.size() - 7) : "";
+		if (request == "")
+		{
+			SendChatMessage(this, player, "[Codex] usage: !codex <request> | status | cancel", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		if (request == "status" || request == "cancel")
+		{
+			tcpr("CODEX_CONTROL|" + player.getUsername() + "|" + request);
+			SendChatMessage(this, player, "[Codex] " + request + " requested", SColor(255, 100, 210, 255));
+			return false;
+		}
+
+		tcpr("CODEX_REQUEST|" + player.getUsername() + "|" + request);
+		SendChatMessage(this, player, "[Codex] request submitted", SColor(255, 100, 210, 255));
+		return false;
+	}
+
 	CBlob@ blob = player.getBlob(); // now, when the code references "blob," it means the player who called the command
 
 	if (blob is null || text_in.substr(0, 1) != "!") // dont continue if its not a command
@@ -79,6 +142,44 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 	}
 
 	string[]@ tokens = (text_in.substr(0, text_in.size())).split(" ");
+	if(tokens.length > 0 && tokens[0] == "!aib_strategy")
+	{
+		if(tokens.length < 2 || (tokens[1] != "off" && tokens[1] != "suggest" && tokens[1] != "auto"))
+		{
+			SendChatMessage(this, player, "[AIB] usage: !aib_strategy off|suggest|auto", SColor(255, 255, 220, 80));
+			return false;
+		}
+		const u8 mode = tokens[1] == "off" ? AIBP_StrategyMode::off :
+			(tokens[1] == "suggest" ? AIBP_StrategyMode::suggest : AIBP_StrategyMode::auto_mode);
+		this.set_u8(AIBP_ModeKey(u8(team)), mode);
+		this.Sync(AIBP_ModeKey(u8(team)), true);
+		this.set_u32("aib strategy important event team " + team, getGameTime());
+		SendChatMessage(this, player, "[AIB] strategy mode: " + tokens[1], SColor(255, 100, 210, 255));
+		return false;
+	}
+	if(tokens.length > 0 && tokens[0] == "!aib_wave")
+	{
+		const string scenario = tokens.length >= 4 ? tokens[3] : "mixed";
+		const bool validScenario = scenario == "knight" || scenario == "archer" || scenario == "bomb" || scenario == "mixed";
+		if(!player.isMod() || tokens.length < 3 || (tokens[2] != "control" && tokens[2] != "plan") || !validScenario)
+		{
+			SendChatMessage(this, player, "[AIB] usage: !aib_wave <seed> control|plan [knight|archer|bomb|mixed] (fresh map)", SColor(255, 255, 220, 80));
+			return false;
+		}
+		const u32 seed = parseInt(tokens[1]);
+		const bool withPlan = tokens[2] == "plan";
+		this.set_u8("aib wave team", u8(team));
+		this.set_u32("aib wave seed", seed);
+		this.set_string("aib wave variant", tokens[2]);
+		this.set_string("aib wave scenario", scenario);
+		this.set_u8(AIBP_ModeKey(u8(team)), withPlan ? AIBP_StrategyMode::auto_mode : AIBP_StrategyMode::off);
+		this.set_bool("aib strategy event log enabled", true);
+		this.set_u32("aib wave arm tick", getGameTime() + (withPlan ? 900 : 90));
+		this.set_bool("aib wave enabled", true);
+		this.set_bool("aib wave running", false);
+		SendChatMessage(this, player, "[AIB] " + scenario + " wave armed; use a fresh map for the paired variant", SColor(255, 100, 210, 255));
+		return false;
+	}
 	// commands that don't rely on sv_test being on (sv_test = 1)
 	if (isMod)
 	{
@@ -408,6 +509,17 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @para)
 		SColor col = SColor(para.read_u8(), para.read_u8(), para.read_u8(), para.read_u8());
 		client_AddToChat(errorMessage, col);
 	}
+}
+
+void SendChatMessage(CRules@ this, CPlayer@ player, const string& in message, SColor color)
+{
+	CBitStream params;
+	params.write_string(message);
+	params.write_u8(color.getBlue());
+	params.write_u8(color.getGreen());
+	params.write_u8(color.getRed());
+	params.write_u8(color.getAlpha());
+	this.SendCommand(this.getCommandID("SendChatMessage"), params, player);
 }
 
 bool IsBlacklisted(string name)

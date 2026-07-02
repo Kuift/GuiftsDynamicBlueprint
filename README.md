@@ -1,23 +1,72 @@
 # CONTROLS :
-- To enter blueprint editing mode, press Left control or Right control
-- To hide blueprints, simply press 'H'
-- When in editing mode, you can left click to add a block, or right click to remove a block
-- When playing as a builder, use the usual menu to choose which block to place
-- When playing as archer or knight, use the key 'R' and 'U' to naviguate between the different blocks
-- You can select a zone by settings selection points using the 'I' and 'P' key. Use 'I' to set the first point and 'P' to set the second point. Then press 'O' to save your selection. You can also use the mouse-wheel click button.
-- You can save a blueprint that is inside the two selection points using the 'O' key
-- You can load your saved blueprints by using the 'L' key or using the 'X' key
-- You can cycle through rendering window size by pressing 'J', try it if your performance aren't great
-- You can cycle through rendering relative to your camera or your cursor by pressing 'K'
-- As a moderator, you can enable or disable live blueprint editing using the "!bp_edit_toggle" command
-- As a moderator, you can enable or disable the overseer mode using the "!bp_overseer_toggle" command.
-    - When the overseer mode is enabled, only the selected overseers with the command "!bp_overseer_set Username" can place and edit blueprints
-    - The moderator can use the command "!bp_overseer_none" to remove the overseer role from each player
+
+## Blueprint toolbar
+- The blueprint toolbar is visible for players who can use blueprint controls.
+- Paint: click the Paint tool, then left-click tiles to add the currently selected blueprint block.
+- Erase: click the Erase tool, then left-click blueprint tiles to remove them.
+- Select: click the Select tool, then drag a rectangle to define the save/selection area.
+- Save: saves the current selected tile rectangle as a blueprint.
+- Load: opens or closes the blueprint browser.
+- Rotate: rotates the active block or placement preview.
+- Flip: flips the loaded blueprint preview before placement.
+- Hide/Show: toggles blueprint rendering.
+
+## Legacy blueprint shortcuts
+- Hold Left Control or Right Control to use the older live-edit cursor.
+- While holding Control, left-click adds a block and right-click removes a block.
+- Press H to hide or show blueprints.
+- Press I and P to set the two selection corners, then press O to save that rectangle.
+- Press the mouse-wheel button and drag to set the selection rectangle.
+- Press L or hold X to open the blueprint browser.
+- When playing as a builder, use the usual build menu to choose the block to place.
+- When playing as archer or knight, press R and U to cycle through blueprint blocks.
+- Press J to cycle the render window size.
+- Press K to cycle rendering relative to camera or cursor.
+
+## Overseer view
+- Press E at a same-team AI Builder Workshop and click **Become overseer**. The workshop only seats one overseer at a time.
+- Your character remains seated and locked into the workshop while using overseer view. Press E again to leave the chair and exit the view.
+- In overseer view, the camera is detached from the player and is not clamped to the map bounds.
+- Move the overseer camera with W, A, S, and D.
+- Hold Shift while moving to pan faster.
+- Drag with left-click to select same-team AI builders. A short click near one AI builder selects that builder.
+- Right-click or Cancel clears the current AI builder selection.
+- After selecting AI builders, use the order buttons:
+    - Harvest wood
+    - Mine stone
+    - Build blueprint
+- Orders are validated on the server. A player can only order same-team AI builders unless they are a spectator/admin team player.
+
+## Moderator commands
+- As a moderator, enable or disable live blueprint editing using the "!bp_edit_toggle" command.
+- As a moderator, enable or disable overseer restrictions using the "!bp_overseer_toggle" command.
+    - When overseer restrictions are enabled and at least one overseer is assigned, only selected overseers can place/edit blueprints and use overseer orders.
+    - Use "!bp_overseer_set Username" to assign an overseer.
+    - Use "!bp_overseer_none" to remove all assigned overseers.
+
+## Strategic AI blueprint director
+
+- The server-side director observes each team's home, frontline, terrain, combat mix, recent pressure, stored resources, and AI builders.
+- It evaluates procedural gatehouse, tower, emergency barrier, archer perch, and access-route candidates. Invalid candidates are rejected before publication.
+- Human blueprints and AI blueprints use separate layers. Human tiles always win merge conflicts and autonomous replanning never edits the human layer.
+- AI plans retain an immutable desired layer and task history after builders consume the live work grid.
+- Construction is phased: foundation/backwalls, access pieces, then shell. Tasks are reserved per builder so two builders do not select the same tile.
+- Doors and platforms are supported build targets and material collection follows the actual remaining plan cost.
+
+Team members can select a director mode with `!aib_strategy off`, `!aib_strategy suggest`, or `!aib_strategy auto`. CTF defaults to `suggest`; the deterministic AIB test mode defaults to `off`.
+
+Suggestion mode renders the proposed plan and its score reasons without assigning builders. Auto mode publishes the work layer and assigns wood, stone, and construction jobs according to current shortages.
+
+For paired in-engine pressure trials on a fresh map, moderators can run `!aib_wave <seed> control [knight|archer|bomb|mixed]` and `!aib_wave <seed> plan [knight|archer|bomb|mixed]`. Use the same seed and scenario on separately restarted maps. Strategy event logging records breach timing, crossings, deaths, flag approaches, completion and damage timing, structure lifetime, builder travel/idle time, reservation conflicts, replans, route preservation, and estimated absorbed cost.
+
+After collecting both variants, compare the result logs with `Tools/compare_aib_wave_results.ps1 -LogPath <log paths>`. It strictly pairs control/plan records by seed and scenario and covers knight, archer, bomb, and mixed scenarios by default. Its regression check is `Tools/test_compare_aib_wave_results.ps1`.
+
+The lightweight seeded evaluator is available at `Tools/aib_strategy_abstract_sim.ps1`; its regression check is `Tools/test_aib_strategy_abstract_sim.ps1`.
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 
 # INSTALLATION FOR HOST
-add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
+Enable this mod and add `CustomRenderer.as` to the applicable gamemode script list through this mod's override under `Rules`. Do not edit `King Arthur's Gold/Base`; files in this mod override matching base-game files.
 
 ## TODO:
 ### Live editor todo:

@@ -132,10 +132,10 @@ rules.get_bool("aib event log enabled")
 
 `Scripts/AIBTestEventLog.as` enables it for the AIBTest gamemode and resets `aib event log seq`. Normal deployed gameplay should leave it disabled unless explicitly debugging. Event records are compact, machine-readable lines for test actions, player-equivalent commands, UI selection rectangles, AI state/target changes, resource rejection, no-home handling, and cleanup.
 
-Use `Tools/run_aib_tests.ps1` for automated coverage. The current suite has 13 scenarios and should end with:
+Use `Tools/run_aib_tests.ps1` for automated coverage. The current suite has 42 scenarios and should end with:
 
 ```text
-AIB tests passed: 13 passed, 0 failed
+AIB tests passed: 42 passed, 0 failed
 ```
 
 The live headless KAG server currently stops advancing around game tick 51, so long real tree-chopping scenarios are not reliable as automated tests. The suite covers tree selection, resource generation as simulated pipeline events, and real return/drop-at-tent behavior; keep full visual tree chopping as a manual check.

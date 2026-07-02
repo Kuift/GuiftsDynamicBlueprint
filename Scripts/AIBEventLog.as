@@ -23,10 +23,10 @@ string AIB_EventPos(Vec2f pos)
 	return "" + int(pos.x) + "," + int(pos.y);
 }
 
-void AIB_LogEvent(const string &in source, const string &in action, const string &in actor, const string &in details = "")
+void AIB_EmitEvent(const string &in source, const string &in action, const string &in actor, const string &in details = "")
 {
 	CRules@ rules = getRules();
-	if (rules is null || !rules.get_bool("aib event log enabled")) return;
+	if (rules is null) return;
 
 	u32 seq = rules.get_u32("aib event log seq") + 1;
 	rules.set_u32("aib event log seq", seq);
@@ -45,4 +45,10 @@ void AIB_LogEvent(const string &in source, const string &in action, const string
 	}
 
 	print(line);
+}
+
+void AIB_LogEvent(const string &in source, const string &in action, const string &in actor, const string &in details = "")
+{
+	if (!AIB_EventLogEnabled()) return;
+	AIB_EmitEvent(source, action, actor, details);
 }

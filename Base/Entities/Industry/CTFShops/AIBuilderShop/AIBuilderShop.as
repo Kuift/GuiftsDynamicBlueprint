@@ -15,6 +15,8 @@ void onInit(CBlob@ this)
 	this.set("onShopMadeItem handle", @onMadeItem);
 
 	this.Tag("has window");
+	this.addCommandID("become overseer");
+	this.getCurrentScript().runFlags |= Script::tick_hasattached;
 
 	this.set_Vec2f("shop offset", Vec2f_zero);
 	this.set_Vec2f("shop menu size", Vec2f(2, 2));
@@ -25,6 +27,10 @@ void onInit(CBlob@ this)
 	this.set_string("required class", "builder");
 
 	AddIconToken("$aibuilder$", "AIBuilderMale.png", Vec2f(32, 32), 0);
+	// Keep the action icon compact inside the generic round button.  The shop
+	// frame used here previously was larger than the button and obscured nearby
+	// interaction controls.
+	AddIconToken("$aibuilder_overseer$", "FlagBase.png", Vec2f(8, 8), 0);
 
 	ShopItem@ s = addShopItem(this, "Builder AI", "$aibuilder$", "aibuilder", "Deploys a builder AI. It can be ordered to harvest wood.", false);
 	s.customButton = true;
@@ -36,7 +42,19 @@ void GetButtonsFor(CBlob@ this, CBlob@ caller)
 {
 	if (!canSeeButtons(this, caller)) return;
 
-	if (caller.getConfig() == this.get_string("required class"))
+	AttachmentPoint@ overseer = this.getAttachments().getAttachmentPointByName("OVERSEER");
+	const bool canBecomeOverseer = caller.getTeamNum() == this.getTeamNum()
+		&& caller.getDistanceTo(this) <= 40.0f
+		&& !caller.isAttached()
+		&& overseer !is null
+		&& overseer.getOccupied() is null;
+	if (canBecomeOverseer)
+	{
+		caller.CreateGenericButton("$aibuilder_overseer$", Vec2f(-6, 0), this,
+			this.getCommandID("become overseer"), getTranslatedString("Become overseer"));
+	}
+
+	if (caller.getConfig() == this.get_string("required class") && !canBecomeOverseer)
 	{
 		this.set_Vec2f("shop offset", Vec2f_zero);
 	}
@@ -71,8 +89,54 @@ void onShopMadeItem(CBitStream@ params)
 
 void onCommand(CBlob@ this, u8 cmd, CBitStream @params)
 {
-	if (cmd == this.getCommandID("shop made item client") && isClient())
+	if (cmd == this.getCommandID("become overseer") && isServer())
+	{
+		CPlayer@ player = getNet().getActiveCommandPlayer();
+		CBlob@ caller = player is null ? null : player.getBlob();
+		AttachmentPoint@ overseer = this.getAttachments().getAttachmentPointByName("OVERSEER");
+		if (caller is null || caller.getTeamNum() != this.getTeamNum() || caller.isAttached()
+			|| caller.getDistanceTo(this) > 40.0f || overseer is null || overseer.getOccupied() !is null)
+		{
+			return;
+		}
+
+		CBlob@ carried = caller.getCarriedBlob();
+		if (carried !is null && !caller.server_PutInInventory(carried))
+		{
+			carried.server_DetachFrom(caller);
+		}
+		this.server_AttachTo(caller, "OVERSEER");
+	}
+	else if (cmd == this.getCommandID("shop made item client") && isClient())
 	{
 		this.getSprite().PlaySound("/ChaChing.ogg");
 	}
+}
+
+void onAttach(CBlob@ this, CBlob@ attached, AttachmentPoint@ point)
+{
+	if (point.name != "OVERSEER") return;
+
+	attached.getShape().getConsts().collidable = false;
+	attached.Tag("seated");
+	attached.setVelocity(Vec2f_zero);
+	attached.SetFacingLeft(false);
+
+	CSprite@ sprite = this.getSprite();
+	if (sprite !is null) sprite.SetFrame(1);
+
+	CSprite@ attachedSprite = attached.getSprite();
+	if (attachedSprite !is null) attachedSprite.PlaySound("GetInVehicle.ogg");
+}
+
+void onDetach(CBlob@ this, CBlob@ detached, AttachmentPoint@ point)
+{
+	if (point.name != "OVERSEER") return;
+
+	detached.getShape().getConsts().collidable = true;
+	detached.Untag("seated");
+	detached.AddForce(Vec2f(0.0f, -20.0f));
+
+	CSprite@ sprite = this.getSprite();
+	if (sprite !is null) sprite.SetFrame(0);
 }

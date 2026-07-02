@@ -4,6 +4,7 @@
 #include "ShopCommon.as"
 #include "Descriptions.as"
 #include "Costs.as"
+#include "WARCosts.as"
 #include "CheckSpam.as"
 #include "GenericButtonCommon.as"
 #include "TeamIconToken.as"
@@ -67,6 +68,11 @@ void onInit(CBlob@ this)
 		ShopItem@ s = addShopItem(this, "AI Builder Workshop", "$aibuildershop$", "aibuildershop", "Builds a workshop that can deploy a builder AI.");
 	}
 	{
+		ShopItem@ s = addShopItem(this, "Nursery", getTeamIcon("nursery", "Nursery.png", team_num, Vec2f(40, 32)), "nursery", Descriptions::nursery);
+		AddRequirement(s.requirements, "blob", "mat_wood", "Wood", COST_WOOD_NURSERY);
+		AddRequirement(s.requirements, "no more", "nursery", "Nursery", 1);
+	}
+	{
 		ShopItem@ s = addShopItem(this, "Storage Cache", getTeamIcon("storage", "Storage.png", team_num, Vec2f(40, 24)), "storage", Descriptions::storagecache);
 		AddRequirement(s.requirements, "blob", "mat_stone", "Stone", CTFCosts::storage_stone);
 		AddRequirement(s.requirements, "blob", "mat_wood", "Wood", CTFCosts::storage_wood);
@@ -77,12 +83,12 @@ void onInit(CBlob@ this)
 		AddRequirement(s.requirements, "blob", "mat_wood", "Wood", CTFCosts::tunnel_wood);
 		AddRequirement(s.requirements, "blob", "mat_gold", "Gold", CTFCosts::tunnel_gold);
 	}
-	/*{
-		ShopItem@ s = addShopItem(this, "Stone Quarry", "$stonequarry$", "quarry", Descriptions::quarry);
+	{
+		ShopItem@ s = addShopItem(this, "Stone Quarry", getTeamIcon("quarry", "Quarry.png", team_num, Vec2f(40, 24)), "quarry", Descriptions::quarry);
 		AddRequirement(s.requirements, "blob", "mat_stone", "Stone", CTFCosts::quarry_stone);
 		AddRequirement(s.requirements, "blob", "mat_gold", "Gold", CTFCosts::quarry_gold);
 		AddRequirement(s.requirements, "no more", "quarry", "Stone Quarry", CTFCosts::quarry_count);
-	}*/
+	}
 }
 
 void GetButtonsFor(CBlob@ this, CBlob@ caller)

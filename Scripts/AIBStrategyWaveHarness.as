@@ -4,6 +4,7 @@
 #include "AIBPlacementPlanner.as";
 #include "AutoBuilderCommon.as";
 #include "ArcherCommon.as";
+#include "AIBWorldFingerprint.as";
 
 const u32 AIBW_ARCHER_FIRE_CYCLE = 52;
 const u32 AIBW_ARCHER_DRAW_TICKS = 40;
@@ -63,6 +64,17 @@ string AIBW_InitialMetrics(CRules@ rules)
 		" initial_map_width=" + rules.get_u16("aib wave initial map width") +
 		" initial_map_height=" + rules.get_u16("aib wave initial map height") +
 		" initial_solid_tiles=" + rules.get_u32("aib wave initial solid tiles") +
+		" initial_no_build_hash=" + rules.get_u32("aib wave initial no build hash") +
+		" initial_no_build_tiles=" + rules.get_u32("aib wave initial no build tiles") +
+		" initial_manifest_blob_count=" + rules.get_u32("aib wave initial manifest blob count") +
+		" initial_manifest_blob_hash=" + rules.get_u32("aib wave initial manifest blob hash") +
+		" initial_manifest_inventory_hash=" + rules.get_u32("aib wave initial manifest inventory hash") +
+		" initial_manifest_strategy_hash=" + rules.get_u32("aib wave initial manifest strategy hash") +
+		" measurement_terrain_hash=" + rules.get_u32("aib wave measurement terrain hash") +
+		" measurement_no_build_hash=" + rules.get_u32("aib wave measurement no build hash") +
+		" measurement_blob_hash=" + rules.get_u32("aib wave measurement blob hash") +
+		" measurement_inventory_hash=" + rules.get_u32("aib wave measurement inventory hash") +
+		" measurement_strategy_hash=" + rules.get_u32("aib wave measurement strategy hash") +
 		" initial_home_x=" + rules.get_s32("aib wave initial home x") +
 		" initial_home_y=" + rules.get_s32("aib wave initial home y") +
 		" initial_enemy_home_x=" + rules.get_s32("aib wave initial enemy home x") +
@@ -90,45 +102,23 @@ bool AIBW_CaptureMeasurementState(CRules@ rules, const u8 team)
 	CMap@ map = getMap();
 	if (map is null || map.tilemapwidth == 0 || map.tilemapheight == 0) return false;
 
-	u32 terrainHash = 2166136261;
-	const uint cells = uint(map.tilemapwidth) * uint(map.tilemapheight);
-	for (uint i = 0; i < cells; i++) terrainHash = (terrainHash ^ u32(map.getTile(i).type)) * 16777619;
-
+	u32 terrainHash = 0;
+	u32 solidTiles = 0;
+	u32 noBuildHash = 0;
+	u32 noBuildTiles = 0;
+	u32 blobCount = 0;
 	u32 blobHash = 0;
-	u16 blobCount = 0;
-	CBlob@[] blobs;
-	getBlobs(@blobs);
-	for (uint i = 0; i < blobs.length; i++)
-	{
-		CBlob@ blob = blobs[i];
-		if (blob is null || blob.hasTag("dead")) continue;
-		const string name = blob.getName();
-		const bool relevant = name == "flag" || name == "tent" || name == "hall" || name == "crate" ||
-			name == "buildershop" || name == "builder" || name == "aibuilder" || name == "autobuilder" || name == "knight" ||
-			name == "archer" || blob.hasTag("tree") || name == "log" || name == "mat_wood" || name == "mat_stone";
-		if (!relevant) continue;
-		const u32 x = u32(Maths::Max(0, int(blob.getPosition().x / map.tilesize)));
-		const u32 y = u32(Maths::Max(0, int(blob.getPosition().y / map.tilesize)));
-		const u32 item = u32(name.getHash()) ^ (u32(blob.getTeamNum()) * u32(2654435761)) ^ (x * 73856093) ^ (y * 19349663);
-		blobHash += item;
-		blobCount++;
-	}
-
-	u32 planHash = 2166136261;
-	array<u16>@ desired = null;
-	if (AIBP_GetLayerGrid(team, AIBP_Layer::ai_desired, @desired) && desired !is null)
-	{
-		for (uint i = 0; i < desired.length; i++)
-		{
-			if (desired[i] == 0) continue;
-			planHash = (planHash ^ u32(i + 1)) * 16777619;
-			planHash = (planHash ^ u32(desired[i])) * 16777619;
-		}
-	}
-	const string fingerprint = "m1-" + terrainHash + "-" + blobCount + "-" + blobHash + "-" + planHash +
-		"-" + rules.get_u16(AIBP_PlanKey(team, "pending")) + "-" + rules.get_u16(AIBP_PlanKey(team, "completed")) +
-		"-s" + AIBU_GetSpeedLevel(team);
+	u32 inventoryHash = 0;
+	u32 strategyHash = 0;
+	const string fingerprint = AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,
+		blobCount, blobHash, inventoryHash, strategyHash);
+	if (fingerprint == "") return false;
 	rules.set_string("aib wave measurement fingerprint", fingerprint);
+	rules.set_u32("aib wave measurement terrain hash", terrainHash);
+	rules.set_u32("aib wave measurement no build hash", noBuildHash);
+	rules.set_u32("aib wave measurement blob hash", blobHash);
+	rules.set_u32("aib wave measurement inventory hash", inventoryHash);
+	rules.set_u32("aib wave measurement strategy hash", strategyHash);
 	return true;
 }
 

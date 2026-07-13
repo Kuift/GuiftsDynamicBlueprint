@@ -8,6 +8,7 @@
 #include "MakeScroll.as";
 #include "BlueprintCommon.as";
 #include "AutoBuilderCommon.as";
+#include "AIBWorldFingerprint.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
 const uint ChatCommandDelay = 3 * 30; // Cooldown in seconds
@@ -88,15 +89,14 @@ bool AIBW_CaptureArmState(CRules@ rules, const u8 team)
 	if (home is null || enemyHome is null) return false;
 
 	const u32 mapHash = u32(map.getMapName().getHash());
-	u32 terrainHash = 2166136261;
+	u32 terrainHash = 0;
 	u32 solidTiles = 0;
-	const uint cells = uint(map.tilemapwidth) * uint(map.tilemapheight);
-	for (uint i = 0; i < cells; i++)
-	{
-		const TileType type = map.getTile(i).type;
-		terrainHash = (terrainHash ^ u32(type)) * 16777619;
-		if (map.isTileSolid(type)) solidTiles++;
-	}
+	u32 noBuildHash = 0;
+	u32 noBuildTiles = 0;
+	u32 manifestBlobCount = 0;
+	u32 manifestBlobHash = 0;
+	u32 manifestInventoryHash = 0;
+	u32 manifestStrategyHash = 0;
 
 	u16 friendlyUnits = 0;
 	u16 enemyUnits = 0;
@@ -148,7 +148,7 @@ bool AIBW_CaptureArmState(CRules@ rules, const u8 team)
 	const s32 enemyHomeY = s32(enemyHome.getPosition().y / map.tilesize);
 	const u8 autoBuilderSpeedLevel = AIBU_GetSpeedLevel(team);
 	const string fixtureID = "map_" + mapHash + "_" + map.tilemapwidth + "x" + map.tilemapheight;
-	const u16 fixtureVersion = 2;
+	const u16 fixtureVersion = 3;
 	const string teamSide = homeX <= enemyHomeX ? "left" : "right";
 	const u16 initialWood = AIBW_ArmStoredMaterial(team, "mat_wood");
 	const u16 initialStone = AIBW_ArmStoredMaterial(team, "mat_stone");
@@ -156,12 +156,9 @@ bool AIBW_CaptureArmState(CRules@ rules, const u8 team)
 	const u8 initialPlanStatus = rules.get_u8(AIBP_PlanKey(team, "status"));
 	const u16 initialPlanPending = rules.get_u16(AIBP_PlanKey(team, "pending"));
 	const u16 initialPlanCompleted = rules.get_u16(AIBP_PlanKey(team, "completed"));
-	const string fingerprint = "v2-" + mapHash + "-" + terrainHash + "-" + map.tilemapwidth + "x" + map.tilemapheight +
-		"-" + homeX + "x" + homeY + "-" + enemyHomeX + "x" + enemyHomeY + "-" + solidTiles + "-" +
-		aiBuilders + "-" + normalAIBuilderCount + "-" + autoBuilderCount + "-" + aiBuilderTypePositionHash +
-		"-" + autoBuilderSpeedLevel + "-" + friendlyUnits + "-" + enemyUnits + "-" + treeCount + "-" + treeHash + "-" +
-		initialWood + "-" + initialStone + "-" + initialPlanID + "-" + initialPlanStatus + "-" +
-		initialPlanPending + "-" + initialPlanCompleted;
+	const string fingerprint = AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,
+		manifestBlobCount, manifestBlobHash, manifestInventoryHash, manifestStrategyHash);
+	if (fingerprint == "") return false;
 
 	rules.set_string("aib wave initial fingerprint", fingerprint);
 	rules.set_string("aib wave fixture id", fixtureID);
@@ -173,6 +170,12 @@ bool AIBW_CaptureArmState(CRules@ rules, const u8 team)
 	rules.set_u16("aib wave initial map width", map.tilemapwidth);
 	rules.set_u16("aib wave initial map height", map.tilemapheight);
 	rules.set_u32("aib wave initial solid tiles", solidTiles);
+	rules.set_u32("aib wave initial no build hash", noBuildHash);
+	rules.set_u32("aib wave initial no build tiles", noBuildTiles);
+	rules.set_u32("aib wave initial manifest blob count", manifestBlobCount);
+	rules.set_u32("aib wave initial manifest blob hash", manifestBlobHash);
+	rules.set_u32("aib wave initial manifest inventory hash", manifestInventoryHash);
+	rules.set_u32("aib wave initial manifest strategy hash", manifestStrategyHash);
 	rules.set_s32("aib wave initial home x", homeX);
 	rules.set_s32("aib wave initial home y", homeY);
 	rules.set_s32("aib wave initial enemy home x", enemyHomeX);

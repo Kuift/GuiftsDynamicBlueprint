@@ -188,6 +188,8 @@ Production director placement weights and offline abstract-template metadata sha
 
 Strategy wave records use fixture id/version, team, left/right side, scenario, seed, canonical pre-warm-up fingerprint, and measurement-start fingerprint. `Tools/compare_aib_wave_results.ps1` groups on fixture/version/team/side before scenario/seed, requires exactly one control and one plan, and defaults to three distinct seeds per cohort. Do not weaken this to global seed/scenario pairing. All wave types use the seed for deterministic spawn cadence and formation. Run both `Tools/test_aib_wave_contract.ps1` and `Tools/test_compare_aib_wave_results.ps1` after changing the harness or record schema. These AngelScript additions are statically verified but not yet KAG-runtime compiled.
 
+Wave fixture version 3 uses `Scripts/AIBWorldFingerprint.as` for both initial and measurement boundaries. Run `Tools/test_aib_world_manifest_contract.ps1` after changing fingerprint inputs or consumers. Keep its blob fold order-stable and privacy-safe: never add usernames, network ids, or absolute game time. Full-map no-build scanning happens only at the two wave boundaries and still needs runtime performance calibration.
+
 `Tools/new_aib_wave_matrix.ps1` generates the canonical 48-trial/24-pair NDJSON collection manifest for two sides, four scenarios, and three seeds. Each trial is marked `requires_fresh_canonical_reset`; the tool schedules evidence but deliberately does not claim to reset or drive KAG. Its regression is `Tools/test_new_aib_wave_matrix.ps1`.
 
 Use `Tools/run_aib_tests.ps1` for automated coverage. The current suite has 58 scenarios and a complete successful run should end with:

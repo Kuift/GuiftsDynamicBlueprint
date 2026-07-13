@@ -275,7 +275,7 @@ Production weights and template metadata must have one source of truth consumed 
 
 ### Phase D — strategic evaluation
 
-- [ ] PARTIAL — canonical pre-warm-up and measurement-start fingerprints are emitted, and AIBTest restores/validates terrain, tagged fixture/bootstrap blobs, plan ids, and director modes between scenarios. Live KAG validation and broader non-fixture world-manifest hashing remain.
+- [ ] PARTIAL — canonical pre-warm-up and measurement-start fingerprints are emitted from the same order-stable `w1` world manifest, covering terrain, no-build masks, blobs/inventories, barriers, blueprint layers, and plan/tasks. AIBTest restores/validates terrain, tagged fixture/bootstrap blobs, plan ids, and director modes between scenarios. Live KAG validation and automatic fresh-trial reset remain.
 - [x] Fixture/version/team/side-aware comparator with exactly-one-variant pairing and a default three-seed minimum per cohort.
 - [x] Deterministic 48-trial/24-pair NDJSON collection manifest with explicit fresh-reset requirements.
 - [ ] Live 48-trial paired dataset and semantic gates.

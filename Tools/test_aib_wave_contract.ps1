@@ -20,6 +20,7 @@ foreach ($needle in @(
 foreach ($needle in @(
     'bool AIBW_CaptureMeasurementState',
     'if (!AIBW_CaptureMeasurementState(rules, team))',
+	'AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,',
     '" fixture_id="',
     '" fixture_version="',
     '" team_side="',

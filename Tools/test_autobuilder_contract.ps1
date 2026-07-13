@@ -152,8 +152,8 @@ foreach ($needle in @(
 )) { Assert-Contains $renderer $needle 'Overseer control does not support blueprint-only Autobuilder orders.' }
 
 foreach ($needle in @(
-    'const u16 fixtureVersion = 2;',
-    'const string fingerprint = "v2-"',
+    'const u16 fixtureVersion = 3;',
+    'AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,',
     'normalAIBuilderCount',
     'autoBuilderCount',
     'aiBuilderTypePositionHash',
@@ -162,7 +162,8 @@ foreach ($needle in @(
 foreach ($needle in @(
     'initial_autobuilder_speed_level=',
     'initial_ai_builder_type_position_hash=',
-    '"-s" + AIBU_GetSpeedLevel(team)'
+    'measurement_strategy_hash=',
+    'AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,'
 )) { Assert-Contains $wave $needle 'Wave result/measurement identity omits Autobuilder state.' }
 
 Write-Output 'Autobuilder static contract passed'

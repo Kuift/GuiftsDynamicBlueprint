@@ -76,7 +76,9 @@ string[] AIBT_SCENARIOS =
 	"strategic_mirrored_sides_select_safe_inward_candidates",
 	"strategic_uneven_right_edge_selects_reachable_fallback",
 	"strategic_scarcity_penalizes_unfunded_large_plan",
-	"strategic_collapse_pressure_prefers_emergency_barrier"
+	"strategic_collapse_pressure_prefers_emergency_barrier",
+	"strategic_damaged_front_reactivates_without_plan_replacement",
+	"strategic_autobuilder_physically_completes_selected_plan"
 };
 
 string AIBT_ScenarioName(const int index)
@@ -773,6 +775,39 @@ u16 AIBT_CountLayerTiles(const u8 team, const u8 layer)
 bool AIBT_LayerIsEmpty(const u8 team, const u8 layer)
 {
 	return AIBT_CountLayerTiles(team, layer) == 0;
+}
+
+bool AIBT_AllPlanTasksPhysicallyComplete(const u8 team, u16 &out taskCount, u16 &out stateCompleted,
+	u16 &out reservedCount, string &out mismatch)
+{
+	taskCount = 0;
+	stateCompleted = 0;
+	reservedCount = 0;
+	mismatch = "";
+	array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
+	array<u8>@ phases = null; array<u8>@ states = null; array<u32>@ untils = null;
+	if (!AIBP_LoadTaskArrays(team, @xs, @ys, @blocks, @phases, @states, @reserved, @untils) ||
+		xs is null || ys is null || blocks is null || states is null || reserved is null || untils is null)
+	{
+		mismatch = "task_arrays_missing";
+		return false;
+	}
+	if (xs.length != ys.length || xs.length != blocks.length || xs.length != states.length ||
+		xs.length != reserved.length || xs.length != untils.length)
+	{
+		mismatch = "task_array_length_mismatch x=" + xs.length + " y=" + ys.length + " block=" + blocks.length +
+			" state=" + states.length + " reserved=" + reserved.length + " until=" + untils.length;
+		return false;
+	}
+	taskCount = u16(xs.length);
+	for (uint i = 0; i < xs.length; i++)
+	{
+		if (states[i] == AIBP_TaskState::completed) stateCompleted++;
+		if (reserved[i] != 0 || untils[i] != 0) reservedCount++;
+		if (AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i], team)) continue;
+		if (mismatch == "") mismatch = "physical_mismatch index=" + i + " tile=" + xs[i] + "," + ys[i] + " block=" + blocks[i];
+	}
+	return taskCount > 0 && stateCompleted == taskCount && reservedCount == 0 && mismatch == "";
 }
 
 bool AIBT_RepresentativeDirectorCandidate(const u8 team, const s8 expectedDirection, const bool requireTerrainVariance,
@@ -2152,6 +2187,76 @@ void AIBT_SetupScenario(const int index)
 			break;
 		}
 
+		case 58:
+		{
+			const u16 x = 78;
+			const u16 y = AIBT_GROUND_Y - 1;
+			AIBT_SpawnTentTeam(366, 1);
+			AIBT_SpawnTentTeam(54, 0);
+			AIBT_SetTemporaryTile(x, y, CMap::tile_wood);
+			AIBT_SetTemporaryTile(x + 1, y, CMap::tile_castle);
+			AIBT_SetTemporaryTile(x + 2, y, CMap::tile_wood);
+			BlueprintPlan@ plan = AIBT_NewStrategicPlan(0, "damaged_front_fixture");
+			plan.anchor = Vec2f(x + 1, y + 1);
+			BlueprintTask@ woodDamaged = BlueprintTask(x, y, AIBP_WOOD_BLOCK, AIBP_Phase::shell);
+			BlueprintTask@ stoneDamaged = BlueprintTask(x + 1, y, AIBP_STONE_BLOCK, AIBP_Phase::shell);
+			BlueprintTask@ woodHealthy = BlueprintTask(x + 2, y, AIBP_WOOD_BLOCK, AIBP_Phase::shell);
+			woodDamaged.state = AIBP_TaskState::completed;
+			stoneDamaged.state = AIBP_TaskState::completed;
+			woodHealthy.state = AIBP_TaskState::completed;
+			plan.tasks.push_back(woodDamaged);
+			plan.tasks.push_back(stoneDamaged);
+			plan.tasks.push_back(woodHealthy);
+			const bool published = AIBP_PublishAIPlan(plan, true);
+			getRules().set_u16("aibt damaged front plan id", plan.id);
+			getRules().set_u16("aibt damaged front plan version", plan.version);
+			getRules().set_bool("aibt damaged front setup", published);
+			if (published)
+			{
+				getMap().server_SetTile(AIBT_Pos(x, y), CMap::tile_wood_d1);
+				getMap().server_SetTile(AIBT_Pos(x + 1, y), CMap::tile_castle_d1);
+				AIBP_RefreshPlanState(0, true);
+			}
+			break;
+		}
+
+		case 59:
+		{
+			AIBT_SpawnTentTeam(366, 1);
+			AIBT_SpawnTentTeam(54, 0);
+			@bot = AIBT_Spawn("autobuilder", 0, AIBT_Pos(60, AIBT_GROUND_Y - 3));
+			AIBT_SetBlob("aibt_bot", bot);
+			AIBWorldState@ world = AIBS_ObserveWorld(0);
+			AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);
+			BlueprintPlan@ plan = candidate is null ? null : AIBS_MakePlan(world, candidate);
+			const bool routeSafe = candidate !is null && AIBS_PreservesFriendlyRoute(candidate);
+			const bool published = bot !is null && plan !is null && routeSafe && AIBP_PublishAIPlan(plan, true);
+			u16 initialCompleted = 0;
+			if (plan !is null)
+			{
+				for (uint i = 0; i < plan.tasks.length; i++)
+				{
+					BlueprintTask@ task = plan.tasks[i];
+					if (task !is null && task.state == AIBP_TaskState::completed) initialCompleted++;
+				}
+			}
+			getRules().set_bool("aibt physical plan setup", published);
+			getRules().set_bool("aibt physical plan route safe", routeSafe);
+			getRules().set_bool("aibt physical plan progress observed", false);
+			getRules().set_u16("aibt physical plan id", plan is null ? 0 : plan.id);
+			getRules().set_u16("aibt physical plan version", plan is null ? 0 : plan.version);
+			getRules().set_u16("aibt physical plan tasks", plan is null ? 0 : u16(plan.tasks.length));
+			getRules().set_u16("aibt physical plan initial completed", initialCompleted);
+			getRules().set_string("aibt physical plan template", candidate is null ? "none" : candidate.templateName);
+			getRules().set_string("aibt physical plan reasons", candidate is null ? "none" : candidate.reasons);
+			if (published)
+			{
+				AIBWorldState@ assignedWorld = AIBS_ObserveWorld(0);
+				AIBS_AssignBuilders(assignedWorld);
+			}
+			break;
+		}
+
 	}
 }
 
@@ -2172,7 +2277,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 	// background so cleanup can restore the exact pre-shop fixture tiles.
 	AIBT_TrackWorkshopBackgrounds(AIBT_GROUND_Y);
 
-	if (bot is null && index != 18 && index != 48 && index != 54 && index != 55 && index != 56 && index != 57)
+	if (bot is null && index != 18 && index != 48 && index != 54 && index != 55 && index != 56 && index != 57 && index != 58)
 	{
 		failure = "bot_missing";
 		return true;
@@ -3326,6 +3431,101 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			details = "frontline_collapsing=true emergency_selected=true enemies=" + world.enemyKnights +
 				" pressure=" + world.pressure + " template=" + selected.templateName + " reasons=" + selected.reasons;
 			return true;
+		}
+
+		case 58:
+		{
+			CRules@ rules = getRules();
+			const u16 x = 78;
+			const u16 y = AIBT_GROUND_Y - 1;
+			if (!rules.get_bool("aibt damaged front setup"))
+			{
+				failure = "damaged_front_plan_publish_failed";
+				return true;
+			}
+			array<u16>@ desired = null; array<u16>@ work = null;
+			array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
+			array<u8>@ phases = null; array<u8>@ states = null; array<u32>@ untils = null;
+			AIBP_GetLayerGrid(0, AIBP_Layer::ai_desired, @desired);
+			AIBP_GetLayerGrid(0, AIBP_Layer::ai_work, @work);
+			const bool loaded = AIBP_LoadTaskArrays(0, @xs, @ys, @blocks, @phases, @states, @reserved, @untils);
+			const uint first = y * getMap().tilemapwidth + x;
+			const bool layersValid = desired !is null && work !is null && first + 2 < desired.length && first + 2 < work.length &&
+				desired[first] == AIBP_WOOD_BLOCK && desired[first + 1] == AIBP_STONE_BLOCK && desired[first + 2] == AIBP_WOOD_BLOCK &&
+				work[first] == AIBP_WOOD_BLOCK && work[first + 1] == AIBP_STONE_BLOCK && work[first + 2] == 0;
+			const bool tasksValid = loaded && states !is null && reserved !is null && states.length == 3 && reserved.length == 3 &&
+				states[0] == AIBP_TaskState::pending && states[1] == AIBP_TaskState::pending && states[2] == AIBP_TaskState::completed &&
+				reserved[0] == 0 && reserved[1] == 0 && reserved[2] == 0;
+			const bool repairable = AIBP_IsRepairablePlanOccupant(0, x, y, AIBP_WOOD_BLOCK) &&
+				AIBP_IsRepairablePlanOccupant(0, x + 1, y, AIBP_STONE_BLOCK);
+			AIBWorldState@ world = AIBS_ObserveWorld(0);
+			AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);
+			const bool invalid = AIBS_ActivePlanInvalid(world);
+			const bool replace = AIBS_ShouldReplacePlan(world, candidate);
+			const bool identityStable = rules.get_u16(AIBP_PlanKey(0, "id")) == rules.get_u16("aibt damaged front plan id") &&
+				rules.get_u16(AIBP_PlanKey(0, "version")) == rules.get_u16("aibt damaged front plan version");
+			const bool countsValid = world !is null && world.planPending == 2 && world.planCompleted == 1 && world.planDamaged == 2 &&
+				rules.get_u8(AIBP_PlanKey(0, "status")) == 1;
+			if (!layersValid || !tasksValid || !repairable || world is null || candidate is null || invalid || replace || !identityStable || !countsValid)
+			{
+				failure = "damaged_front_reactivation_failed layers=" + (layersValid ? "true" : "false") +
+					" tasks=" + (tasksValid ? "true" : "false") + " repairable=" + (repairable ? "true" : "false") +
+					" candidate=" + (candidate is null ? "none" : candidate.templateName) + " invalid=" + (invalid ? "true" : "false") +
+					" replace=" + (replace ? "true" : "false") + " identity=" + (identityStable ? "true" : "false") +
+					" pending=" + (world is null ? 0 : world.planPending) + " completed=" + (world is null ? 0 : world.planCompleted) +
+					" damaged=" + (world is null ? 0 : world.planDamaged) + " reason=" + rules.get_string("aib strategy replacement reason team 0");
+				return true;
+			}
+			details = "damaged_tiles=2 reactivated=2 healthy_completed=1 repairable=true plan_identity_stable=true replacement=false template=" + candidate.templateName;
+			return true;
+		}
+
+		case 59:
+		{
+			CRules@ rules = getRules();
+			if (!rules.get_bool("aibt physical plan setup"))
+			{
+				failure = "physical_selected_plan_setup_failed template=" + rules.get_string("aibt physical plan template") +
+					" route_safe=" + (rules.get_bool("aibt physical plan route safe") ? "true" : "false");
+				return true;
+			}
+			AIBP_RefreshPlanState(0, true);
+			const u16 expectedTasks = rules.get_u16("aibt physical plan tasks");
+			const u16 initialCompleted = rules.get_u16("aibt physical plan initial completed");
+			const u16 countedCompleted = rules.get_u16(AIBP_PlanKey(0, "completed"));
+			if (countedCompleted > initialCompleted) rules.set_bool("aibt physical plan progress observed", true);
+			u16 taskCount = 0; u16 stateCompleted = 0; u16 reservedCount = 0; string mismatch;
+			const bool physical = AIBT_AllPlanTasksPhysicallyComplete(0, taskCount, stateCompleted, reservedCount, mismatch);
+			const bool identityStable = rules.get_u16(AIBP_PlanKey(0, "id")) == rules.get_u16("aibt physical plan id") &&
+				rules.get_u16(AIBP_PlanKey(0, "version")) == rules.get_u16("aibt physical plan version");
+			const bool countersComplete = rules.get_u16(AIBP_PlanKey(0, "pending")) == 0 &&
+				rules.get_u16(AIBP_PlanKey(0, "completed")) == expectedTasks && rules.get_u8(AIBP_PlanKey(0, "status")) == 2;
+			const bool layersComplete = AIBT_CountLayerTiles(0, AIBP_Layer::ai_desired) == expectedTasks &&
+				AIBT_LayerIsEmpty(0, AIBP_Layer::ai_work);
+			const bool assignedExecutor = bot !is null && bot.hasTag("autobuilder") && bot.get_bool("aib strategy assigned") &&
+				bot.get_u8("ai builder job") == AIBS_JOB_BLUEPRINT;
+			const string archivePrefix = "aib strategy history plan " + rules.get_u16("aibt physical plan id") + " team 0 ";
+			const bool archivedComplete = rules.get_string(archivePrefix + "archive reason") == "completed";
+			const bool exercised = expectedTasks >= 6 && initialCompleted < expectedTasks && rules.get_bool("aibt physical plan progress observed");
+			if (physical && identityStable && countersComplete && layersComplete && assignedExecutor && archivedComplete && exercised)
+			{
+				details = "selected_plan_physically_complete=true template=" + rules.get_string("aibt physical plan template") +
+					" tasks=" + expectedTasks + " initial_completed=" + initialCompleted + " reservations=0 work_layer_empty=true route_safe=true plan_identity_stable=true";
+				return true;
+			}
+			const u32 timeout = u32(expectedTasks) * 45 + 450;
+			if (elapsed > timeout)
+			{
+				failure = "physical_selected_plan_timeout template=" + rules.get_string("aibt physical plan template") +
+					" elapsed=" + elapsed + " timeout=" + timeout + " expected=" + expectedTasks + " tasks=" + taskCount +
+					" states_completed=" + stateCompleted + " counted_completed=" + countedCompleted + " reserved=" + reservedCount +
+					" identity=" + (identityStable ? "true" : "false") + " counters=" + (countersComplete ? "true" : "false") +
+					" layers=" + (layersComplete ? "true" : "false") + " assigned=" + (assignedExecutor ? "true" : "false") +
+					" archived=" + (archivedComplete ? "true" : "false") + " exercised=" + (exercised ? "true" : "false") +
+					" mismatch=" + mismatch + " reasons=" + rules.get_string("aibt physical plan reasons") + " " + AIBT_DescribeBuilder(bot);
+				return true;
+			}
+			break;
 		}
 
 		case 44:

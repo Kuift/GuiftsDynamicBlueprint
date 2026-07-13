@@ -91,15 +91,15 @@ The passive AI monitor emits at most one compact numeric `[AIBGYM]` record per b
 
 For an interactive director check, a moderator on a playing team can use `!aib_director_test`. It switches that team to automatic strategy and automatically creates one same-team AI builder at the moderator only when none exists. Automated coverage should use `strategic_auto_director_heartbeat_end_to_end`, which starts without a worker and verifies that production bootstrap provisioning creates and assigns one safely.
 
-The AIBTest suite contains 58 scenarios. A complete successful run reports:
+The AIBTest suite contains 60 scenarios. A complete successful run reports:
 
 ```text
-AIB tests passed: 58 passed, 0 failed
+AIB tests passed: 60 passed, 0 failed
 ```
 
 The game log must also contain the matching `[AIBTEST] DONE` marker; the launcher no longer accepts matching START/PASS counts alone. Run the full suite with `Tools/run_aib_tests.ps1`, one case with `-Scenario <name>`, or an inclusive range with `-StartScenario <name> -EndScenario <name>`. The default opens a visible `RunLocalhost` session and leaves KAG running; add `-StopAfterRun` only when desired. Intermediate fixtures remain visible for 15 ticks before cleanup, while the final selected fixture is retained indefinitely after `DONE` for human inspection. A lack of post-START log/simulation progress produces a distinct stale-run diagnostic. `AIBTestCamera.as` intends to follow the active fixture, but displayed follow and manual movement are currently unreliable; `CAMERA_TARGET`/`CAMERA_VIEW` logs must not be treated as proof of what the player sees.
 
-KAG can still stop advancing during visible localhost runs. The targeted log `console-26-07-09-22-06-03.txt` passed scenarios 42-46 with `DONE`; `console-26-07-10-17-32-06.txt` passed the physical repair scenario with `DONE`. These are focused results, not a full 58-scenario pass, and camera records are not visual verification. The newest canonical-reset/representative-planner/scarcity/pressure fixtures are statically contracted but have not been run.
+KAG can still stop advancing during visible localhost runs. The targeted log `console-26-07-09-22-06-03.txt` passed scenarios 42-46 with `DONE`; `console-26-07-10-17-32-06.txt` passed the physical repair scenario with `DONE`. These are focused results, not a full 60-scenario pass, and camera records are not visual verification. The newest canonical-reset, representative planner, damaged-front, and full selected-plan completion fixtures are statically contracted but have not been run.
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 

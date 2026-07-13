@@ -37,3 +37,23 @@ void AIBT_PrintDone(const u16 passed, const u16 failed)
 	print("[AIBTEST] DONE passed=" + passed + " failed=" + failed);
 	AIBT_LogTest("done", "passed=" + passed + " failed=" + failed);
 }
+
+void AIBT_PrintFinalVerdict(const string &in scenario, const u32 ticks, const string &in failure,
+	const string &in details, const u16 passed, const u16 failed)
+{
+	string verdict;
+	if (failure == "")
+	{
+		verdict = "[AIBTEST] PASS " + scenario + " ticks=" + ticks;
+		if (details != "") verdict += " " + details;
+	}
+	else
+	{
+		verdict = "[AIBTEST] FAIL " + scenario + " reason=" + failure;
+	}
+	// One physical console write is the completion transaction. Some visible
+	// localhost runs stop advancing between adjacent print() calls.
+	print(verdict + " [AIBTEST] DONE passed=" + passed + " failed=" + failed);
+	AIBT_LogTest(failure == "" ? "pass" : "fail", "name=" + scenario + " ticks=" + ticks + " " + (failure == "" ? details : failure));
+	AIBT_LogTest("done", "passed=" + passed + " failed=" + failed);
+}

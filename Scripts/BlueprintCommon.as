@@ -51,6 +51,16 @@ namespace AIBP_StrategyMode
 	}
 }
 
+bool AIBP_IsDirectorEnabled(const u8 mode)
+{
+	return mode == AIBP_StrategyMode::auto_mode;
+}
+
+u8 AIBP_ToggleDirectorMode(const u8 mode)
+{
+	return AIBP_IsDirectorEnabled(mode) ? AIBP_StrategyMode::off : AIBP_StrategyMode::auto_mode;
+}
+
 string AIBP_CompatDataKey(const u8 team) { return AIBP_COMPAT_DATA + AIBP_TEAM_SUFFIX + int(team); }
 string AIBP_CompatWidthKey(const u8 team) { return AIBP_COMPAT_WIDTH + AIBP_TEAM_SUFFIX + int(team); }
 string AIBP_CompatHeightKey(const u8 team) { return AIBP_COMPAT_HEIGHT + AIBP_TEAM_SUFFIX + int(team); }

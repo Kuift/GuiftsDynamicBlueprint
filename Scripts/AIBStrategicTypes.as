@@ -59,6 +59,7 @@ class AIBWorldState
 	u16 friendlyArchers;
 	u16 friendlyBuilders;
 	u16 aiBuilders;
+	u16 autoBuilders;
 	u16 aiWoodJobs;
 	u16 aiStoneJobs;
 	u16 aiBuildJobs;

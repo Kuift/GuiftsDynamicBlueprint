@@ -380,6 +380,33 @@ void AIBP_SetAIWorkEnabled(const u8 team, const bool enabled)
 	AIBP_SendDisplaySnapshot(0, team);
 }
 
+bool AIBP_LayerHasWork(const u8 team, const u8 layer)
+{
+	array<u16>@ grid = null;
+	if (!AIBP_GetLayerGrid(team, layer, @grid) || grid is null) return false;
+	for (uint i = 0; i < grid.length; i++) if (grid[i] != 0) return true;
+	return false;
+}
+
+bool AIBP_ActivateSuggestedWorkForManualBuilder(CBlob@ builder)
+{
+	if (!isServer() || builder is null || builder.hasTag("dead") || builder.getTeamNum() < 0 || builder.getTeamNum() >= 8) return false;
+	const u8 team = u8(builder.getTeamNum());
+	CRules@ rules = getRules();
+	if (rules is null || rules.get_u8(AIBP_ModeKey(team)) != AIBP_StrategyMode::suggest ||
+		builder.get_u8("ai builder job") != 2 || builder.get_bool("aib strategy assigned")) return false;
+	if (!AIBP_LayerHasWork(team, AIBP_Layer::ai_desired)) return false;
+	if (!AIBP_LayerHasWork(team, AIBP_Layer::ai_work))
+	{
+		// A manual Build blueprint order is explicit approval of the visible
+		// suggestion. Activate its work layer without enabling autonomous role
+		// assignment or changing the team's suggestion-mode setting.
+		AIBP_SetAIWorkEnabled(team, true);
+		AIBS_Log("suggestion_accept", team, "builder=" + builder.getNetworkID());
+	}
+	return AIBP_LayerHasWork(team, AIBP_Layer::ai_work);
+}
+
 u8 AIBP_CurrentTaskPhase(const u8 team)
 {
 	array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
@@ -474,12 +501,14 @@ bool AIBP_ReserveTask(const u8 team, const u16 x, const u16 y, const u16 builder
 				rules.set_u16("aib wave reservation conflicts", rules.get_u16("aib wave reservation conflicts") + 1);
 			return false;
 		}
+		const bool newClaim = reserved[i] != builderNetID || states[i] != AIBP_TaskState::reserved;
 		AIBP_ReleaseLooseBuilderReservation(team, builderNetID);
 		reserved[i] = builderNetID; untils[i] = now + AIBP_RESERVATION_TICKS; states[i] = AIBP_TaskState::reserved;
 		getRules().set(AIBP_TaskKey(team, "reserved"), reserved);
 		getRules().set(AIBP_TaskKey(team, "until"), untils);
 		getRules().set(AIBP_TaskKey(team, "state"), states);
-		AIBS_Log("reserve", team, "plan=" + getRules().get_u16(AIBP_PlanKey(team, "id")) + " x=" + x + " y=" + y + " builder=" + builderNetID + " phase=" + activePhase);
+		if (newClaim) AIBS_Log("reserve", team, "plan=" + getRules().get_u16(AIBP_PlanKey(team, "id")) +
+			" x=" + x + " y=" + y + " builder=" + builderNetID + " phase=" + activePhase);
 		return true;
 	}
 	return AIBP_ReserveLooseTask(team, x, y, builderNetID); // Generated support tiles are not explicit strategic tasks.
@@ -646,26 +675,74 @@ void AIBP_ClearConsumableTile(const u8 team, const u16 x, const u16 y)
 	AIBP_NotifyDisplayTile(team, x, y);
 }
 
-bool AIBP_MapMatchesBlock(const u16 x, const u16 y, const u16 block)
+bool AIBP_HealthyTileMatchesBlock(const TileType current, const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if (id == AIBP_STONE_BLOCK) return current >= CMap::tile_castle && current < CMap::tile_castle_d1;
+	if (id == AIBP_STONE_BACKWALL) return current >= CMap::tile_castle_back && current < 76;
+	if (id == AIBP_WOOD_BLOCK) return current >= CMap::tile_wood && current < CMap::tile_wood_d1;
+	if (id == AIBP_WOOD_BACKWALL) return current >= CMap::tile_wood_back && current < 207;
+	return current == AIBP_BlockTileType(block);
+}
+
+bool AIBP_DamagedTileMatchesBlock(const TileType current, const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if (id == AIBP_STONE_BLOCK) return current >= CMap::tile_castle_d1 && current <= CMap::tile_castle_d0;
+	if (id == AIBP_STONE_BACKWALL) return current >= 76 && current <= 79;
+	if (id == AIBP_WOOD_BLOCK) return current >= CMap::tile_wood_d1 && current <= CMap::tile_wood_d0;
+	if (id == AIBP_WOOD_BACKWALL) return current == 207;
+	return false;
+}
+
+CBlob@ AIBP_GetMatchingPlanBlob(const u16 x, const u16 y, const u16 block, const s16 expectedTeam)
 {
 	CMap@ map = getMap();
-	if (map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	if (map is null || !AIBP_IsBlobBlock(block)) return null;
 	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
-	if (!AIBP_IsBlobBlock(block)) return map.getTile(center).type == AIBP_BlockTileType(block);
 	CBlob@[] nearby;
-	if (!map.getBlobsInRadius(center, 6.0f, @nearby)) return false;
+	if (!map.getBlobsInRadius(center, 6.0f, @nearby)) return null;
 	const string expected = AIBP_BlockBlobName(block);
 	const u8 rotation = AIBP_BlockRotation(block);
 	for (uint i = 0; i < nearby.length; i++)
 	{
 		CBlob@ placed = nearby[i];
 		if (placed is null || placed.hasTag("dead") || placed.getName() != expected) continue;
+		if (expectedTeam >= 0 && placed.getTeamNum() != expectedTeam) continue;
 		if (!AIBP_BlobAnchoredAtTile(placed, x, y)) continue;
 		const u8 actual = AIBP_NormalizeRotationForId(AIBP_BlockId(block),
 			u8((Maths::Round(placed.getAngleDegrees() / 90.0f) + 4) % 4));
-		if (actual == rotation) return true;
+		if (actual == rotation) return placed;
 	}
-	return false;
+	return null;
+}
+
+bool AIBP_MapMatchesBlock(const u16 x, const u16 y, const u16 block)
+{
+	return AIBP_MapMatchesBlock(x, y, block, -1);
+}
+
+bool AIBP_MapMatchesBlock(const u16 x, const u16 y, const u16 block, const s16 expectedTeam)
+{
+	CMap@ map = getMap();
+	if (map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
+	if (!AIBP_IsBlobBlock(block)) return AIBP_HealthyTileMatchesBlock(map.getTile(center).type, block);
+	CBlob@ placed = AIBP_GetMatchingPlanBlob(x, y, block, expectedTeam);
+	return placed !is null && placed.getHealth() + 0.001f >= placed.getInitialHealth();
+}
+
+bool AIBP_IsRepairablePlanOccupant(const u8 team, const u16 x, const u16 y, const u16 block)
+{
+	CMap@ map = getMap();
+	if (map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	if (AIBP_IsBlobBlock(block))
+	{
+		CBlob@ placed = AIBP_GetMatchingPlanBlob(x, y, block, team);
+		return placed !is null && placed.getHealth() + 0.001f < placed.getInitialHealth();
+	}
+	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
+	return AIBP_DamagedTileMatchesBlock(map.getTile(center).type, block);
 }
 
 bool AIBP_BlobAnchoredAtTile(CBlob@ blob, const u16 x, const u16 y)
@@ -692,7 +769,7 @@ void AIBP_RefreshPlanState(const u8 team, const bool reactivateDamaged)
 	bool changed = false; bool workChanged = false;
 	for (uint i = 0; i < xs.length && i < ys.length && i < blocks.length && i < states.length; i++)
 	{
-		const bool matches = AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i]);
+		const bool matches = AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i], team);
 		const uint index = ys[i] * map.tilemapwidth + xs[i];
 		if (states[i] == AIBP_TaskState::completed && !matches)
 		{

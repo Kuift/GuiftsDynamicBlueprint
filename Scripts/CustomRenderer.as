@@ -32,9 +32,15 @@ const u8 BLUEPRINT_TOOL_FLIP = 6;
 const u8 BLUEPRINT_TOOL_VISIBILITY = 7;
 const u8 BLUEPRINT_TOOL_OVERSEER = 8;
 const u8 BLUEPRINT_TOOL_COUNT = 8;
+const u8 AIB_CATALOG_TAB_BLOCKS = 0;
+const u8 AIB_CATALOG_TAB_WORKSHOPS = 1;
+const u8 AIB_CATALOG_TAB_BLOBS = 2;
+const u8 AIB_CATALOG_TAB_COUNT = 3;
 const u8 AIB_OVERSEER_ORDER_WOOD = 0;
 const u8 AIB_OVERSEER_ORDER_STONE = 1;
 const u8 AIB_OVERSEER_ORDER_BLUEPRINT = 2;
+const u8 AIB_OVERSEER_ORDER_DIRECTOR_OFF = 3;
+const u8 AIB_OVERSEER_ORDER_DIRECTOR_ON = 4;
 const string AIB_OVERSEER_NETIDS_KEY = "blueprint overseer netids";
 const string AIB_OVERSEER_TEAM_SUFFIX = " team ";
 const s32 AIB_BUILDER_HEAD_FRAME = 120;
@@ -259,12 +265,14 @@ void onTick(CRules@ this)
 			UpdateOverseerViewCamera();
 		}
 		bool toolbarConsumed = UpdateBlueprintToolbar();
+		bool catalogPanelConsumed = UpdateBlueprintCatalogPanel();
 		bool advancedPanelConsumed = UpdateBlueprintAdvancedPanel();
+		bool directorToggleConsumed = UpdateAIBDirectorToggle();
 		bool treeButtonConsumed = UpdateTreeSelectionButton();
 		bool stoneButtonConsumed = UpdateStoneSelectionButton();
 		bool overseerConsumed = UpdateOverseerView();
 		bool prefabMenuConsumed = false;
-		if(toggleBlueprint && displayPrefabSelectionMenu && !toolbarConsumed && !advancedPanelConsumed && !treeButtonConsumed && !stoneButtonConsumed)
+		if(toggleBlueprint && displayPrefabSelectionMenu && !toolbarConsumed && !catalogPanelConsumed && !advancedPanelConsumed && !directorToggleConsumed && !treeButtonConsumed && !stoneButtonConsumed)
 		{
 			selectedBlueprint = inv.Update();
 			prefabMenuConsumed = inv.consumesMouseInput() || selectedBlueprint != "";
@@ -281,7 +289,7 @@ void onTick(CRules@ this)
 		}
 
 		CBlob@ playerBlob = getLocalPlayerBlob();
-		if(!toolbarConsumed && !advancedPanelConsumed && !treeButtonConsumed && !stoneButtonConsumed && !overseerConsumed && !prefabMenuConsumed)
+		if(!toolbarConsumed && !catalogPanelConsumed && !advancedPanelConsumed && !directorToggleConsumed && !treeButtonConsumed && !stoneButtonConsumed && !overseerConsumed && !prefabMenuConsumed)
 		{
 			ChangeIfNeeded();
 		}
@@ -327,8 +335,11 @@ bool blueprintEditorActive = false;
 u8 blueprintEditorTool = BLUEPRINT_TOOL_PAINT;
 bool blueprintToolbarButtonPressed = false;
 u8 blueprintToolbarPressedTool = 255;
-bool blueprintCatalogButtonPressed = false;
-s8 blueprintCatalogPressedDirection = 0;
+bool blueprintCatalogPanelButtonPressed = false;
+u16 blueprintCatalogPanelPressedBlock = 0;
+bool blueprintCatalogTabButtonPressed = false;
+u8 blueprintCatalogTabPressed = 255;
+u8 blueprintCatalogTab = AIB_CATALOG_TAB_BLOCKS;
 u8 blueprintAdvancedTab = 0;
 bool blueprintAdvancedButtonPressed = false;
 u8 blueprintAdvancedPressedTab = 255;
@@ -339,6 +350,7 @@ u16[] overseerSelectedBuilders;
 bool overseerSelectionDragging = false;
 bool overseerOrderButtonPressed = false;
 u8 overseerPressedOrder = 255;
+bool aibDirectorTogglePressed = false;
 Vec2f overseerPanelPosition = Vec2f(-1.0f, -1.0f);
 bool overseerPanelDragging = false;
 Vec2f overseerPanelDragOffset = Vec2f_zero;
@@ -1514,35 +1526,9 @@ bool UpdateBlueprintToolbar()
 	}
 
 	CControls@ controls = getControls();
-	if(controls is null)
-	{
-		return false;
-	}
+	if(controls is null) return false;
 
 	Vec2f mouse = controls.getMouseScreenPos();
-	Vec2f catalogMin = AIB_ToolButtonMin(BLUEPRINT_TOOL_COUNT) + Vec2f(0, 74);
-	bool catalogPrev = mouse.x >= catalogMin.x && mouse.x <= catalogMin.x + 78 &&
-		mouse.y >= catalogMin.y && mouse.y <= catalogMin.y + 24;
-	bool catalogNext = mouse.x >= catalogMin.x + 82 && mouse.x <= catalogMin.x + 160 &&
-		mouse.y >= catalogMin.y && mouse.y <= catalogMin.y + 24;
-	if((catalogPrev || catalogNext) && controls.isKeyJustPressed(KEY_LBUTTON))
-	{
-		blueprintCatalogButtonPressed = true;
-		blueprintCatalogPressedDirection = catalogNext ? 1 : -1;
-		return true;
-	}
-	if(blueprintCatalogButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
-	{
-		const s8 releasedDirection = catalogNext ? 1 : (catalogPrev ? -1 : 0);
-		if(releasedDirection == blueprintCatalogPressedDirection)
-		{
-			customMenuTurn = AIBP_NextCatalogId(customMenuTurn, releasedDirection);
-			customCatalogSelectionActive = true;
-		}
-		blueprintCatalogButtonPressed = false;
-		blueprintCatalogPressedDirection = 0;
-		return true;
-	}
 	u8 hovered = 255;
 	for(u8 i = 0; i < BLUEPRINT_TOOL_COUNT; i++)
 	{
@@ -1571,7 +1557,221 @@ bool UpdateBlueprintToolbar()
 		return true;
 	}
 
-	return (hovered != 255 || catalogPrev || catalogNext) && controls.isKeyPressed(KEY_LBUTTON);
+	return hovered != 255 && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+bool AIB_BlueprintCatalogPanelVisible()
+{
+	return AIB_LocalCanUseBlueprintControls() && AIB_LocalIsWorkshopOverseer() && blueprintEditorActive;
+}
+
+Vec2f AIB_BlueprintCatalogPanelMin()
+{
+	Vec2f screen = getDriver().getScreenDimensions();
+	return Vec2f((screen.x - 456.0f) / 2.0f, 58.0f);
+}
+
+Vec2f AIB_BlueprintCatalogTabMin(const u8 tab)
+{
+	return AIB_BlueprintCatalogPanelMin() + Vec2f(8 + tab * 96, 8);
+}
+
+bool AIB_MouseInBlueprintCatalogTab(const u8 tab, Vec2f mouse)
+{
+	Vec2f min = AIB_BlueprintCatalogTabMin(tab);
+	Vec2f max = min + Vec2f(90, 24);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+string AIB_BlueprintCatalogTabLabel(const u8 tab)
+{
+	if(tab == AIB_CATALOG_TAB_BLOCKS) return "Blocks";
+	if(tab == AIB_CATALOG_TAB_WORKSHOPS) return "Workshops";
+	return "Blobs";
+}
+
+u16 AIB_BlueprintCatalogCount(const u8 tab)
+{
+	if(tab == AIB_CATALOG_TAB_BLOCKS) return 4;
+	if(tab == AIB_CATALOG_TAB_BLOBS) return 6;
+	return 11;
+}
+
+u16 AIB_BlueprintCatalogBlockAt(const u8 tab, const u16 index)
+{
+	if(tab == AIB_CATALOG_TAB_BLOCKS)
+	{
+		if(index == 0) return AIBP_STONE_BLOCK;
+		if(index == 1) return AIBP_STONE_BACKWALL;
+		if(index == 2) return AIBP_WOOD_BLOCK;
+		if(index == 3) return AIBP_WOOD_BACKWALL;
+	}
+	else if(tab == AIB_CATALOG_TAB_BLOBS)
+	{
+		if(index == 0) return AIBP_STONE_DOOR;
+		if(index == 1) return AIBP_WOOD_DOOR;
+		if(index == 2) return AIBP_BRIDGE;
+		if(index == 3) return AIBP_PLATFORM;
+		if(index == 4) return AIBP_LADDER;
+		if(index == 5) return AIBP_SPIKES;
+	}
+	else
+	{
+		if(index == 0) return AIBP_BUILDER_SHOP;
+		if(index == 1) return AIBP_QUARTERS;
+		if(index == 2) return AIBP_KNIGHT_SHOP;
+		if(index == 3) return AIBP_ARCHER_SHOP;
+		if(index == 4) return AIBP_BOAT_SHOP;
+		if(index == 5) return AIBP_VEHICLE_SHOP;
+		if(index == 6) return AIBP_AI_BUILDER_SHOP;
+		if(index == 7) return AIBP_NURSERY;
+		if(index == 8) return AIBP_STORAGE;
+		if(index == 9) return AIBP_TUNNEL;
+		if(index == 10) return AIBP_QUARRY;
+	}
+	return AIBP_STONE_BLOCK;
+}
+
+string AIB_BlueprintCatalogShortName(const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if(id == AIBP_STONE_BLOCK) return "Stone";
+	if(id == AIBP_STONE_BACKWALL) return "Stone wall";
+	if(id == AIBP_WOOD_BLOCK) return "Wood";
+	if(id == AIBP_WOOD_BACKWALL) return "Wood wall";
+	if(id == AIBP_STONE_DOOR) return "Stone door";
+	if(id == AIBP_WOOD_DOOR) return "Wood door";
+	if(id == AIBP_BRIDGE) return "Bridge";
+	if(id == AIBP_PLATFORM) return "Platform";
+	if(id == AIBP_LADDER) return "Ladder";
+	if(id == AIBP_SPIKES) return "Spikes";
+	if(id == AIBP_BUILDER_SHOP) return "Builder";
+	if(id == AIBP_QUARTERS) return "Quarters";
+	if(id == AIBP_KNIGHT_SHOP) return "Knight";
+	if(id == AIBP_ARCHER_SHOP) return "Archer";
+	if(id == AIBP_BOAT_SHOP) return "Boat";
+	if(id == AIBP_VEHICLE_SHOP) return "Vehicle";
+	if(id == AIBP_AI_BUILDER_SHOP) return "AI Builder";
+	if(id == AIBP_NURSERY) return "Nursery";
+	if(id == AIBP_STORAGE) return "Storage";
+	if(id == AIBP_TUNNEL) return "Tunnel";
+	if(id == AIBP_QUARRY) return "Quarry";
+	return AIBP_BlockDisplayName(block);
+}
+
+SColor AIB_BlueprintCatalogSwatch(const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if(id == AIBP_STONE_BLOCK || id == AIBP_STONE_BACKWALL || id == AIBP_STONE_DOOR || id == AIBP_SPIKES) return SColor(0xff8f969e);
+	if(id == AIBP_WOOD_BLOCK || id == AIBP_WOOD_BACKWALL || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_LADDER) return SColor(0xffb17a42);
+	if(AIBP_IsWorkshopBlock(block)) return SColor(0xff6f8fb1);
+	return SColor(0xff777777);
+}
+
+bool AIB_BlueprintCatalogUsesAtlasPreview(const u16 block)
+{
+	return !AIBP_IsWorkshopBlock(block);
+}
+
+u16 AIB_BlueprintCatalogAtlasFrame(const u16 block)
+{
+	return AIBP_BlockId(AIB_RenderAtlasBlock(block));
+}
+
+Vec2f AIB_BlueprintCatalogCellMin(const u16 index)
+{
+	const u16 cols = 4;
+	Vec2f panelMin = AIB_BlueprintCatalogPanelMin();
+	return panelMin + Vec2f(8 + (index % cols) * 110, 40 + (index / cols) * 50);
+}
+
+bool AIB_MouseInBlueprintCatalogCell(const u16 index, Vec2f mouse)
+{
+	Vec2f min = AIB_BlueprintCatalogCellMin(index);
+	Vec2f max = min + Vec2f(104, 44);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool AIB_BlueprintCatalogBlockAtMouse(Vec2f mouse, u16 &out block)
+{
+	const u16 count = AIB_BlueprintCatalogCount(blueprintCatalogTab);
+	for(u16 i = 0; i < count; i++)
+	{
+		if(AIB_MouseInBlueprintCatalogCell(i, mouse))
+		{
+			block = AIB_BlueprintCatalogBlockAt(blueprintCatalogTab, i);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UpdateBlueprintCatalogPanel()
+{
+	if(!AIB_BlueprintCatalogPanelVisible())
+	{
+		blueprintCatalogPanelButtonPressed = false;
+		blueprintCatalogPanelPressedBlock = 0;
+		blueprintCatalogTabButtonPressed = false;
+		blueprintCatalogTabPressed = 255;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+	Vec2f mouse = controls.getMouseScreenPos();
+
+	u8 hoveredTab = 255;
+	for(u8 i = 0; i < AIB_CATALOG_TAB_COUNT; i++)
+	{
+		if(AIB_MouseInBlueprintCatalogTab(i, mouse))
+		{
+			hoveredTab = i;
+			break;
+		}
+	}
+
+	if(hoveredTab != 255 && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		blueprintCatalogTabButtonPressed = true;
+		blueprintCatalogTabPressed = hoveredTab;
+		return true;
+	}
+	if(blueprintCatalogTabButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hoveredTab == blueprintCatalogTabPressed) blueprintCatalogTab = hoveredTab;
+		blueprintCatalogTabButtonPressed = false;
+		blueprintCatalogTabPressed = 255;
+		return true;
+	}
+
+	u16 hoveredBlock = 0;
+	const bool hoveredCell = AIB_BlueprintCatalogBlockAtMouse(mouse, hoveredBlock);
+	if(hoveredCell && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		blueprintCatalogPanelButtonPressed = true;
+		blueprintCatalogPanelPressedBlock = hoveredBlock;
+		return true;
+	}
+	if(blueprintCatalogPanelButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hoveredCell && hoveredBlock == blueprintCatalogPanelPressedBlock)
+		{
+			customMenuTurn = AIBP_BlockId(hoveredBlock);
+			currentRotation = AIBP_DefaultRotation(hoveredBlock);
+			oldBlockIndex = customMenuTurn;
+			blockIndex = AIBP_EncodeBlock(customMenuTurn, currentRotation);
+			customCatalogSelectionActive = true;
+		}
+		blueprintCatalogPanelButtonPressed = false;
+		blueprintCatalogPanelPressedBlock = 0;
+		return true;
+	}
+
+	Vec2f panelMin = AIB_BlueprintCatalogPanelMin();
+	Vec2f panelMax = panelMin + Vec2f(456, 198);
+	const bool inPanel = mouse.x >= panelMin.x && mouse.x <= panelMax.x && mouse.y >= panelMin.y && mouse.y <= panelMax.y;
+	return inPanel && controls.isKeyPressed(KEY_LBUTTON);
 }
 
 void AIB_ActivateToolbarTool(const u8 tool)
@@ -1800,7 +2000,7 @@ void AIB_SelectBuildersInCurrentRect()
 	const int team = player is null ? -1 : player.getTeamNum();
 	overseerSelectedBuilders.clear();
 	CBlob@[] builders;
-	getBlobsByName("aibuilder", @builders);
+	AIB_GetConstructionWorkers(builders);
 	for(uint i = 0; i < builders.length; i++)
 	{
 		CBlob@ builder = builders[i];
@@ -1829,7 +2029,7 @@ CBlob@ AIB_GetNearestOverseerBuilder(Vec2f worldPos)
 	CPlayer@ player = getLocalPlayer();
 	const int team = player is null ? -1 : player.getTeamNum();
 	CBlob@[] builders;
-	getBlobsByName("aibuilder", @builders);
+	AIB_GetConstructionWorkers(builders);
 	CBlob@ best = null;
 	f32 bestDistance = 999999.0f;
 	for(uint i = 0; i < builders.length; i++)
@@ -1925,6 +2125,120 @@ bool AIB_MouseInOverseerOrderButton(const u8 order, Vec2f mouse)
 	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
 }
 
+Vec2f AIB_DirectorPanelMin()
+{
+	return Vec2f(210, 8);
+}
+
+Vec2f AIB_DirectorToggleMin()
+{
+	return AIB_DirectorPanelMin() + Vec2f(330, 4);
+}
+
+bool AIB_LocalCanToggleDirector()
+{
+	CPlayer@ player = getLocalPlayer();
+	return player !is null && player.getTeamNum() >= 0 && player.getTeamNum() < 8 && AIB_CanPlayerUseOverseerControls(player);
+}
+
+bool AIB_MouseInDirectorToggle(Vec2f mouse)
+{
+	Vec2f min = AIB_DirectorToggleMin();
+	Vec2f max = min + Vec2f(92, 22);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool UpdateAIBDirectorToggle()
+{
+	if(!AIB_LocalCanToggleDirector())
+	{
+		aibDirectorTogglePressed = false;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+	const bool hovered = AIB_MouseInDirectorToggle(controls.getMouseScreenPos());
+	if(hovered && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		aibDirectorTogglePressed = true;
+		return true;
+	}
+
+	if(aibDirectorTogglePressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hovered) AIB_SendDirectorToggle();
+		aibDirectorTogglePressed = false;
+		return true;
+	}
+
+	return hovered && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+void AIB_SendDirectorToggle()
+{
+	CPlayer@ player = getLocalPlayer();
+	CRules@ rules = getRules();
+	if(player is null || rules is null || player.getTeamNum() < 0 || player.getTeamNum() >= 8) return;
+	const u8 team = u8(player.getTeamNum());
+	const u8 requestedMode = AIBP_ToggleDirectorMode(rules.get_u8(AIBP_ModeKey(team)));
+	CBitStream params;
+	params.write_u16(player.getNetworkID());
+	params.write_u16(0);
+	params.write_u8(requestedMode == AIBP_StrategyMode::auto_mode ? AIB_OVERSEER_ORDER_DIRECTOR_ON : AIB_OVERSEER_ORDER_DIRECTOR_OFF);
+	rules.SendCommand(rules.getCommandID("overseerOrderAIBuilder"), params);
+	AIB_LogEvent("ui", "director_toggle", AIB_EventPlayerRef(player), "mode=" + requestedMode + " team=" + team);
+}
+
+void AIB_ServerSetDirectorMode(const u16 playerNetID, const u8 requestedMode)
+{
+	if(!isServer() || (requestedMode != AIBP_StrategyMode::off && requestedMode != AIBP_StrategyMode::auto_mode)) return;
+	CPlayer@ player = getPlayerByNetworkId(playerNetID);
+	if(player is null || player.getTeamNum() < 0 || player.getTeamNum() >= 8 || !AIB_ServerCanUseBlueprintControls(playerNetID)) return;
+	const u8 team = u8(player.getTeamNum());
+	CRules@ rules = getRules();
+	if(rules is null) return;
+	rules.set_u8(AIBP_ModeKey(team), requestedMode);
+	rules.Sync(AIBP_ModeKey(team), true);
+	rules.set_u32("aib strategy important event team " + int(team), getGameTime());
+	AIBP_SetAIWorkEnabled(team, requestedMode == AIBP_StrategyMode::auto_mode);
+	if(requestedMode == AIBP_StrategyMode::off) AIB_ServerStopDirectorAssignments(team);
+	AIB_LogEvent("player", "director_mode", AIB_EventPlayerRef(player), "mode=" + requestedMode + " team=" + team);
+}
+
+void AIB_ServerStopDirectorAssignments(const u8 team)
+{
+	if(!isServer()) return;
+	CBlob@[] builders;
+	AIB_GetConstructionWorkers(builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder is null || builder.hasTag("dead") || builder.getTeamNum() != team || !builder.get_bool("aib strategy assigned")) continue;
+		AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());
+		builder.set_u8("ai builder state", AIB_RENDERER_STATE_IDLE);
+		builder.set_bool("ai builder job active", false);
+		builder.set_bool("aib strategy assigned", false);
+		builder.set_netid("ai builder target", 0);
+		builder.set_Vec2f("ai builder destination", Vec2f_zero);
+		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
+		builder.Sync("ai builder state", true);
+		builder.Sync("ai builder job active", true);
+	}
+}
+
+void AIB_GetConstructionWorkers(array<CBlob@> &out builders)
+{
+	builders.clear();
+	string[] names = { "aibuilder", "autobuilder" };
+	for(uint n = 0; n < names.length; n++)
+	{
+		CBlob@[] named;
+		getBlobsByName(names[n], @named);
+		for(uint i = 0; i < named.length; i++) builders.push_back(named[i]);
+	}
+}
+
 bool UpdateOverseerOrderButtons()
 {
 	if(overseerSelectedBuilders.length == 0)
@@ -1985,9 +2299,18 @@ void AIB_SendOverseerOrder(const u8 order)
 void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID, const u8 order)
 {
 	if(!isServer()) return;
+	if(order == AIB_OVERSEER_ORDER_DIRECTOR_OFF || order == AIB_OVERSEER_ORDER_DIRECTOR_ON)
+	{
+		AIB_ServerSetDirectorMode(playerNetID,
+			order == AIB_OVERSEER_ORDER_DIRECTOR_ON ? AIBP_StrategyMode::auto_mode : AIBP_StrategyMode::off);
+		return;
+	}
 	CBlob@ builder = getBlobByNetworkID(builderNetID);
-	if(builder is null || builder.getName() != "aibuilder" || builder.hasTag("dead")) return;
+	if(builder is null || (builder.getName() != "aibuilder" && builder.getName() != "autobuilder") || builder.hasTag("dead")) return;
 	if(!AIB_ServerCanIssueOverseerCommand(playerNetID, u8(builder.getTeamNum()))) return;
+	const bool autoBuilder = builder.getName() == "autobuilder";
+	if(autoBuilder && order != AIB_OVERSEER_ORDER_BLUEPRINT) return;
+	AIBP_ReleaseBuilderReservation(u8(builder.getTeamNum()), builder.getNetworkID());
 
 	if(order == AIB_OVERSEER_ORDER_WOOD)
 	{
@@ -2003,7 +2326,7 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 	}
 	else if(order == AIB_OVERSEER_ORDER_BLUEPRINT)
 	{
-		builder.set_u8("ai builder state", 12);
+		builder.set_u8("ai builder state", autoBuilder ? 13 : 12);
 		builder.set_u8("ai builder job", 2);
 		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
 		builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
@@ -2016,8 +2339,11 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 
 	builder.set_netid("ai builder target", 0);
 	builder.set_Vec2f("ai builder destination", Vec2f_zero);
+	builder.set_bool("ai builder job active", true);
+	builder.set_bool("aib strategy assigned", false);
 	builder.Sync("ai builder state", true);
 	builder.Sync("ai builder job", true);
+	builder.Sync("ai builder job active", true);
 	AIB_LogEvent("player", "overseer_order", AIB_EventBlobRef(builder), "order=" + order + " player=" + playerNetID + " pos=" + AIB_EventPos(builder.getPosition()));
 }
 
@@ -2295,7 +2621,7 @@ void RenderSelectedTreeMarkers()
 	if(overseerViewActive)
 	{
 		CBlob@[] builders;
-		getBlobsByName("aibuilder", @builders);
+		AIB_GetConstructionWorkers(builders);
 		for(uint i = 0; i < builders.length; i++)
 		{
 			CBlob@ builder = builders[i];
@@ -2573,6 +2899,7 @@ void RenderAdvancedGui(int id)
 	RenderAIBuilderResourceCounters();
 	RenderAIBStrategyStatus();
 	RenderBlueprintToolbar();
+	RenderBlueprintCatalogPanel();
 
 	if(toggleBlueprint && displayPrefabSelectionMenu)
 	{
@@ -2592,22 +2919,54 @@ void RenderAIBStrategyStatus()
 	if (player is null || rules is null || player.getTeamNum() >= 100) return;
 	const u8 team = u8(player.getTeamNum());
 	const u8 mode = rules.get_u8(AIBP_ModeKey(team));
-	if (mode == AIBP_StrategyMode::off) return;
+	const bool directorEnabled = AIBP_IsDirectorEnabled(mode);
 	const u16 plan = rules.get_u16(AIBP_PlanKey(team, "id"));
-	if (plan == 0) return;
-	const string modeName = mode == AIBP_StrategyMode::suggest ? "SUGGEST" : "AUTO";
 	const string templateName = rules.get_string(AIBP_PlanKey(team, "template"));
 	const f32 score = rules.get_f32(AIBP_PlanKey(team, "score"));
 	const string reasons = rules.get_string(AIBP_PlanKey(team, "reasons"));
 	const u16 pending = rules.get_u16(AIBP_PlanKey(team, "pending"));
 	const u16 completed = rules.get_u16(AIBP_PlanKey(team, "completed"));
 	const u16 damaged = rules.get_u16(AIBP_PlanKey(team, "damaged"));
-	Vec2f min = Vec2f(210, 8);
-	Vec2f max = min + Vec2f(430, 48);
+	Vec2f min = AIB_DirectorPanelMin();
+	Vec2f max = min + Vec2f(430, 66);
 	GUI::DrawRectangle(min, max, SColor(0xdd101820));
-	GUI::DrawText("AI " + modeName + "  " + templateName + "  score " + formatFloat(score, "", 0, 1) +
-		"  tasks " + completed + "/" + (completed + pending) + (damaged > 0 ? " damaged " + damaged : ""), min + Vec2f(8, 5), SColor(0xffffffff));
-	GUI::DrawText(reasons, min + Vec2f(8, 25), SColor(0xffb8d8ee));
+	const SColor statusColor = directorEnabled ? SColor(0xff70e090) : SColor(0xffffa070);
+	GUI::DrawText("Director AI: " + (directorEnabled ? "ON" : "OFF"), min + Vec2f(8, 6), statusColor);
+
+	const bool canToggle = AIB_LocalCanToggleDirector();
+	CControls@ controls = getControls();
+	const bool hover = canToggle && controls !is null && AIB_MouseInDirectorToggle(controls.getMouseScreenPos());
+	Vec2f buttonMin = AIB_DirectorToggleMin();
+	Vec2f buttonMax = buttonMin + Vec2f(92, 22);
+	SColor buttonFill = canToggle ? SColor(0xff283844) : SColor(0xaa202830);
+	if(aibDirectorTogglePressed) buttonFill = SColor(0xff505050);
+	else if(hover) buttonFill = SColor(0xff3e5868);
+	GUI::DrawRectangle(buttonMin, buttonMax, SColor(0xff080808));
+	GUI::DrawRectangle(buttonMin + Vec2f(1, 1), buttonMax - Vec2f(1, 1), buttonFill);
+	GUI::DrawTextCentered(directorEnabled ? "Turn off" : "Turn on", (buttonMin + buttonMax) / 2.0f,
+		canToggle ? SColor(0xffffffff) : SColor(0xff888888));
+
+	if(directorEnabled)
+	{
+		if(plan == 0)
+		{
+			GUI::DrawText("Planning and assigning builders...", min + Vec2f(8, 27), SColor(0xffb8d8ee));
+		}
+		else
+		{
+			GUI::DrawText(templateName + "  score " + formatFloat(score, "", 0, 1) + "  tasks " + completed + "/" +
+				(completed + pending) + (damaged > 0 ? " damaged " + damaged : ""), min + Vec2f(8, 27), SColor(0xffffffff));
+			GUI::DrawText(reasons, min + Vec2f(8, 46), SColor(0xffb8d8ee));
+		}
+	}
+	else if(mode == AIBP_StrategyMode::suggest)
+	{
+		GUI::DrawText("Suggestion mode only; automatic builder orders are off.", min + Vec2f(8, 27), SColor(0xffe0c070));
+	}
+	else
+	{
+		GUI::DrawText("Automatic planning and builder assignment are disabled.", min + Vec2f(8, 27), SColor(0xffb8d8ee));
+	}
 }
 
 void RenderBlueprintToolbar()
@@ -2655,13 +3014,54 @@ void RenderBlueprintToolbar()
 	GUI::DrawRectangle(blockMin, blockMax, SColor(0xdd202020));
 	GUI::DrawText(AIBP_BlockDisplayName(blockIndex), blockMin + Vec2f(5, 3), SColor(0xffffffff));
 	GUI::DrawText(AIBP_BlockMaterial(blockIndex) + " " + AIBP_BlockCost(blockIndex) + "  rot " + AIBP_BlockRotation(blockIndex), blockMin + Vec2f(5, 20), SColor(0xffb8d8ee));
-	Vec2f catalogMin = blockMin + Vec2f(0, 42);
-	Vec2f catalogMid = catalogMin + Vec2f(78, 0);
-	Vec2f catalogNext = catalogMin + Vec2f(82, 0);
-	GUI::DrawRectangle(catalogMin, catalogMid + Vec2f(0, 24), SColor(0xdd202020));
-	GUI::DrawRectangle(catalogNext, catalogNext + Vec2f(78, 24), SColor(0xdd202020));
-	GUI::DrawTextCentered("Previous", (catalogMin + catalogMid + Vec2f(0, 24)) / 2.0f, SColor(0xffffffff));
-	GUI::DrawTextCentered("Next", catalogNext + Vec2f(39, 12), SColor(0xffffffff));
+}
+
+void RenderBlueprintCatalogPanel()
+{
+	if(!AIB_BlueprintCatalogPanelVisible()) return;
+
+	CControls@ controls = getControls();
+	Vec2f mouse = controls is null ? Vec2f_zero : controls.getMouseScreenPos();
+	Vec2f min = AIB_BlueprintCatalogPanelMin();
+	Vec2f max = min + Vec2f(456, 198);
+	GUI::DrawRectangle(min, max, SColor(0x66121212));
+
+	for(u8 i = 0; i < AIB_CATALOG_TAB_COUNT; i++)
+	{
+		Vec2f tabMin = AIB_BlueprintCatalogTabMin(i);
+		Vec2f tabMax = tabMin + Vec2f(90, 24);
+		SColor fill = i == blueprintCatalogTab ? SColor(0xaa2f6f8f) : SColor(0x77202020);
+		if(blueprintCatalogTabButtonPressed && blueprintCatalogTabPressed == i) fill = SColor(0xbb505050);
+		else if(controls !is null && AIB_MouseInBlueprintCatalogTab(i, mouse) && i != blueprintCatalogTab) fill = SColor(0x88404040);
+		GUI::DrawRectangle(tabMin, tabMax, fill);
+		GUI::DrawTextCentered(AIB_BlueprintCatalogTabLabel(i), (tabMin + tabMax) / 2.0f, SColor(0xffffffff));
+	}
+
+	const u16 count = AIB_BlueprintCatalogCount(blueprintCatalogTab);
+	for(u16 i = 0; i < count; i++)
+	{
+		const u16 catalogBlock = AIB_BlueprintCatalogBlockAt(blueprintCatalogTab, i);
+		Vec2f cellMin = AIB_BlueprintCatalogCellMin(i);
+		Vec2f cellMax = cellMin + Vec2f(104, 44);
+		const bool selected = AIBP_BlockId(blockIndex) == AIBP_BlockId(catalogBlock);
+		const bool hover = controls !is null && AIB_MouseInBlueprintCatalogCell(i, mouse);
+		SColor fill = selected ? SColor(0xaa2f6f8f) : SColor(0x77202020);
+		if(blueprintCatalogPanelButtonPressed && blueprintCatalogPanelPressedBlock == catalogBlock) fill = SColor(0xbb505050);
+		else if(hover && !selected) fill = SColor(0x88404040);
+		GUI::DrawRectangle(cellMin, cellMax, fill);
+		if(AIB_BlueprintCatalogUsesAtlasPreview(catalogBlock))
+		{
+			GUI::DrawRectangle(cellMin + Vec2f(4, 5), cellMin + Vec2f(22, 23), SColor(0x88202020));
+			GUI::DrawIcon("REEE.png", AIB_BlueprintCatalogAtlasFrame(catalogBlock), Vec2f(8, 8), cellMin + Vec2f(5, 6), 2.0f);
+		}
+		else
+		{
+			GUI::DrawRectangle(cellMin + Vec2f(4, 5), cellMin + Vec2f(22, 23), AIB_BlueprintCatalogSwatch(catalogBlock));
+		}
+		GUI::DrawText(AIB_BlueprintCatalogShortName(catalogBlock), cellMin + Vec2f(28, 4), SColor(0xffffffff));
+		GUI::DrawText("" + AIBP_BlockCost(catalogBlock) + " " + (AIBP_BlockMaterial(catalogBlock) == "mat_stone" ? "stone" : "wood"),
+			cellMin + Vec2f(6, 25), SColor(0xffb8d8ee));
+	}
 }
 
 Vec2f AIB_BlueprintAdvancedPanelMin()
@@ -2865,17 +3265,20 @@ void RenderBlueprintAdvancedPanel()
 		AIB_BlueprintMaterialCosts(wood, stone);
 		const u16 storedWood = AIB_CountTeamStoredMaterial(team, "mat_wood");
 		const u16 storedStone = AIB_CountTeamStoredMaterial(team, "mat_stone");
+		const bool infiniteBuilder = AIB_TeamHasAutoBuilder(team);
 		AIB_DrawAdvancedLine(content, 0, "Blueprint cost", SColor(0xffffffff));
 		AIB_DrawAdvancedLine(content, 1, "Wood: " + wood + "  stored " + storedWood);
 		AIB_DrawAdvancedLine(content, 2, "Stone: " + stone + "  stored " + storedStone);
-		AIB_DrawAdvancedLine(content, 3, "Wood shortage: " + (wood > storedWood ? wood - storedWood : 0));
-		AIB_DrawAdvancedLine(content, 4, "Stone shortage: " + (stone > storedStone ? stone - storedStone : 0));
+		AIB_DrawAdvancedLine(content, 3, infiniteBuilder ? "Wood shortage: ignored by Autobuilder" :
+			"Wood shortage: " + (wood > storedWood ? wood - storedWood : 0));
+		AIB_DrawAdvancedLine(content, 4, infiniteBuilder ? "Stone shortage: ignored by Autobuilder" :
+			"Stone shortage: " + (stone > storedStone ? stone - storedStone : 0));
 	}
 	else
 	{
 		u16 builders = 0; u16 building = 0; u16 reserved = 0;
 		CBlob@[] aiBuilders;
-		getBlobsByName("aibuilder", @aiBuilders);
+		AIB_GetConstructionWorkers(aiBuilders);
 		for(uint i = 0; i < aiBuilders.length; i++)
 		{
 			CBlob@ builder = aiBuilders[i];
@@ -2892,6 +3295,18 @@ void RenderBlueprintAdvancedPanel()
 		AIB_DrawAdvancedLine(content, 4, "Completed: " + rules.get_u16(AIBP_PlanKey(team, "completed")));
 		AIB_DrawAdvancedLine(content, 5, "Damaged: " + rules.get_u16(AIBP_PlanKey(team, "damaged")));
 	}
+}
+
+bool AIB_TeamHasAutoBuilder(const u8 team)
+{
+	CBlob@[] builders;
+	getBlobsByName("autobuilder", @builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder !is null && !builder.hasTag("dead") && builder.getTeamNum() == team) return true;
+	}
+	return false;
 }
 
 string AIB_OverseerOrderLabel(const u8 order)
@@ -2948,7 +3363,7 @@ void RenderAIBuilderResourceCounters()
 	u16 blueprintBuilders = 0;
 
 	CBlob@[] builders;
-	getBlobsByName("aibuilder", @builders);
+	AIB_GetConstructionWorkers(builders);
 	for(uint i = 0; i < builders.length; i++)
 	{
 		CBlob@ builder = builders[i];
@@ -2973,7 +3388,9 @@ void RenderAIBuilderResourceCounters()
 	Vec2f screen = getDriver().getScreenDimensions();
 	const f32 counterWidth = 58.0f;
 	const f32 counterGap = 10.0f;
-	Vec2f pos = Vec2f(Maths::Max(4.0f, (screen.x - counterWidth * 3.0f - counterGap * 2.0f) / 2.0f), 48);
+	const f32 totalWidth = counterWidth * 3.0f + counterGap * 2.0f;
+	const f32 mapUiReserve = 174.0f;
+	Vec2f pos = Vec2f(Maths::Max(4.0f, screen.x - mapUiReserve - totalWidth - 12.0f), 8);
 	pos = RenderAIBuilderResourceCounter(pos, "$mat_wood$", woodBuilders);
 	pos = RenderAIBuilderResourceCounter(pos + Vec2f(counterGap, 0), "$mat_stone$", stoneBuilders);
 	RenderAIBuilderResourceCounter(pos + Vec2f(counterGap, 0), "$BUILDER$", blueprintBuilders);

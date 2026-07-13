@@ -2,23 +2,40 @@ param(
     [Parameter(Mandatory = $true, Position = 0)]
     [string[]]$LogPath,
     [string[]]$Scenarios = @("knight", "archer", "bomb", "mixed"),
+    [Alias("RequireAcceptance", "EnforceAcceptanceGates")]
+    [switch]$RequireAcceptanceGates,
+    [double]$MaxFriendlyRoutePenaltyIncrease = 0.10,
+    [Alias("MinimumSeedsPerScenario")]
+    [ValidateRange(1, 1000000)]
+    [int]$MinimumSeedsPerCohort = 3,
     [switch]$AsJson
 )
 
 $ErrorActionPreference = "Stop"
+if ($MaxFriendlyRoutePenaltyIncrease -lt 0.0) {
+    throw "MaxFriendlyRoutePenaltyIncrease must be non-negative"
+}
 $culture = [System.Globalization.CultureInfo]::InvariantCulture
 $requiredFields = @(
-    "seed", "variant", "scenario", "elapsed", "first_breach", "crossings", "enemy_deaths", "builder_deaths",
+    "fixture_id", "fixture_version", "team", "team_side", "seed", "variant", "scenario", "initial_fingerprint", "measurement_fingerprint",
+    "elapsed", "breached", "first_breach", "crossings", "enemy_deaths", "builder_deaths",
     "flag_approaches", "plan_completed_delta", "plan_pending", "plan_damaged", "damage_events", "damage_absorbed_cost", "plan_cost",
     "completion_tick", "first_damage_tick", "structure_lifetime", "builder_travel", "builder_idle_ticks",
     "reservation_conflicts", "replans", "route_preserved", "friendly_route_penalty"
 )
 $numericProperties = @(
-    "Elapsed", "FirstBreach", "Crossings", "EnemyDeaths", "BuilderDeaths", "FlagApproaches", "PlanCompleted",
+    "Elapsed", "Crossings", "EnemyDeaths", "BuilderDeaths", "FlagApproaches", "PlanCompleted",
     "PlanPending", "PlanDamaged", "DamageEvents", "DamageAbsorbedCost", "PlanCost", "CompletionTick", "FirstDamageTick",
     "StructureLifetime", "BuilderTravel", "BuilderIdleTicks", "ReservationConflicts", "Replans", "RoutePreserved",
     "FriendlyRoutePenalty"
 )
+
+function ConvertTo-WaveBoolean {
+    param([string]$Name, [string]$Value, [string]$Location)
+    if ($Value -eq "true") { return $true }
+    if ($Value -eq "false") { return $false }
+    throw "Invalid $Name value '$Value' at $Location; expected true or false"
+}
 
 function ConvertTo-WaveNumber {
     param([string]$Name, [string]$Value, [string]$Location)
@@ -43,16 +60,38 @@ function ConvertFrom-WaveResultLine {
     if ($fields.variant -ne "control" -and $fields.variant -ne "plan") {
         throw "Invalid wave variant '$($fields.variant)' at $Location"
     }
-    if ($fields.route_preserved -ne "true" -and $fields.route_preserved -ne "false") {
-        throw "Invalid route_preserved value '$($fields.route_preserved)' at $Location"
+    if ($fields.team_side -ne "left" -and $fields.team_side -ne "right") {
+        throw "Invalid team_side '$($fields.team_side)' at $Location; expected left or right"
+    }
+    if ([string]::IsNullOrWhiteSpace($fields.fixture_id)) { throw "Empty fixture_id at $Location" }
+    if ([string]::IsNullOrWhiteSpace($fields.initial_fingerprint)) { throw "Empty initial_fingerprint at $Location" }
+    if ([string]::IsNullOrWhiteSpace($fields.measurement_fingerprint)) { throw "Empty measurement_fingerprint at $Location" }
+
+    $breached = ConvertTo-WaveBoolean "breached" $fields.breached $Location
+    $routePreserved = ConvertTo-WaveBoolean "route_preserved" $fields.route_preserved $Location
+    $elapsed = ConvertTo-WaveNumber "elapsed" $fields.elapsed $Location
+    $firstBreach = ConvertTo-WaveNumber "first_breach" $fields.first_breach $Location
+    if ($elapsed -lt 0) { throw "Invalid negative elapsed value '$($fields.elapsed)' at $Location" }
+    if ($breached -and ($firstBreach -lt 0 -or $firstBreach -gt $elapsed)) {
+        throw "Breached wave has first_breach=$firstBreach outside elapsed interval 0..$elapsed at $Location"
+    }
+    if (!$breached -and $firstBreach -ne 0) {
+        throw "Censored wave must use first_breach=0 when breached=false at $Location"
     }
 
     [pscustomobject]@{
+        FixtureId = $fields.fixture_id
+        FixtureVersion = [uint32](ConvertTo-WaveNumber "fixture_version" $fields.fixture_version $Location)
+        Team = [uint32](ConvertTo-WaveNumber "team" $fields.team $Location)
+        TeamSide = $fields.team_side
         Seed = [uint64](ConvertTo-WaveNumber "seed" $fields.seed $Location)
         Variant = $fields.variant
         Scenario = $fields.scenario
-        Elapsed = ConvertTo-WaveNumber "elapsed" $fields.elapsed $Location
-        FirstBreach = ConvertTo-WaveNumber "first_breach" $fields.first_breach $Location
+        InitialFingerprint = $fields.initial_fingerprint
+        MeasurementFingerprint = $fields.measurement_fingerprint
+        Elapsed = $elapsed
+        Breached = $breached
+        FirstBreach = $firstBreach
         Crossings = ConvertTo-WaveNumber "crossings" $fields.crossings $Location
         EnemyDeaths = ConvertTo-WaveNumber "enemy_deaths" $fields.enemy_deaths $Location
         BuilderDeaths = ConvertTo-WaveNumber "builder_deaths" $fields.builder_deaths $Location
@@ -70,9 +109,56 @@ function ConvertFrom-WaveResultLine {
         BuilderIdleTicks = ConvertTo-WaveNumber "builder_idle_ticks" $fields.builder_idle_ticks $Location
         ReservationConflicts = ConvertTo-WaveNumber "reservation_conflicts" $fields.reservation_conflicts $Location
         Replans = ConvertTo-WaveNumber "replans" $fields.replans $Location
-        RoutePreserved = if ($fields.route_preserved -eq "true") { 1.0 } else { 0.0 }
+        RoutePreserved = if ($routePreserved) { 1.0 } else { 0.0 }
         FriendlyRoutePenalty = ConvertTo-WaveNumber "friendly_route_penalty" $fields.friendly_route_penalty $Location
         Location = $Location
+    }
+}
+
+function Get-BreachEvidence {
+    param($Control, $Plan)
+
+    $status = ""
+    $gatePassed = $false
+    $firstBreachDelta = $null
+    if ($Control.Breached -and $Plan.Breached) {
+        $firstBreachDelta = [Math]::Round([double]$Plan.FirstBreach - [double]$Control.FirstBreach, 3)
+        if ($firstBreachDelta -gt 0) { $status = "plan_delayed_breach" }
+        elseif ($firstBreachDelta -eq 0) { $status = "same_breach_time" }
+        else { $status = "plan_earlier_breach" }
+        $gatePassed = $firstBreachDelta -ge 0
+    }
+    elseif ($Control.Breached -and !$Plan.Breached) {
+        if ($Plan.Elapsed -ge $Control.FirstBreach) {
+            $status = "plan_censored_after_control_breach"
+            $gatePassed = $true
+        }
+        else {
+            $status = "plan_censored_before_control_breach"
+        }
+    }
+    elseif (!$Control.Breached -and $Plan.Breached) {
+        if ($Control.Elapsed -ge $Plan.FirstBreach) {
+            $status = "plan_breached_within_control_observation"
+        }
+        else {
+            $status = "control_censored_before_plan_breach"
+        }
+    }
+    else {
+        if ($Plan.Elapsed -ge $Control.Elapsed) {
+            $status = "both_censored_plan_observed_as_long"
+            $gatePassed = $true
+        }
+        else {
+            $status = "both_censored_plan_observed_shorter"
+        }
+    }
+
+    return [pscustomobject]@{
+        Status = $status
+        GatePassed = $gatePassed
+        FirstBreachDelta = $firstBreachDelta
     }
 }
 
@@ -97,38 +183,109 @@ foreach ($path in $LogPath) {
 if ($records.Count -eq 0) { throw "No requested [AIBEVT] strategy wave_result records found" }
 
 $pairs = @()
-foreach ($scenario in $Scenarios) {
-    $scenarioRecords = @($records | Where-Object Scenario -eq $scenario)
-    if ($scenarioRecords.Count -eq 0) { throw "Missing requested wave scenario: $scenario" }
-    $seeds = @($scenarioRecords | Select-Object -ExpandProperty Seed -Unique | Sort-Object)
-    foreach ($seed in $seeds) {
-        $seedRecords = @($scenarioRecords | Where-Object Seed -eq $seed)
+$contexts = @($records | Group-Object FixtureId, FixtureVersion, Team, TeamSide)
+foreach ($context in $contexts) {
+    $contextRecords = @($context.Group)
+    $identity = "fixture=$($contextRecords[0].FixtureId) version=$($contextRecords[0].FixtureVersion) team=$($contextRecords[0].Team) side=$($contextRecords[0].TeamSide)"
+    foreach ($scenario in $Scenarios) {
+        $scenarioRecords = @($contextRecords | Where-Object Scenario -eq $scenario)
+        if ($scenarioRecords.Count -eq 0) { throw "Missing requested wave scenario '$scenario' for $identity" }
+        $seeds = @($scenarioRecords | Select-Object -ExpandProperty Seed -Unique | Sort-Object)
+        if ($seeds.Count -lt $MinimumSeedsPerCohort) {
+            throw "Wave cohort $identity scenario=$scenario requires at least $MinimumSeedsPerCohort distinct seeds; found $($seeds.Count)"
+        }
+        foreach ($seed in $seeds) {
+            $seedRecords = @($scenarioRecords | Where-Object Seed -eq $seed)
         $controls = @($seedRecords | Where-Object Variant -eq "control")
         $plans = @($seedRecords | Where-Object Variant -eq "plan")
         if ($controls.Count -ne 1 -or $plans.Count -ne 1) {
-            throw "Wave pair seed=$seed scenario=$scenario requires exactly one control and one plan; found control=$($controls.Count) plan=$($plans.Count)"
+            throw "Wave pair $identity seed=$seed scenario=$scenario requires exactly one control and one plan; found control=$($controls.Count) plan=$($plans.Count)"
         }
         $control = $controls[0]
         $plan = $plans[0]
-        $pair = [ordered]@{ Seed = $seed; Scenario = $scenario }
+        if ($control.InitialFingerprint -cne $plan.InitialFingerprint) {
+            throw "Wave pair $identity seed=$seed scenario=$scenario has mismatched initial_fingerprint values: control='$($control.InitialFingerprint)' plan='$($plan.InitialFingerprint)'"
+        }
+
+        $breachEvidence = Get-BreachEvidence $control $plan
+        $gateFailures = @()
+        if ($plan.Crossings -gt $control.Crossings) { $gateFailures += "crossings" }
+        if (!$breachEvidence.GatePassed) { $gateFailures += "breach:$($breachEvidence.Status)" }
+        if ($plan.RoutePreserved -lt $control.RoutePreserved -or
+            $plan.FriendlyRoutePenalty -gt $control.FriendlyRoutePenalty + $MaxFriendlyRoutePenaltyIncrease + 0.000000001) {
+            $gateFailures += "friendly_route"
+        }
+        if ($plan.BuilderDeaths -gt $control.BuilderDeaths) { $gateFailures += "builder_deaths" }
+
+        $pair = [ordered]@{
+            FixtureId = $control.FixtureId
+            FixtureVersion = $control.FixtureVersion
+            Team = $control.Team
+            TeamSide = $control.TeamSide
+            Seed = $seed
+            Scenario = $scenario
+            InitialFingerprint = $control.InitialFingerprint
+            ControlMeasurementFingerprint = $control.MeasurementFingerprint
+            PlanMeasurementFingerprint = $plan.MeasurementFingerprint
+            ControlBreached = [bool]$control.Breached
+            PlanBreached = [bool]$plan.Breached
+            ControlCensored = ![bool]$control.Breached
+            PlanCensored = ![bool]$plan.Breached
+            ControlFirstBreach = if ($control.Breached) { [double]$control.FirstBreach } else { $null }
+            PlanFirstBreach = if ($plan.Breached) { [double]$plan.FirstBreach } else { $null }
+            BreachEvidence = $breachEvidence.Status
+            BreachedDelta = [int]$plan.Breached - [int]$control.Breached
+            FirstBreachDelta = $breachEvidence.FirstBreachDelta
+            CrossingsGatePassed = $plan.Crossings -le $control.Crossings
+            BreachGatePassed = [bool]$breachEvidence.GatePassed
+            FriendlyRouteGatePassed = ($plan.RoutePreserved -ge $control.RoutePreserved -and
+                $plan.FriendlyRoutePenalty -le $control.FriendlyRoutePenalty + $MaxFriendlyRoutePenaltyIncrease + 0.000000001)
+            FriendlyRoutePenaltyAllowance = $MaxFriendlyRoutePenaltyIncrease
+            BuilderDeathsGatePassed = $plan.BuilderDeaths -le $control.BuilderDeaths
+            AcceptancePassed = $gateFailures.Count -eq 0
+            AcceptanceFailures = $gateFailures -join ","
+        }
         foreach ($property in $numericProperties) {
             $pair["${property}Delta"] = [Math]::Round([double]$plan.$property - [double]$control.$property, 3)
         }
         $pairs += [pscustomobject]$pair
+        }
     }
 }
 
 $aggregate = [ordered]@{
     PairCount = $pairs.Count
+    CohortCount = $contexts.Count
     ScenarioCount = $Scenarios.Count
+    MinimumSeedsPerCohort = $MinimumSeedsPerCohort
+    FixtureIds = (@($pairs | Select-Object -ExpandProperty FixtureId -Unique | Sort-Object) -join ",")
+    TeamSides = (@($pairs | Select-Object -ExpandProperty TeamSide -Unique | Sort-Object) -join ",")
     Seeds = (@($pairs | Select-Object -ExpandProperty Seed -Unique | Sort-Object) -join ",")
+    BothBreachedPairCount = @($pairs | Where-Object { $_.ControlBreached -and $_.PlanBreached }).Count
+    BothCensoredPairCount = @($pairs | Where-Object { $_.ControlCensored -and $_.PlanCensored }).Count
+    PlanOnlyBreachedPairCount = @($pairs | Where-Object { $_.ControlCensored -and $_.PlanBreached }).Count
+    ControlOnlyBreachedPairCount = @($pairs | Where-Object { $_.ControlBreached -and $_.PlanCensored }).Count
+    AcceptancePassed = @($pairs | Where-Object { !$_.AcceptancePassed }).Count -eq 0
+    AcceptanceFailureCount = @($pairs | Where-Object { !$_.AcceptancePassed }).Count
 }
+$timedBreachPairs = @($pairs | Where-Object { $null -ne $_.FirstBreachDelta })
+$aggregate["MeanBreachedDelta"] = [Math]::Round([double](($pairs | Measure-Object -Property BreachedDelta -Average).Average), 3)
+$aggregate["MeanFirstBreachDelta"] = if ($timedBreachPairs.Count -gt 0) {
+    [Math]::Round([double](($timedBreachPairs | Measure-Object -Property FirstBreachDelta -Average).Average), 3)
+} else { $null }
 foreach ($property in $numericProperties) {
     $deltaProperty = "${property}Delta"
     $mean = ($pairs | Measure-Object -Property $deltaProperty -Average).Average
     $aggregate["Mean${property}Delta"] = [Math]::Round([double]$mean, 3)
 }
 $result = [pscustomobject]@{ Pairs = $pairs; Aggregate = [pscustomobject]$aggregate }
+
+if ($RequireAcceptanceGates -and !$result.Aggregate.AcceptancePassed) {
+    $failureSummary = @($pairs | Where-Object { !$_.AcceptancePassed } | ForEach-Object {
+        "seed=$($_.Seed) scenario=$($_.Scenario) failures=$($_.AcceptanceFailures)"
+    }) -join "; "
+    throw "AIB wave semantic acceptance gates failed: $failureSummary"
+}
 
 if ($AsJson) {
     $result | ConvertTo-Json -Depth 5

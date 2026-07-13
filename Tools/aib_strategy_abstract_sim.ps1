@@ -1,19 +1,41 @@
 param(
     [int]$Trials = 500,
     [int]$Seed = 1337,
+    [string]$ConfigPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'Rules\CommonScripts\AIBStrategyWeights.cfg'),
     [switch]$AsJson
 )
 
 $ErrorActionPreference = "Stop"
 if ($Trials -lt 1) { throw "Trials must be positive" }
+if (!(Test-Path -LiteralPath $ConfigPath)) { throw "Missing shared strategy config: $ConfigPath" }
+$strategy = @{}
+foreach ($line in Get-Content -LiteralPath $ConfigPath) {
+    if ($line -match '^\s*([A-Za-z0-9_]+)\s*=\s*([-+]?\d+(?:\.\d+)?)') { $strategy[$Matches[1]] = [double]$Matches[2] }
+}
+function Get-W([string]$Name) {
+    if (!$strategy.ContainsKey($Name)) { throw "Shared strategy config is missing '$Name'" }
+    return [double]$strategy[$Name]
+}
+
+function New-Template([string]$Name) {
+    [pscustomobject]@{
+        Name = $Name
+        Cost = [int](Get-W "template_${Name}_cost")
+        BuildTicks = [int](Get-W "template_${Name}_build_ticks")
+        Defense = Get-W "template_${Name}_defense"
+        Cover = Get-W "template_${Name}_cover"
+        RoutePenalty = Get-W "template_${Name}_route_penalty"
+        FriendlyTraversalBonus = Get-W "template_${Name}_traversal_bonus"
+    }
+}
 
 $templates = @(
     [pscustomobject]@{ Name = "control"; Cost = 0; BuildTicks = 0; Defense = 0; Cover = 0; RoutePenalty = 0.00; FriendlyTraversalBonus = 0.00 },
-    [pscustomobject]@{ Name = "flag_gatehouse"; Cost = 306; BuildTicks = 250; Defense = 105; Cover = 25; RoutePenalty = 0.05; FriendlyTraversalBonus = 0.00 },
-    [pscustomobject]@{ Name = "frontline_tower"; Cost = 352; BuildTicks = 310; Defense = 120; Cover = 45; RoutePenalty = 0.08; FriendlyTraversalBonus = 0.00 },
-    [pscustomobject]@{ Name = "emergency_barrier"; Cost = 117; BuildTicks = 90; Defense = 45; Cover = 8; RoutePenalty = 0.03; FriendlyTraversalBonus = 0.00 },
-    [pscustomobject]@{ Name = "archer_perch"; Cost = 141; BuildTicks = 100; Defense = 20; Cover = 55; RoutePenalty = 0.02; FriendlyTraversalBonus = 0.05 },
-    [pscustomobject]@{ Name = "access_route"; Cost = 60; BuildTicks = 70; Defense = 0; Cover = 0; RoutePenalty = -0.12; FriendlyTraversalBonus = 0.30 }
+    (New-Template 'flag_gatehouse'),
+    (New-Template 'frontline_tower'),
+    (New-Template 'emergency_barrier'),
+    (New-Template 'archer_perch'),
+    (New-Template 'access_route')
 )
 
 function Get-TemplateUtility {
@@ -25,10 +47,9 @@ function Get-TemplateUtility {
         [double]$Continuity = 0.0
     )
 
-    if ($Trial.Resources -lt $Template.Cost) { return [double]::NegativeInfinity }
-    $pressure = $Knights * 8.0 + $Archers * 4.5
+    $pressure = $Knights * (Get-W 'abstract_pressure_knight') + $Archers * (Get-W 'abstract_pressure_archer')
     $lineOfSightPressure = $Archers / [Math]::Max(1.0, $Knights + $Archers)
-    $chokeMultiplier = if ($Template.Name -in @("flag_gatehouse", "frontline_tower", "emergency_barrier")) { 1.0 + 0.4 * $Trial.Lane.Choke } else { 1.0 }
+    $chokeMultiplier = if ($Template.Name -in @("flag_gatehouse", "frontline_tower", "emergency_barrier")) { 1.0 + (Get-W 'abstract_choke_scale') * $Trial.Lane.Choke } else { 1.0 }
     $defense = ($Template.Defense + $Template.Cover * $lineOfSightPressure) * $chokeMultiplier
     $threatFit = switch ($Template.Name) {
         "flag_gatehouse" { $Knights * 5.0 }
@@ -38,8 +59,11 @@ function Get-TemplateUtility {
         "access_route" { 100.0 * ($Trial.Lane.ElevationCost / [Math]::Max(1.0, $Trial.Lane.TravelCost)) }
         default { 0.0 }
     }
-    $routeValue = $Template.FriendlyTraversalBonus * 80.0 - $Template.RoutePenalty * 60.0
-    return $defense + $threatFit + $routeValue + $Continuity - $Template.Cost * 0.08 - $Template.BuildTicks * 0.05
+    $routeValue = $Template.FriendlyTraversalBonus * (Get-W 'abstract_route_bonus') - $Template.RoutePenalty * (Get-W 'abstract_route_penalty')
+    $shortage = [Math]::Max(0.0, $Template.Cost - $Trial.Resources)
+    $shortageWeight = ((Get-W 'wood_shortage') + (Get-W 'stone_shortage')) / 2.0
+    return $defense + $threatFit + $routeValue + $Continuity - $Template.Cost * (Get-W 'abstract_cost') -
+        $shortage * $shortageWeight - $Template.BuildTicks * (Get-W 'abstract_build_time')
 }
 
 Get-Random -SetSeed $Seed | Out-Null
@@ -107,13 +131,13 @@ $results = foreach ($template in $templates) {
         $lane = $trial.Lane
         $laneDistance = $lane.TravelCost
         $terrainExposure = $lane.Exposure
-        $pressure = $knights * 8.0 + $archers * 4.5
+        $pressure = $knights * (Get-W 'abstract_pressure_knight') + $archers * (Get-W 'abstract_pressure_archer')
         $capacity = $builders * (1.0 - 0.35 * $terrainExposure)
         $effectiveBuildTicks = if ($template.BuildTicks -eq 0) { 0.0 } else { $template.BuildTicks / [Math]::Max(0.25, $capacity) }
         $isAffordable = $resources -ge $template.Cost
         $arrivalTicks = $laneDistance / [Math]::Max(1.0, $pressure * 0.055)
         $builtFraction = if (!$isAffordable) { 0.0 } elseif ($effectiveBuildTicks -eq 0) { 1.0 } else { [Math]::Min(1.0, $arrivalTicks / $effectiveBuildTicks) }
-        $chokeMultiplier = if ($template.Name -in @("flag_gatehouse", "frontline_tower", "emergency_barrier")) { 1.0 + 0.4 * $lane.Choke } else { 1.0 }
+        $chokeMultiplier = if ($template.Name -in @("flag_gatehouse", "frontline_tower", "emergency_barrier")) { 1.0 + (Get-W 'abstract_choke_scale') * $lane.Choke } else { 1.0 }
         $lineOfSightPressure = $archers / [Math]::Max(1.0, $knights + $archers)
         $defense = ($template.Defense + $template.Cover * $lineOfSightPressure) * $builtFraction * $chokeMultiplier
         $repairCapacity = if ($template.Name -eq "control") { 0.0 } else { $builders * 2.0 * $builtFraction * ($resources / [Math]::Max(1.0, $template.Cost)) }
@@ -138,7 +162,7 @@ $results = foreach ($template in $templates) {
         if ($template.Name -ne "control" -and $isAffordable -and $builtFraction -lt 1.0) {
             $shiftedKnights = $knights + $trial.ReinforcementKnights
             $shiftedArchers = $archers + $trial.ReinforcementArchers
-            $shiftedPressure = $shiftedKnights * 8.0 + $shiftedArchers * 4.5
+            $shiftedPressure = $shiftedKnights * (Get-W 'abstract_pressure_knight') + $shiftedArchers * (Get-W 'abstract_pressure_archer')
             $frontlineCollapsing = $shiftedPressure -ge 70.0
             $currentUtility = Get-TemplateUtility -Template $template -Trial $trial -Knights $shiftedKnights -Archers $shiftedArchers -Continuity (15.0 * $builtFraction)
             $emergency = $templates | Where-Object Name -eq "emergency_barrier" | Select-Object -First 1

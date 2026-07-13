@@ -37,7 +37,7 @@ bool AIBS_IsCombatBlob(CBlob@ blob)
 {
 	if (blob is null) return false;
 	const string name = blob.getName();
-	return name == "knight" || name == "archer" || name == "builder" || name == "aibuilder";
+	return name == "knight" || name == "archer" || name == "builder" || name == "aibuilder" || name == "autobuilder";
 }
 
 CBlob@ AIBS_NearestTeamBlob(const u8 team, const string &in name, Vec2f from)
@@ -247,9 +247,10 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 			if (name == "knight") world.friendlyKnights++;
 			else if (name == "archer") world.friendlyArchers++;
 			else if (name == "builder") world.friendlyBuilders++;
-			else if (name == "aibuilder")
+			else if (name == "aibuilder" || name == "autobuilder")
 			{
 				world.aiBuilders++;
+				if (name == "autobuilder") world.autoBuilders++;
 				const u8 job = blob.get_u8("ai builder job");
 				if (job == 0) world.aiWoodJobs++;
 				else if (job == 1) world.aiStoneJobs++;
@@ -261,7 +262,7 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 		{
 			if (name == "knight") world.enemyKnights++;
 			else if (name == "archer") world.enemyArchers++;
-			else if (name == "builder" || name == "aibuilder") world.enemyBuilders++;
+			else if (name == "builder" || name == "aibuilder" || name == "autobuilder") world.enemyBuilders++;
 			if ((blob.getPosition() - world.home).Length() <= 240.0f)
 			{
 				activeThreat += name == "knight" ? 1.0f : (name == "archer" ? 0.7f : 0.25f);

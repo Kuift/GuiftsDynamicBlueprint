@@ -1,6 +1,7 @@
 #include "AIBBlueprintTemplates.as";
 #include "BlueprintData.as";
 #include "AIBBarrierCommon.as";
+#include "AIBStrategyWeights.as";
 
 u16 AIBS_CandidateBlockAt(AIBPlanCandidate@ candidate, const int x, const int y)
 {
@@ -107,7 +108,6 @@ bool AIBS_MapProvidesImmediateSupport(Vec2f center)
 	for (uint i = 0; i < points.length; i++)
 	{
 		const TileType type = map.getTile(points[i]).type;
-		if (map.isTileGrass(type)) continue;
 		if (map.isTileSolid(type)) return true;
 		if ((type >= CMap::tile_castle_back && type <= 79) || type == CMap::tile_castle_back_moss ||
 			(type >= CMap::tile_wood_back && type <= 207)) return true;
@@ -115,9 +115,35 @@ bool AIBS_MapProvidesImmediateSupport(Vec2f center)
 	return false;
 }
 
-bool AIBS_CandidateHasDependencySupport(AIBPlanCandidate@ candidate)
+bool AIBS_CanGenerateBackwallSupport(AIBWorldState@ world, AIBPlanCandidate@ candidate, BlueprintTask@ task)
 {
-	if (candidate is null || candidate.tasks.length == 0) return false;
+	if (world is null || candidate is null || task is null || !AIBP_IsSolidTileBlock(task.block)) return false;
+	const string material = AIBP_BlockMaterial(task.block);
+	if (material != "mat_wood" && material != "mat_stone") return false;
+	CMap@ map = getMap();
+	if (map is null) return false;
+
+	for (int y = int(task.y) + 1; y < map.tilemapheight; y++)
+	{
+		const int x = int(task.x);
+		const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
+		const u16 planned = AIBS_CandidateBlockAt(candidate, x, y);
+		const TileType current = map.getTile(center).type;
+		if (AIBS_CandidateSupportBlock(planned) || map.isTileSolid(current) ||
+			(current >= CMap::tile_castle_back && current <= 79) || current == CMap::tile_castle_back_moss ||
+			(current >= CMap::tile_wood_back && current <= 207)) return true;
+
+		// Every intervening cell becomes a generated backwall dependency.
+		if (map.isTileBedrock(current) || map.getSectorAtPosition(center, "no build") !is null) return false;
+		if (!AIBS_InsideBarrierSide(world, center) || AIBS_OverlapsProtectedBlob(world.team, center)) return false;
+		if (map.isTileSolid(current)) return false;
+	}
+	return false;
+}
+
+bool AIBS_CandidateHasDependencySupport(AIBWorldState@ world, AIBPlanCandidate@ candidate)
+{
+	if (world is null || candidate is null || candidate.tasks.length == 0) return false;
 	CMap@ map = getMap();
 	if (map is null) return false;
 	array<bool> supported(candidate.tasks.length, false);
@@ -133,6 +159,7 @@ bool AIBS_CandidateHasDependencySupport(AIBPlanCandidate@ candidate)
 			if (task is null) return false;
 			Vec2f center = Vec2f(task.x * map.tilesize + 4, task.y * map.tilesize + 4);
 			if (AIBP_MapMatchesBlock(task.x, task.y, task.block) || map.hasSupportAtPos(center) || AIBS_MapProvidesImmediateSupport(center) ||
+				AIBS_CanGenerateBackwallSupport(world, candidate, task) ||
 				AIBS_TaskTouchesSupportedPlan(candidate, i, supported))
 			{
 				supported[i] = true;
@@ -383,10 +410,14 @@ bool AIBS_AllTasksHaveReachableApproach(AIBPlanCandidate@ candidate)
 
 bool AIBS_ValidateCandidate(AIBWorldState@ world, AIBPlanCandidate@ candidate)
 {
-	if (world is null || candidate is null || candidate.tasks.length == 0) return false;
+	if (candidate is null) return false;
+	candidate.rejection = "";
+	if (world is null) { candidate.rejection = "no_world"; return false; }
+	if (candidate.tasks.length == 0) { candidate.rejection = "empty_plan"; return false; }
 	CMap@ map = getMap();
 	CRules@ rules = getRules();
-	if (map is null || rules is null) return false;
+	if (map is null) { candidate.rejection = "no_map"; return false; }
+	if (rules is null) { candidate.rejection = "no_rules"; return false; }
 	array<u16>@ human = null;
 	AIBP_GetLayerGrid(world.team, AIBP_Layer::human, @human);
 	uint matched = 0;
@@ -403,58 +434,64 @@ bool AIBS_ValidateCandidate(AIBWorldState@ world, AIBPlanCandidate@ candidate)
 		Vec2f center = Vec2f(task.x * map.tilesize + map.tilesize * 0.5f, task.y * map.tilesize + map.tilesize * 0.5f);
 		const TileType current = map.getTile(center).type;
 		if (map.isTileBedrock(current)) { candidate.rejection = "bedrock"; return false; }
-		if (AIBP_MapMatchesBlock(task.x, task.y, task.block)) { matched++; continue; }
+		if (AIBP_MapMatchesBlock(task.x, task.y, task.block, world.team)) { matched++; continue; }
+		const bool repairable = AIBP_IsRepairablePlanOccupant(world.team, task.x, task.y, task.block);
 		// Grass is a replaceable foreground decoration in KAG.  Treating it as
 		// occupied terrain rejects otherwise valid plans before a builder ever
 		// gets a chance to clear it and place the requested tile/backwall.
-		if (map.isTileSolid(current) && !map.isTileGrass(current)) { candidate.rejection = "occupied_terrain"; return false; }
+		if (!repairable && map.isTileSolid(current) && !map.isTileGrass(current)) { candidate.rejection = "occupied_terrain"; return false; }
 		if (!AIBS_InsideBarrierSide(world, center)) { candidate.rejection = "barrier"; return false; }
 		if (AIBP_BlockId(task.block) != AIBP_LADDER && map.getSectorAtPosition(center, "no build") !is null) { candidate.rejection = "no_build"; return false; }
 		if (AIBS_OverlapsProtectedBlob(world.team, center)) { candidate.rejection = "building_overlap"; return false; }
-		if (!AIBS_TaskHasApproach(candidate, task)) { candidate.rejection = "no_approach"; return false; }
+		if (world.autoBuilders == 0 && !AIBS_TaskHasApproach(candidate, task)) { candidate.rejection = "no_approach"; return false; }
 	}
 	if (matched == candidate.tasks.length || matched * 4 >= candidate.tasks.length * 3) { candidate.rejection = "duplicate"; return false; }
-	if (!AIBS_CandidateHasDependencySupport(candidate)) { candidate.rejection = "unsupported"; return false; }
+	if (!AIBS_CandidateHasDependencySupport(world, candidate)) { candidate.rejection = "unsupported"; return false; }
 	if (!AIBS_PreservesFriendlyRoute(candidate)) { candidate.rejection = "friendly_route"; return false; }
-	if (!AIBS_AllTasksHaveReachableApproach(candidate)) { candidate.rejection = "unreachable_tasks"; return false; }
+	if (world.autoBuilders == 0 && !AIBS_AllTasksHaveReachableApproach(candidate)) { candidate.rejection = "unreachable_tasks"; return false; }
 	if (candidate.intent == AIBStrategyIntent::archer_perch && AIBS_SightLineLength(candidate, world.enemyDirection) < 8)
 		{ candidate.rejection = "poor_sightline"; return false; }
 
 	u32 wood = 0; u32 stone = 0;
 	AIBS_CandidateCosts(candidate, wood, stone);
-	if (wood > world.storedWood + 1200 || stone > world.storedStone + 1200) { candidate.rejection = "planning_horizon"; return false; }
+	if (world.autoBuilders == 0 && (wood > world.storedWood + 1200 || stone > world.storedStone + 1200)) { candidate.rejection = "planning_horizon"; return false; }
 	return true;
 }
 
 f32 AIBS_ScoreCandidate(AIBWorldState@ world, AIBPlanCandidate@ candidate)
 {
 	if (world is null || candidate is null) return -999999.0f;
+	AIBStrategyWeights@ weights = AIBS_GetStrategyWeights();
 	u32 wood = 0; u32 stone = 0;
 	AIBS_CandidateCosts(candidate, wood, stone);
-	const f32 enemyPressure = world.enemyKnights * 9.0f + world.enemyArchers * 6.0f + world.pressure * 12.0f;
-	f32 defensiveGain = 20.0f + enemyPressure;
+	const f32 enemyPressure = world.enemyKnights * weights.enemyKnightPressure + world.enemyArchers * weights.enemyArcherPressure + world.pressure * weights.worldPressure;
+	f32 defensiveGain = weights.baseDefense + enemyPressure;
 	const int anchorX = int(candidate.anchor.x);
-	const f32 routeGain = candidate.intent == AIBStrategyIntent::access_route ? 55.0f : 15.0f;
-	const f32 measuredHeight = Maths::Max(-5.0f, Maths::Min(35.0f, (float(AIBS_SurfaceAt(int(world.home.x / 8.0f))) - candidate.anchor.y) * 4.0f));
-	const f32 heightValue = (candidate.intent == AIBStrategyIntent::frontline_tower || candidate.intent == AIBStrategyIntent::archer_perch) ? measuredHeight + 15.0f : measuredHeight * 0.25f;
-	const f32 chokepointValue = AIBS_ChokepointValueAt(anchorX) * 3.0f;
-	const f32 sightlineValue = candidate.intent == AIBStrategyIntent::archer_perch ? float(AIBS_SightLineLength(candidate, world.enemyDirection)) * 1.5f : 0.0f;
-	f32 urgency = world.frontlineCollapsing && candidate.intent == AIBStrategyIntent::emergency_barrier ? 100.0f : 0.0f;
+	const f32 routeGain = candidate.intent == AIBStrategyIntent::access_route ? weights.accessRouteGain : weights.defaultRouteGain;
+	const f32 measuredHeight = Maths::Max(-5.0f, Maths::Min(35.0f, (float(AIBS_SurfaceAt(int(world.home.x / 8.0f))) - candidate.anchor.y) * weights.heightMeasureScale));
+	const f32 heightValue = (candidate.intent == AIBStrategyIntent::frontline_tower || candidate.intent == AIBStrategyIntent::archer_perch) ? measuredHeight + weights.tacticalHeightBonus : measuredHeight * weights.nonTacticalHeightScale;
+	const f32 chokepointValue = AIBS_ChokepointValueAt(anchorX) * weights.chokepoint;
+	const f32 sightlineValue = candidate.intent == AIBStrategyIntent::archer_perch ? float(AIBS_SightLineLength(candidate, world.enemyDirection)) * weights.sightline : 0.0f;
+	f32 urgency = world.frontlineCollapsing && candidate.intent == AIBStrategyIntent::emergency_barrier ? weights.emergencyUrgency : 0.0f;
 	const f32 localPressure = AIBS_PressureAt(world.team, candidate.anchor * 8.0f);
-	f32 threatFit = (candidate.intent == AIBStrategyIntent::flag_gatehouse ? world.enemyKnights * 8.0f : world.enemyArchers * 5.0f) + localPressure * 4.0f;
+	f32 threatFit = (candidate.intent == AIBStrategyIntent::flag_gatehouse ? world.enemyKnights * weights.gatehouseKnightFit : world.enemyArchers * weights.otherArcherFit) + localPressure * weights.localPressureFit;
 	CRules@ rules = getRules();
 	Vec2f activeAnchor = rules is null ? Vec2f_zero : rules.get_Vec2f(AIBP_PlanKey(world.team, "anchor"));
-	const f32 continuity = activeAnchor == Vec2f_zero ? 0.0f : Maths::Max(0.0f, 24.0f - (candidate.anchor - activeAnchor).Length() * 0.75f);
+	const f32 continuity = activeAnchor == Vec2f_zero ? 0.0f : Maths::Max(0.0f, weights.continuityMax - (candidate.anchor - activeAnchor).Length() * weights.continuityDistance);
 	const u32 lastTemplate = rules is null ? 0 : rules.get_u32("aib strategy template last " + candidate.templateName + " team " + int(world.team));
-	const f32 cooldown = lastTemplate != 0 && getGameTime() < lastTemplate + 900 ? 20.0f : 0.0f;
-	const f32 materialCost = wood * 0.08f + stone * 0.06f;
-	const f32 travel = Maths::Abs(candidate.anchor.x * 8.0f - world.home.x) * 0.04f;
-	const f32 buildTime = candidate.tasks.length * 1.2f;
-	const f32 exposure = Maths::Max(0.0f, Maths::Abs(candidate.anchor.x * 8.0f - world.home.x) - 160.0f) * 0.08f + localPressure * 2.0f;
-	const f32 friendlyRoutePenalty = AIBS_FriendlyRoutePenalty(candidate) * 60.0f;
-	candidate.score = defensiveGain + routeGain + heightValue + chokepointValue + sightlineValue + threatFit + urgency + continuity - cooldown - materialCost - travel - buildTime - exposure - friendlyRoutePenalty;
+	const f32 cooldown = lastTemplate != 0 && getGameTime() < lastTemplate + weights.templateCooldownTicks ? weights.templateCooldownPenalty : 0.0f;
+	const f32 materialCost = wood * weights.woodCost + stone * weights.stoneCost;
+	const u32 missingWood = world.autoBuilders > 0 ? 0 : (wood > world.storedWood ? wood - world.storedWood : 0);
+	const u32 missingStone = world.autoBuilders > 0 ? 0 : (stone > world.storedStone ? stone - world.storedStone : 0);
+	const f32 shortageCost = missingWood * weights.woodShortage + missingStone * weights.stoneShortage;
+	const f32 travel = Maths::Abs(candidate.anchor.x * 8.0f - world.home.x) * weights.travel;
+	const f32 buildTime = candidate.tasks.length * weights.taskBuildTime;
+	const f32 exposure = Maths::Max(0.0f, Maths::Abs(candidate.anchor.x * 8.0f - world.home.x) - weights.exposureFreeDistance) * weights.exposureDistance + localPressure * weights.exposurePressure;
+	const f32 friendlyRoutePenalty = AIBS_FriendlyRoutePenalty(candidate) * weights.friendlyRoutePenalty;
+	candidate.score = defensiveGain + routeGain + heightValue + chokepointValue + sightlineValue + threatFit + urgency + continuity - cooldown - materialCost - shortageCost - travel - buildTime - exposure - friendlyRoutePenalty;
 	candidate.reasons = "defense=" + defensiveGain + " route=" + routeGain + " height=" + heightValue + " choke=" + chokepointValue + " sight=" + sightlineValue + " threat=" + threatFit + " urgency=" + urgency +
-		" continuity=" + continuity + " cooldown=" + cooldown + " cost=" + materialCost + " travel=" + travel + " exposure=" + exposure + " route_penalty=" + friendlyRoutePenalty;
+		" continuity=" + continuity + " cooldown=" + cooldown + " cost=" + materialCost + " shortage=" + shortageCost +
+		" missing_wood=" + missingWood + " missing_stone=" + missingStone + " travel=" + travel + " exposure=" + exposure + " route_penalty=" + friendlyRoutePenalty;
 	return candidate.score;
 }
 
@@ -469,7 +506,7 @@ AIBPlanCandidate@ AIBS_SelectCandidate(AIBWorldState@ world)
 		AIBPlanCandidate@ candidate = candidates[i];
 		if (!AIBS_ValidateCandidate(world, candidate))
 		{
-			AIBS_Log("reject", world.team, "template=" + candidate.templateName + " reason=" + candidate.rejection);
+			AIBS_LogCandidateRejectionDelta(world.team, candidate);
 			continue;
 		}
 		AIBS_ScoreCandidate(world, candidate);
@@ -478,10 +515,27 @@ AIBPlanCandidate@ AIBS_SelectCandidate(AIBWorldState@ world)
 	}
 	if (valid.length == 0) return null;
 	array<AIBPlanCandidate@> nearBest;
-	const f32 threshold = bestScore - Maths::Max(1.0f, Maths::Abs(bestScore) * 0.07f);
+	AIBStrategyWeights@ weights = AIBS_GetStrategyWeights();
+	const f32 threshold = bestScore - Maths::Max(1.0f, Maths::Abs(bestScore) * weights.nearBestFraction);
 	for (uint i = 0; i < valid.length; i++) if (valid[i].score >= threshold) nearBest.push_back(valid[i]);
 	const u16 version = getRules().get_u16(AIBP_PlanKey(world.team, "version"));
 	return nearBest[(world.team * 31 + version * 17) % nearBest.length];
+}
+
+void AIBS_LogCandidateRejectionDelta(const u8 team, AIBPlanCandidate@ candidate)
+{
+	CRules@ rules = getRules();
+	if (rules is null || candidate is null) return;
+	const string identity = candidate.templateName + " " + int(candidate.anchor.x) + " " + int(candidate.anchor.y);
+	const string reasonKey = "aib strategy reject reason team " + int(team) + " " + identity;
+	const string tickKey = "aib strategy reject tick team " + int(team) + " " + identity;
+	const u32 now = getGameTime();
+	const bool changed = rules.get_string(reasonKey) != candidate.rejection;
+	if (!changed && now - rules.get_u32(tickKey) < 30 * 30) return;
+	rules.set_string(reasonKey, candidate.rejection);
+	rules.set_u32(tickKey, now);
+	AIBS_Log("reject", team, "template=" + candidate.templateName + " anchor=" + int(candidate.anchor.x) + "," +
+		int(candidate.anchor.y) + " reason=" + candidate.rejection);
 }
 
 bool AIBS_ActivePlanInvalid(AIBWorldState@ world)
@@ -500,10 +554,11 @@ bool AIBS_ActivePlanInvalid(AIBWorldState@ world)
 		if (xs[i] >= map.tilemapwidth || ys[i] >= map.tilemapheight) return true;
 		const uint index = ys[i] * map.tilemapwidth + xs[i];
 		if (human !is null && index < human.length && human[index] != 0) return true;
-		if (AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i])) continue;
+		if (AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i], world.team)) continue;
+		if (AIBP_IsRepairablePlanOccupant(world.team, xs[i], ys[i], blocks[i])) continue;
 		Vec2f center = Vec2f(xs[i] * map.tilesize + 4, ys[i] * map.tilesize + 4);
 		const TileType current = map.getTile(center).type;
-		if (map.isTileBedrock(current) || map.isTileSolid(current)) return true;
+		if (map.isTileBedrock(current) || (map.isTileSolid(current) && !map.isTileGrass(current))) return true;
 		if (!AIBS_InsideBarrierSide(world, center)) return true;
 		if (AIBP_BlockId(blocks[i]) != AIBP_LADDER && map.getSectorAtPosition(center, "no build") !is null) return true;
 		if (AIBS_OverlapsProtectedBlob(world.team, center)) return true;

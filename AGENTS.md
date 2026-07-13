@@ -1,5 +1,7 @@
 # GuiftsDynamicBlueprint_vDev Agent Notes
 
+Read `KAG_ENGINE_QUIRKS.md` before changing runtime, camera, pathing, test-launch, or handoff behavior. Add newly reproduced quirks there with reliable evidence and a workaround so later agents do not repeat the same failed assumption.
+
 This is a King Arthur's Gold mod. Files inside this mod directory override matching files in the base game. Do not edit `King Arthur's Gold/Base` directly; add or change files under this mod's `Base`, `Rules`, `Scripts`, `Sprites`, or other mod folders.
 
 Some functions are legacy and KAG/3D documentation is sparse. When in doubt, inspect working mods installed under `King Arthur's Gold/Mods`, especially:
@@ -11,12 +13,27 @@ Some functions are legacy and KAG/3D documentation is sparse. When in doubt, ins
 
 When launching KAG for testing or gameplay debugging, start it in a visible window and leave it running. Do not use `-WindowStyle Hidden` or short auto-kill launches unless the user explicitly asks for a compile-only check.
 
+### Test-ready handoff
+
+CTF is the normal manual play-test mode. `AIBTest` and its one-map cycle are temporary automated-test settings only.
+
+Before every final handoff after launching KAG:
+
+- Close any agent-started `AIBTest` instance before restoring startup settings; KAG can rewrite `autoconfig.cfg` when it exits.
+- Leave the KAG-root `autoconfig.cfg` with `sv_gamemode = CTF`, a blank `sv_mapcycle`, and `sv_mapcycle_shuffle = true`. A blank cycle lets CTF load `Rules/CTF/mapcycle.cfg`.
+- Ensure `Rules/CTF/gamemode.cfg` exists, `Rules/CTF/gamemode.cfg.aibtest-disabled` does not, and the three `aibtest_*scenario` values in `Rules/AIBTest/gamemode.cfg` are blank unless the user explicitly requested a focused test be left selected.
+- If KAG should remain open at handoff, launch a visible CTF localhost session after the cleanup and leave that CTF session running.
+
+Never leave CTF paired with `Rules/AIBTest/aibtest_mapcycle.cfg`; CTF's map-vote script recursively reloads that one-map cycle and produces a black/restarting game window.
+
 ## Current AI Builder Files
 
 - `Base/Entities/Characters/AIBuilder/AIBuilder.cfg` wires the AI builder blob and scripts.
 - `Base/Entities/Characters/AIBuilder/AIBuilder.as` handles the player-facing "Harvest wood" button. AI builders spawn idle; this button sets `"ai builder state"` to `find_tree`.
 - `Base/Entities/Characters/AIBuilder/AIBuilderBrain.as` is the server-only behavior state machine.
+- `Base/Entities/Characters/AutoBuilder/AutoBuilder.cfg` and `AutoBuilder.as` define the collisionless director-test orb.
 - `Base/Entities/Industry/CTFShops/AIBuilderShop/AIBuilderShop.as` deploys AI builders and sets their team to the caller's team.
+- `Scripts/AutoBuilderCommon.as` owns the team flight-speed levels, gold cost, and the Autobuilder's fixed placement delay.
 - `Scripts/CustomRenderer.as` owns the current overseer tree-selection UI and selected-tree marker rendering.
 
 ## Current AI Builder Behavior
@@ -46,6 +63,32 @@ The AI does not intentionally drop resources in place. If no same-team tent or h
 
 Full inventory only forces `return_wood` when the inventory contains a `mat_*` resource. A carried `mat_*` resource also forces `return_wood`.
 
+### Autobuilder director-test orb
+
+The AI workshop can deploy an `autobuilder` orb. It is a blueprint-only director worker: it has no inventory, treats wood and stone requirements as already paid, flies directly through terrain and blobs, and still uses the production blueprint reservation, support, repair, obstruction, workshop, and completion code. Do not replace it with raw `server_SetTile` scheduling.
+
+Each orb places at most one successful blueprint block every 30 ticks. The AI workshop's gold button upgrades team-wide flight speed through 4, 6, 8, and 12 pixels per tick; every level costs 50 gold, resets each round, and never shortens the 30-tick placement interval. The purchase command must remain server-authoritative and same-team because generic Shop callbacks run only after requirements have been consumed.
+
+While a live Autobuilder exists, the planner ignores ordinary-builder approach reachability and current material shortages, but retains intrinsic material/build-time scoring. The director assigns every Autobuilder to blueprint work and does not give director-owned runner builders new construction roles; an in-progress runner blueprint episode hands off at its normal safe boundary. Manually ordered runner builders remain under player control.
+
+Autobuilders are selectable through the overseer rectangle, but accept only `Build blueprint`; wood and stone orders are rejected server-side. Run `Tools/test_autobuilder_contract.ps1` after changing the entity, executor special cases, shop upgrade, director isolation, planner bypass, test cleanup, or wave identity fields.
+
+### Base workshop storage siting
+
+When crate storage needs a builder shop, the AI searches nearby ground on both sides of the team home. A valid site requires a clear 5x3 workshop volume, solid support under all five columns, a grounded side approach, and no conflicts with no-build sectors, the active barrier, important buildings, or blocking blobs. The workshop must have at least six tiles of edge-to-edge clearance from a same-team tent, hall, or flag. The selected site is revalidated before wood is consumed and the shop is spawned; failed searches use a cooldown before retrying.
+
+Resource delivery uses the same terrain-aware principle. Never restore a fixed offset such as `home - 9 tiles, -8 px`: on real CTF maps that point can be inside a slope or void and produce endless jump/repath loops. Search both sides for a clear standing cell with solid ground below, then use the workshop/crate at that grounded point.
+
+### Blueprint support and role handoff
+
+Unsupported foreground blueprint blocks are not automatically invalid. If a matching wood or stone backwall chain can connect them to terrain, the planner and executor must agree that the generated backwall is a legal dependency and the builder must place it before the foreground block.
+
+Director role assignment is atomic at the resource-episode boundary. A builder already chopping a tree must finish the tree, process all logs from that tree, collect the resulting material, and return it before accepting a blueprint or mining role. Equivalent safe boundaries apply to stone and blueprint work. Do not switch jobs merely because one loose material stack was acquired.
+
+### Stone mining
+
+Stone miners prefer a reusable, low-dirt route made from a two-wide shaft and cross-tunnel. The route requires a clear surface approach, uses direct shaft movement, and only destroys dirt on the chosen route; bedrock and castle obstructions reject the route. Dedicated tunnel movement suppresses generic obstruction jumps and recovery ladders so it cannot fight the shaft controller. A miner also discovers line-of-sight gold, mines the visible cluster, then returns it to the assigned base crate immediately after that cluster is exhausted. Mirrored upper-corner recovery drives the miner away from either left or right overhang instead of repeatedly jumping in place.
+
 ## Resource Filters
 
 Tree, log, and loose wood targets pass through accessibility checks before the AI commits to them.
@@ -65,6 +108,7 @@ Tree priority:
 
 - Tree selection prefers trees close to the AI builder's team home (`tent`, then `hall`).
 - Builder distance is included as a small tie-breaker, currently `homeDistance + builderDistance * 0.20`.
+- A selected tree is temporarily abandoned only after 300 advancing ticks with neither an 8-pixel distance improvement nor any tree-health reduction. Every successful hit resets the watchdog, so it must never stop a slowly chopped tree a few hits before it falls. Abandoned trees cool down for 900 ticks so another target can be tried.
 
 Overseer selection:
 
@@ -132,13 +176,51 @@ rules.get_bool("aib event log enabled")
 
 `Scripts/AIBTestEventLog.as` enables it for the AIBTest gamemode and resets `aib event log seq`. Normal deployed gameplay should leave it disabled unless explicitly debugging. Event records are compact, machine-readable lines for test actions, player-equivalent commands, UI selection rectangles, AI state/target changes, resource rejection, no-home handling, and cleanup.
 
-Use `Tools/run_aib_tests.ps1` for automated coverage. The current suite has 42 scenarios and should end with:
+Repeated resource/candidate rejections and reservation renewals must be change-only or rate-limited. Log a reservation when ownership actually changes, not on each renewal tick. Public player telemetry is binary delta-framed in memory and flushed in coarse base64 batches; never replace it with per-tick formatted strings. Schema v2 record kinds 5-8 cover tile mutation, important-blob creation, death, and changed resource/economy totals. Attribution confidence distinguishes explicit engine ownership from active-nearby, passive-nearby, and unattributed inference. `Tools/parse_aib_player_actions.ps1` is backward compatible with v1; `Tools/summarize_aib_player_episodes.ps1` emits heuristic raw task episodes. These v2 AngelScript hooks pass offline parser tests but have not yet been KAG-runtime compiled.
+
+`AIBGymMonitor.as` is a passive observer and uses 16-bit failure flags. It covers motion stall, jump loop, path thrash, active-job/no-intent, state stall, target thrash without outcomes, accessible blueprint-resource deadlock, stale/dead reservations, and repeated invalid-build attempts. It must never press keys, change state/path, hit, or place tiles. Reservation expiry has a five-tick renewal grace because the observer runs before behavior. Inventory/plan outcome scans are staggered every five ticks across builder netids; do not move full inventory traversal back to every tick. Public CTF emits one compact numeric `[AIBGYM]` line on the first latched failure and one `[AIBGYMW]` binary window with up to 30 pre/12 post samples. Parse them with `Tools/parse_aib_gym_failures.ps1` and `Tools/parse_aib_gym_windows.ps1`. These are intentionally one-shot, not per-tick logging. AIBTest delays its failure verdict just long enough to collect the post tail. Run the monitor and both parser regressions after changing the schema or retry paths. The advanced classifiers are statically verified but need runtime false-positive calibration.
+
+Episode summaries retain attribution-weighted outcomes and low-confidence counts; do not credit inferred proximity as explicit ownership. `Tools/compare_aib_task_episodes.ps1` compares only identical coarse `context_key_v1` cohorts, defaults to three episodes per side, and leaves quality gates opt-in. Run `Tools/test_compare_aib_task_episodes.ps1` after changing episode fields or matching logic. Context keys and scalar costs are heuristics, not proof that an AI change is good.
+
+Production director placement weights and offline abstract-template metadata share `Rules/CommonScripts/AIBStrategyWeights.cfg`. `Scripts/AIBStrategyWeights.as` loads it for `AIBPlacementPlanner.as`; `Tools/aib_strategy_abstract_sim.ps1` consumes the same file. Run `Tools/test_aib_strategy_weights.ps1` after changing keys or consumers. The current static contract covers 68 keys, including extra wood/stone penalties for the portion of a plan not covered by current storage. This discourages dead-on-arrival large plans without hard-rejecting work that future harvesting can fund. The AngelScript loader still needs its first visible KAG compile when runtime testing is permitted.
+
+Strategy wave records use fixture id/version, team, left/right side, scenario, seed, canonical pre-warm-up fingerprint, and measurement-start fingerprint. `Tools/compare_aib_wave_results.ps1` groups on fixture/version/team/side before scenario/seed, requires exactly one control and one plan, and defaults to three distinct seeds per cohort. Do not weaken this to global seed/scenario pairing. All wave types use the seed for deterministic spawn cadence and formation. Run both `Tools/test_aib_wave_contract.ps1` and `Tools/test_compare_aib_wave_results.ps1` after changing the harness or record schema. These AngelScript additions are statically verified but not yet KAG-runtime compiled.
+
+`Tools/new_aib_wave_matrix.ps1` generates the canonical 48-trial/24-pair NDJSON collection manifest for two sides, four scenarios, and three seeds. Each trial is marked `requires_fresh_canonical_reset`; the tool schedules evidence but deliberately does not claim to reset or drive KAG. Its regression is `Tools/test_new_aib_wave_matrix.ps1`.
+
+Use `Tools/run_aib_tests.ps1` for automated coverage. The current suite has 58 scenarios and a complete successful run should end with:
 
 ```text
-AIB tests passed: 42 passed, 0 failed
+AIB tests passed: 58 passed, 0 failed
 ```
 
-The live headless KAG server currently stops advancing around game tick 51, so long real tree-chopping scenarios are not reliable as automated tests. The suite covers tree selection, resource generation as simulated pipeline events, and real return/drop-at-tent behavior; keep full visual tree chopping as a manual check.
+The game log must also contain the matching `[AIBTEST] DONE` marker. The launcher waits for it; matching START/PASS counts alone are not completion. Intermediate fixtures receive a short visual hold and cleanup. The final selected fixture emits `DONE` immediately after its verdict and is intentionally retained for inspection until the AIBTest process is closed.
+
+Use `-Scenario <name>` for one scenario, or the inclusive `-StartScenario <name> -EndScenario <name>` range. By default the runner opens a visible `RunLocalhost` AIBTest session and leaves KAG running. Fast verdicts retain their fixture for 15 ticks so the client can show them. Use `-StopAfterRun` only when an explicit stop is wanted. If neither the log nor simulation advances for 25 seconds, the runner reports a distinct stale simulation/log diagnostic rather than a normal completion timeout.
+
+`AIBTestCamera.as` is intended to own the test camera, but its current logs do not represent the displayed view reliably. Human observation is authoritative. Known symptoms include sticking upper-left, recentering to the map middle, jitter between competing positions, losing scene follow, and blocking manual movement. Do not cite `CAMERA_TARGET`/`CAMERA_VIEW` records as proof that camera following works.
+
+Visible `RunLocalhost()` can also stop advancing, so long free-form behavior should receive a manual visual check. The current source has no recorded full 58-scenario pass: keep focused results distinct from full-suite evidence.
+
+AIBTest captures the originally loaded map tile array once, restores every changed terrain tile during cleanup, and validates dimensions/hash, live fixture/bootstrap tags, plan ids, and director modes before the next setup. Do not replace this with generated flat terrain: the canonical snapshot must preserve the real `aib_suite.png` pathing geometry. Run `Tools/test_aib_canonical_fixture_contract.ps1` after changing scenario lifecycle code. The newest production-planner fixtures cover mirrored inward candidate selection, rejection/fallback from a blocked primary anchor on uneven near-edge terrain, exact shortage-pressure scoring, and emergency selection under collapsing frontline pressure; run `Tools/test_aib_representative_director_contract.ps1` after changing them. `Tools/test_aib_scenario_registry.ps1` ensures all 58 unique names have exactly one setup and evaluation case. These new fixtures are statically contracted but not yet KAG-runtime verified.
+
+Current operator constraint (2026-07-10): the user needs the computer and KAG pop-up windows are disruptive. Do not launch KAG until the user explicitly permits visible runtime testing again. Static checks and documentation work may continue.
+
+The two newest scenarios are `full_crate_creates_grounded_overflow_storage` and `damaged_owned_tile_is_repaired_without_replacing_neighbors`. Repair has a complete focused pass in `console-26-07-10-17-32-06.txt`. Overflow production code compiles, but the final lightweight fixture (one wood stack plus eight distinct fillers) has not been run; earlier attempts either froze during an oversized same-tick inventory fixture or correctly showed that identical material blobs merged and did not fill the crate.
+
+## Strategic Director Bootstrap
+
+- `CustomRenderer.as` always shows the local team's `Director AI: ON/OFF` status and a server-authoritative `Turn on`/`Turn off` button. The button toggles between `auto` and `off`; suggestion mode remains available through the strategy command and is displayed as automatic orders being off.
+- A manual `Build blueprint` order in suggestion mode explicitly activates the visible suggested plan for that builder without enabling autonomous role assignment. Blueprint wait bubbles distinguish paused suggestions, reservations, and physically blocked work.
+- CTF defaults to autonomous strategy and enables guarded first-worker provisioning; AIBTest and non-CTF modes do not enable it by default.
+- Provisioning requires a team home, an active non-empty auto plan, and zero live team AI builders.
+- It searches both sides of the home for a grounded, clear, barrier-safe spawn and cools down after a failed search.
+- At most one free bootstrap worker is granted per team per round. Its death does not trigger another free worker.
+- Builders are assigned deterministically by network ID, and AI-builder death immediately releases its task reservation.
+- This is a free server spawn rather than a workshop purchase; economy balance and representative-map safety are still acceptance work.
+- Developer CTF autostart may force one team-0 worker without an active plan so an unattended smoke test can run. The override is team-scoped to avoid spawning an unnecessary enemy worker and doubling AI load. This is developer-only; public CTF provisioning remains plan-gated.
+- `AIBCTFDevScenario.as` is the unattended real-CTF acceptance path. It waits for a worker, lets an active harvest episode finish, then requests blueprint work and verifies a generated backwall plus foreground block with exact material accounting.
+- Bootstrap spawn search snapshots relevant blob bounds once per attempt. Do not put `getBlobs()` back inside the candidate loop; the old form could perform roughly 950 full-world scans in one director heartbeat.
 
 ## Zombies_Reborn AI Takeaways
 

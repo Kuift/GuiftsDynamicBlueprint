@@ -1,8 +1,85 @@
 # AI Blueprint Director Handoff
 
-> Implementation is now substantially complete. Current verification state, changed files, known runtime limitations, and exact resume steps are tracked in `AI_BLUEPRINT_DIRECTOR_IMPLEMENTATION_STATUS.md`. Treat that file as the active execution handoff; this document remains the design contract.
+> The deterministic director prototype is implemented, and normal CTF now runs it in autonomous mode by default. Production-heartbeat coverage proves plan selection with no builder, guarded first-worker provisioning, deterministic assignment, task reservation, and physical completion of director-authored work. Strategic quality across representative maps and attacks is still unproven.
+>
+> Overall progress: **82%**. Treat `AI_BLUEPRINT_DIRECTOR_IMPLEMENTATION_STATUS.md` as the authoritative current checkpoint, evidence record, remaining acceptance gates, and future-agent resume guide. This document remains the design contract.
 
-Date: 2026-06-20
+Updated: 2026-07-10
+
+## 2026-07-10 Consolidated Resume Point
+
+The user currently needs the computer and does **not** want disruptive KAG windows. Do not launch KAG again until the user explicitly says visible runtime testing is acceptable. No KAG process is running. Root startup is restored to `CTF`, blank `sv_mapcycle`, and shuffle enabled; all three AIBTest scenario selectors are blank; `Rules/CTF/gamemode.cfg` exists and no disabled rename remains.
+
+The current source defines **58 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
+
+### Final no-popup checkpoint for the next agent
+
+This is the deliberate stopping point from the 2026-07-10 session. No KAG process is running, no live test should be started until the user permits visible windows again, and startup is safe for an eventual manual CTF session. The final offline/static regression batch passed **15/15 checks**: advanced gym monitor contract, compact failure parser, compact diagnostic-window parser, 58-scenario registry, canonical fixture reset, representative director fixtures, wave identity/seed contract, 48-trial matrix generator, wave comparator, 68-key shared strategy configuration, abstract simulator, telemetry parser, episode summarizer, matched-context comparator, and `git diff --check`. The line-ending messages from `git diff --check` are warnings, not whitespace errors.
+
+Do not mistake that checkpoint for KAG runtime acceptance. The most recent AngelScript additions still needing one focused visible compile are telemetry schema v2 callbacks, the shared strategy-weight loader, canonical reset/representative planner scenarios, and the expanded gym monitor plus `[AIBGYM]`/`[AIBGYMW]` emission. The compact diagnostic window uses a generic array stored on each blob and binary/base64 packing; source contracts pass, but KAG dialect/runtime behavior is unproven.
+
+When runtime windows are allowed, continue in this order and stop on the first compile failure: (1) one short focused AIBTest compile that exercises the gym monitor/window path, (2) the corrected overflow scenario, (3) the known overhang return-route reproduction, (4) the small mirrored/uneven/shortage/pressure representative-planner range, (5) a friendly-route and full physical-plan completion check, (6) only then the full 58-scenario suite and the generated 48-trial paired wave matrix. Keep timeouts proportional to observed scenario duration and use the 25-second stale detector; never spend 120 seconds waiting for a three-second check.
+
+### What this work session focused on
+
+1. Replaced verbose player telemetry with compact binary delta frames, base64 batches, a versioned parser, and privacy bounds.
+2. Repaired the real wood pipeline: mature tree fixtures, complete tree/log episodes, delayed role handoff, grounded storage delivery, and no premature “frozen” verdict.
+3. Added generated backwall support so unsupported foreground plans can be made buildable rather than rejected.
+4. Added unattended normal-CTF smoke coverage with an automatically provisioned team-0 worker.
+5. Reduced live lag by rate-limiting repeated rejection events, logging reservations only on new claims, caching bootstrap blocker bounds once per search, and scoping the developer force-worker override to team 0.
+6. Added no-progress tree retargeting that resets on either meaningful approach or every successful hit, avoiding both permanent unreachable targets and the earlier “stops a few hits before felling” regression.
+7. Implemented overflow-storage production behavior and a focused scenario, but the latest lightweight full-crate fixture has not been rerun.
+8. Implemented first-class repair behavior for damaged owned plan tiles/blobs and obtained a complete focused pass.
+9. Improved the runner so test-only compile failures before `[AIBTEST] START` are reported immediately instead of consuming the whole behavior timeout.
+10. Extended compact player telemetry to schema v2 with attributed tile mutations, important-blob creation, deaths, and changed resource/economy totals; added backward-compatible parsing and deterministic heuristic task-episode summaries.
+11. Centralized 68 production/offline scoring and template keys in `Rules/CommonScripts/AIBStrategyWeights.cfg`; production placement scoring and the abstract simulator now consume the same source.
+12. Hardened paired-wave identity around fixture/version/team/side/scenario/seed, added canonical and measurement-start fingerprints, made every wave type vary cadence/formation by seed, and enforced three seeds per cohort in the comparator.
+13. Added a deterministic NDJSON collection-manifest generator for the exact 48-trial/24-pair matrix. It detects undersampling and marks every trial as requiring a fresh canonical reset; actual reset/run automation remains.
+14. Added attribution-aware task summaries and a matched-context baseline/candidate comparator. It requires three episodes per context, exposes raw deltas, and makes scalar quality enforcement opt-in rather than silently treating heuristic cost as truth.
+15. Added canonical AIBTest terrain snapshot/restore/hash validation plus live fixture/bootstrap tag, plan-id, and director-mode reset gates so production work cannot contaminate later scenarios. Added production-planner fixtures for mirrored inward selection and uneven blocked-primary fallback. These additions are statically verified only.
+16. Added shared stored-resource shortage pressure to candidate scoring and a production-scoring fixture that checks the exact unfunded wood/stone penalty. This prevents nominally valid megaprojects from ranking as though their missing materials were already available.
+17. Added a production-planner pressure fixture requiring a collapsing frontline with six reachable enemy knights to select an emergency barrier and expose its urgency score term.
+18. Expanded the passive gym monitor from three movement flags to 16-bit intent, state, target, outcome, accessible-resource, reservation, and invalid-build classifiers. Instrumented actual placement failure branches while preserving the observer's no-mutation boundary.
+19. Added one-shot public-CTF `[AIBGYM]` failure records and a strict NDJSON parser. The record is numeric/privacy-bounded and emitted only on the first latched failure, avoiding the earlier laggy logging design.
+20. Added a compact diagnostic ring buffer and `[AIBGYMW]` parser: up to 30 pre-failure and 12 post-failure samples are packed into one binary/base64 record. AIBTest waits only for that short post tail before reporting the latched failure.
+
+### Strongest new evidence
+
+- `../../Logs/console-26-07-10-17-03-04.txt`: real CTF worker 22 completed every log from one tree, returned/stored wood, accepted the deferred blueprint role, retrieved stone, built generated castle backwall then foreground, and emitted `[AIBDEV] PASS ... remaining_stone=138`.
+- `../../Logs/console-26-07-10-17-07-43.txt`: developer force-worker scoping live-compiled and produced exactly one team-0 developer provision plus a generated-support PASS.
+- `../../Logs/console-26-07-10-17-13-46.txt`: successful hits did not trigger the no-progress watchdog; the worker felled the tree, processed all five logs, stored wood, and accepted blueprint work before the localhost simulation stopped advancing.
+- `../../Logs/console-26-07-10-17-32-06.txt`: complete `[AIBTEST] DONE` for `damaged_owned_tile_is_repaired_without_replacing_neighbors`; owned wood was repaired, the adjacent stone tile was preserved, the task completed, and exactly 10 wood was spent.
+- `Artifacts/aib_ctf_generated_backwall_pass.png`: verified real KAG screenshot. The visible suggestion bubble is stale; server tile/resource/state deltas are the authoritative completion evidence.
+
+### Latest code that is not yet behavior-verified
+
+- Full-crate overflow now revalidates formerly-full crates, searches grounded/distinct two-sided crate sites, can fund the 150-wood crate from builder plus base storage, and does not charge wood when engine blob creation fails. It live-compiled in CTF.
+- `full_crate_creates_grounded_overflow_storage` first froze because same-tick `isFull()` lag queued 18 items; the next run advanced but proved nine wood blobs merge and therefore did not make a full crate. The fixture now uses one 250-wood stack plus eight distinct non-stackable fillers. **That final fixture has not been run.**
+- Exact overhang recovery ownership increased from 12 to 36 ticks with a 90-tick cooldown. It compiled during the successful repair AIBTest launch, but the previously failing CTF return geometry has not been reproduced after this change.
+- Candidate setup failures now always receive a non-empty rejection reason. This compiled in CTF but has no dedicated assertion.
+- Telemetry schema v2 and the shared AngelScript strategy-weight loader pass offline/static regressions, but neither has been compiled inside KAG because the user prohibited disruptive runtime windows. Installed Base/mod sources confirm the exact `onSetTile` signature, `getDamageOwnerPlayer`, `getPlayerOfRecentDamage`, `CPlayer.getCoins`, `CFileMatcher`, `ConfigFile.loadFile`, and class field-initializer patterns. Remaining risk is integration/runtime callback delivery and config resolution in this rules stack, not an undocumented API guess; do not claim live validation.
+- Wave identity/fingerprinting and seed variation also pass static source/parser contracts only. No `wave_start`, `wave_result`, or `wave_abort` runtime evidence exists yet, so the new record contract and 48-trial matrix remain unproven in KAG.
+
+### Where time was lost and what should have been done earlier
+
+- Too much time went into AIBTest presentation, retained-fixture behavior, and camera control even after human observation showed that visible `RunLocalhost()` can freeze independently of AI. Sustained behavior should have moved to normal CTF earlier.
+- Several apparent builder freezes were test verdict freezes, seedling fixtures, or whole-simulation stalls. Blob/game-time deltas should always have been checked before touching production AI.
+- The first telemetry implementation formatted too many per-tick strings and caused visible lag. Binary changed-field batching should have been the starting design.
+- Shared function signature changes were only CTF-compiled, leaving a stale AIBTest-only call. Every shared API change should be followed by a whole-repo symbol search and one focused AIBTest compile.
+- The overflow fixture relied on synchronous `CInventory.isFull()` and identical materials. KAG queues inventory changes and merges materials; fixtures must use configured slot counts and genuinely non-stackable occupants.
+- The next agent should prioritize production mechanisms and short discriminating checks. Do not add immobilization/classifier-only tests unless they directly protect a production fix.
+
+### Recommended next sequence (no KAG launch until user permits)
+
+1. Static-audit the final overflow fixture and production payment/placement paths for atomic conservation; add parser/static contracts if useful without opening KAG.
+2. Static-audit schema-v2 callback/API compatibility. When runtime is allowed, compile it once; then add the still-missing direct hit, pickup/drop, purchase, and authoritative plan/task-boundary records. Keep them compact numeric deltas.
+3. The shared director weight/template source now exists and passes a 68-key static contract. When runtime is allowed, compile the AngelScript loader before any tuning; tune only from paired KAG evidence.
+4. Paired-wave identity, post-warm-up fingerprints, meaningful seed variation, and the default three-seed minimum are implemented. Next add canonical fixture reset automation and representative left/right fixtures; runtime-compile the record contract before collecting data.
+5. When visible testing is allowed again, run only:
+   - `full_crate_creates_grounded_overflow_storage` (15-second cap, 5-second stale detector);
+   - a normal-CTF reproduction of the return overhang around `239,368 -> 132,316`;
+   - then a small mirrored/uneven director range.
+6. Do not claim public readiness until the full current suite, representative both-side maps, and the 48-trial paired matrix are evidenced.
 
 ## User Goal
 
@@ -15,32 +92,45 @@ Add a strategic AI that decides what structures the team needs, chooses suitable
 - KAG documentation is sparse; inspect existing working scripts when an API is uncertain.
 - KAG must be launched visibly and left running for gameplay testing unless the user explicitly requests a compile-only check.
 - `AIB_DEBUG` in `AIBuilderBrain.as` must remain `false` outside focused testing.
-- The current source defines 26 automated AIB scenarios, although older notes still mention 13.
+- The current source defines 58 automated AIB scenarios. The live KAG process may stall before every scenario runs in one process, so retain per-scenario evidence and do not infer a full-suite pass from a focused or partial log.
 
 ## Relevant Existing Code
 
 - `Scripts/CustomRenderer.as`
-  - Owns editor input, rendering, networking, overseer controls, and AI-visible blueprint publication.
-  - Team data keys start at lines 19-22.
-  - `AIB_ServerApplyBlueprintBlock` is near line 542.
-  - `AIB_ServerApplyBlueprintPlacement` is near line 603.
-  - `AIB_ServerApplyOverseerOrder` is near line 1970.
+  - Owns editor input/rendering and overseer controls, but delegates authoritative blueprint data/network mutations to shared APIs.
+- `Scripts/BlueprintData.as`, `Scripts/BlueprintNetwork.as`, and `Scripts/BlueprintCatalog.as`
+  - Own team-scoped human/AI layers, publication, history, task/reservation state, networking, validation, costing, and the shared block catalog.
+- `Scripts/AIBStrategicDirector.as` and `Scripts/AIBStrategicJobs.as`
+  - Own the real observation heartbeat, mode transitions, planning/publication trigger, guarded CTF first-worker provisioning, deterministic builder allocation, and reservation cleanup on builder death.
+- `Scripts/AIBWorldModel.as`, `Scripts/AIBBlueprintTemplates.as`, and `Scripts/AIBPlacementPlanner.as`
+  - Observe the world, generate procedural candidates, hard-validate them, score them, and create stable plans.
 - `Base/Entities/Characters/AIBuilder/AIBuilderBrain.as`
-  - State enum starts near line 49.
-  - Blueprint execution pipeline:
-    - `AIB_CollectBlueprintResources`, near line 702.
-    - `AIB_FindBlueprintBlock`, near line 744.
-    - `AIB_BuildBlueprintBlock`, near line 770.
-  - Nearest-tile selection starts near line 2531.
-  - Buildability/support logic starts near lines 2600 and 2654.
-  - Supported block filter is near line 2985.
-  - Current supported blueprint pieces are stone/wood blocks, backwalls, and ladders.
-  - Resource collection currently requires both 20 wood and 20 stone even when the remaining plan needs only one material.
+  - Executes assigned collection/construction work, reserves current-phase tasks, retrieves only required materials, navigates, clears valid obstructions, and places supported catalog tiles/blobs including doors and platforms.
+  - Also owns safe storage-workshop construction, low-dirt stone execution, direct shaft movement, mirrored corner recovery, and line-of-sight gold collection/return.
+- `Scripts/AIBStoneRouteCommon.as`
+  - Shares exact route membership, dirt scoring, protected-tile rejection, clear surface-approach checks, and blocked-route recomputation policy between production and tests.
 - `Scripts/AIBTestScenarios.as`
-  - Defines 26 integration scenarios, including material collection, delayed blueprints, construction, shared storage, and team isolation.
+  - Defines 54 integration scenarios, including the real-heartbeat autonomous director/bootstrap pipeline, material collection, construction, storage/overflow, physical repair, safety, team isolation, deterministic strategic invariants, workshop siting, corner recovery, line-of-sight gold delivery, low-dirt stone routing, and gym progress diagnostics.
 - `TODO.md`
   - Already calls for extracting blueprint data/network/render/editor responsibilities.
   - Calls for authoritative AI-visible data, a shared block catalog, placement validation, material summaries, and support/path-risk checks.
+
+## Current Verification Checkpoint
+
+- Earlier uninterrupted full-suite evidence belongs to the then-44-scenario source: `44 passed, 0 failed` with `[AIBTEST] DONE` in `../../Logs/console-26-07-09-19-57-48.txt`.
+- Targeted visible localhost evidence covers scenarios 42-46: all five passed with `[AIBTEST] DONE passed=5 failed=0` in `../../Logs/console-26-07-09-22-06-03.txt`. Its camera logs are not visual evidence; the user observed incorrect camera behavior.
+- A later exact route run, `../../Logs/console-26-07-09-22-33-34.txt`, passed in 133 ticks with one destroyed dirt tile after widening the movement-only direct-shaft handoff across the final validated two-tile approach. The operator closed that client before `DONE`, so retain it only as supporting per-scenario evidence.
+- `../../Logs/console-26-07-09-23-00-07.txt` records the production bootstrap heartbeat passing at 156 ticks: one safe worker, one deterministic build assignment, a task claim, and three completed director tasks. The runner reported `1 passed, 0 failed`; KAG stalled after the verdict, before `DONE`.
+- `../../Logs/console-26-07-09-23-03-31.txt` records `strategic_bootstrap_respects_mode_and_existing_worker` passing at 65 ticks. The following death/reservation case started but the simulation stalled at game time 65 before its first director heartbeat; it is unverified, not failed.
+- A post-run audit then fixed the `pending`/`reserved` assertion mismatch, latched transient claims, stored the original bootstrap spawn, split 600-unit fixture grants into legal stacks, strengthened suggest/no-home and same-plan death-release assertions, and made matching already-working builders acquire director ownership.
+- The revised source live-compiled in `../../Logs/console-26-07-09-23-14-01.txt`. The exact death/reservation scenario reached tick 30, published plan 1, provisioned worker 10 at `2036,572`, and assigned blueprint job/state `2/12`; KAG then stalled before the runner could reserve/kill it. This proves compilation and the production path through assignment, but not death cleanup.
+- Those five scenarios verify:
+  - legal workshop placement away from tent/hall footprints, including obstructed-site search and full-foundation checks;
+  - mirrored upper-left/upper-right corner escape with real displacement;
+  - line-of-sight gold-cluster mining and immediate return, while occluded/no-build controls remain protected;
+  - a reusable low-dirt stone route, one planned dirt tile destroyed, direct shaft movement, and preserved off-route dirt/bedrock/castle.
+- This is not a recorded full pass of the current 58-scenario suite. Keep full-44, focused-five, focused-heartbeat, focused-guard, focused-repair, and focused-gym evidence distinct.
+- `Tools/run_aib_tests.ps1` supports `-Scenario`, `-StartScenario`/`-EndScenario`, configurable stale detection, and optional `-StopAfterRun`. It requires `[AIBTEST] DONE` for completion. `RunLocalhost()` supplies a visible client and verdict fixtures remain for a 15-tick hold. `AIBTestCamera.as` is the intended camera owner, but displayed follow/manual control are unresolved; never treat `CAMERA_TARGET`/`CAMERA_VIEW` logs as proof of the actual screen.
 
 ## Main Architectural Decision
 
@@ -50,7 +140,8 @@ The strategic boundary should be:
 
 ```text
 World state -> candidate structures -> hard validation -> utility scoring
-            -> active team plan -> phased tile tasks -> builder job assignment
+            -> active team plan -> guarded first-worker provisioning
+            -> phased tile tasks -> deterministic builder job assignment
 ```
 
 The director decides intent, blueprint type, and placement. Existing builder brains continue handling material collection, movement, threat avoidance, and construction.
@@ -139,7 +230,7 @@ Use commitment/hysteresis to prevent constant plan changes. For controlled varie
 
 ## Builder Coordination
 
-The director controls jobs, not movement:
+The director controls plans and jobs, not movement:
 
 - Calculate remaining wood and stone shortages.
 - Assign enough builders to wood and stone collection.
@@ -148,9 +239,11 @@ The director controls jobs, not movement:
 - Reserve each task for one builder.
 - Cancel only plans that have become invalid or strategically irrelevant.
 
-Expose `off`, `suggest`, and `auto` modes. Develop in `suggest` mode first, rendering the chosen ghost blueprint and its leading score reasons.
+Expose `off`, `suggest`, and `auto` modes. Suggest mode renders a ghost and score reasons; auto publishes work and assigns builders. CTF now defaults to auto because autonomous publication is the user-facing objective. AIBTest defaults to off and opts in per scenario.
 
 ## Testing And Simulation Plan
+
+The detailed, current gym architecture and implementation roadmap are in `kag_gym.md`. Engine-specific evidence traps and workarounds are maintained in `KAG_ENGINE_QUIRKS.md`; consult that ledger before interpreting stalls, camera logs, path requests, or live compile behavior.
 
 Do not initially use full KAG bot matches as the main evaluator. Base knight/archer brains chase nearby players but do not provide dependable strategic CTF behavior.
 
@@ -176,7 +269,7 @@ Measure:
 - Friendly route slowdown.
 - Plan cancellation/replanning frequency.
 
-The existing live/headless runner has historically stopped advancing near tick 51, so long strategic scenarios should not become a prerequisite until that is solved. Short deterministic tests and an abstract evaluator can progress independently.
+Long live simulations can stop advancing, so they should not be the only acceptance mechanism. The visible localhost runner now supports exact/range selection, detects stale log/heartbeat progress, restores temporary configuration changes, and leaves KAG visible by default unless `-StopAfterRun` is supplied. Short deterministic scenarios, focused visible runs, and offline evaluation should progress together.
 
 ## Implementation Milestones
 
@@ -188,19 +281,36 @@ The existing live/headless runner has historically stopped advancing near tick 5
 6. Scripted-wave evaluation and scoring-weight tuning.
 7. Optional contextual bandit learning template performance by map/threat context. This should come only after deterministic scoring and outcome metrics work.
 
-## Recommended Immediate Next Step
+## Recommended Immediate Next Steps
 
-Implement milestone 1 only:
+Milestones 1-5 are implemented as a deterministic prototype. The next work is acceptance and tuning, not another planner rewrite:
 
-- Define a `BlueprintPlan`/`BlueprintTask` data model.
-- Extract a server-authoritative blueprint API that can publish deltas/snapshots to the existing renderer and builder compatibility grid.
-- Preserve human and AI plan layers separately.
-- Add plan/version/owner fields and event logging.
-- Add tests for AI publication, human-plan preservation, team isolation, and completed-plan history.
+1. Run `strategic_bootstrap_is_one_time_and_releases_reservation` alone. No KAG process is currently running. It is the only new bootstrap case without executed assertions; the previous range stalled before its director heartbeat.
+2. Add representative end-to-end fixtures for both team directions, uneven terrain, map edges, barriers, occupied/no-build bases, scarce resources, blocked bootstrap sites, round reset, and collapsing frontlines.
+3. Preserve the production bootstrap contract: CTF-only default, active non-empty auto plan, team home, zero existing builders, safe grounded both-side search, one free worker per round, cooldown on failure, and immediate reservation release on death.
+4. Optimize bootstrap spawn search: it can evaluate about 950 coordinates and currently rescans all blobs for each one. Cache blocker bounds or short-circuit in score order, and require a surface/reachable approach so an empty sealed cave cannot be selected.
+5. Build pristine automatically reset paired wave fixtures around the implemented canonical/measurement fingerprints, fixture/version/team-side identity, seed variation, and three-seed cohort gate. Collect 2 sides × 4 waves × 3 seeds × 2 variants = 48 trials / 24 pairs.
+6. Empty-plan rejection, archer ammunition/fire pulses, censored breach handling, fingerprint rejection, and semantic gates already exist. Validate them with live wave records rather than reimplementing them; current logs contain no `wave_start`, `wave_result`, or `wave_abort` data.
+7. Centralize production scoring weights and template metadata, then tune only from the paired KAG dataset.
 
-Do not add strategic scoring inside `CustomRenderer.as`; that would deepen the coupling already identified in `TODO.md`.
+Do not add strategic scoring inside `CustomRenderer.as`; keep it in the server planner. Do not start RL training against the current disconnected abstract simulator.
 
-## Previous User-Facing Recommendation
+Runtime handoff: visible KAG PID `26132` was initially left running after stale detection and later exited on its own; no KAG process remains. `Rules/CTF/gamemode.cfg` is restored, no disabled rename remains, and all AIBTest scenario selectors are blank. Camera behavior is still visually wrong despite internally consistent camera logs; do not spend more director time treating those logs as authoritative.
+
+## Gym Decision
+
+A trainable King Arthur's Gold gym is premature. The current PowerShell simulator is a deterministic surrogate with duplicated template properties and a separate utility equation; optimizing it would optimize its assumptions rather than demonstrated KAG outcomes.
+
+Build a replayable evaluation layer first:
+
+- reset pristine deterministic fixtures and export real world snapshots, candidate scores/rejections, selected plans, team side, fixture/version, measurement-start fingerprint, and paired wave outcomes;
+- share one scoring-weight/template configuration between production and offline evaluation;
+- validate predictions against the 48-trial / 24-pair KAG control/plan matrix;
+- only then consider weight search, Bayesian optimization, or a contextual bandit.
+
+Full reinforcement learning is optional and should be attempted only if deterministic utility scoring plateaus after trustworthy evaluation.
+
+## Design Rationale
 
 The recommended approach was a utility director rather than neural AI. Its key qualities should be:
 
@@ -211,4 +321,4 @@ The recommended approach was a utility director rather than neural AI. Its key q
 - Counterable: structures have real material/time costs and imperfect tactical value.
 - Testable: deterministic candidate tests first, abstract simulation second, real KAG waves third.
 
-No source code was changed during the planning turn. This handoff file is the only created file.
+Current implementation/evidence details deliberately live in the status file so this design contract can remain stable.

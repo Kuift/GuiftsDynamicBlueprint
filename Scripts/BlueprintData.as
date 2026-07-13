@@ -1,6 +1,7 @@
 #include "BlueprintCatalog.as";
 #include "AIBStrategicTypes.as";
 #include "AIBStrategyEventLog.as";
+#include "AIBActionBoundaryCommon.as";
 
 const u32 AIBP_RESERVATION_TICKS = 150;
 
@@ -344,6 +345,9 @@ bool AIBP_PublishAIPlan(BlueprintPlan@ plan, const bool activate)
 	rules.Sync(AIBP_PlanKey(team, "score"), true);
 	rules.Sync(AIBP_PlanKey(team, "reasons"), true);
 	AIBP_SaveTasks(team, @plan.tasks);
+	AIB_ActionQueueBoundary(AIBActionBoundary::plan_publish, AIBActionActorKind::system, 0, plan.id, team,
+		u16(Maths::Max(0, int(plan.anchor.x))), u16(Maths::Max(0, int(plan.anchor.y))), plan.intent,
+		u16(Maths::Min(plan.tasks.length, uint(65535))));
 	AIBP_RebuildCompatibility(team, false);
 	AIBP_SendDisplaySnapshot(0, team);
 	AIBS_Log("publish", team, "plan=" + plan.id + " version=" + plan.version + " template=" + plan.templateName + " tasks=" + plan.tasks.length + " active=" + activate);
@@ -507,8 +511,13 @@ bool AIBP_ReserveTask(const u8 team, const u16 x, const u16 y, const u16 builder
 		getRules().set(AIBP_TaskKey(team, "reserved"), reserved);
 		getRules().set(AIBP_TaskKey(team, "until"), untils);
 		getRules().set(AIBP_TaskKey(team, "state"), states);
-		if (newClaim) AIBS_Log("reserve", team, "plan=" + getRules().get_u16(AIBP_PlanKey(team, "id")) +
-			" x=" + x + " y=" + y + " builder=" + builderNetID + " phase=" + activePhase);
+		if (newClaim)
+		{
+			const u16 planID = getRules().get_u16(AIBP_PlanKey(team, "id"));
+			AIB_ActionQueueBoundary(AIBActionBoundary::task_reserve, AIBActionActorKind::ai_builder,
+				builderNetID, planID, team, x, y, i < blocks.length ? blocks[i] : 0, activePhase);
+			AIBS_Log("reserve", team, "plan=" + planID + " x=" + x + " y=" + y + " builder=" + builderNetID + " phase=" + activePhase);
+		}
 		return true;
 	}
 	return AIBP_ReserveLooseTask(team, x, y, builderNetID); // Generated support tiles are not explicit strategic tasks.
@@ -586,6 +595,8 @@ void AIBP_CompleteTaskAt(const u8 team, const u16 x, const u16 y)
 	for (uint i = 0; i < xs.length && i < ys.length && i < states.length && i < reserved.length && i < untils.length; i++)
 	{
 		if (xs[i] != x || ys[i] != y) continue;
+		const u16 builderNetID = reserved[i];
+		const u16 block = i < blocks.length ? blocks[i] : 0;
 		states[i] = AIBP_TaskState::completed; reserved[i] = 0; untils[i] = 0;
 		getRules().set(AIBP_TaskKey(team, "state"), states);
 		getRules().set(AIBP_TaskKey(team, "reserved"), reserved);
@@ -596,6 +607,9 @@ void AIBP_CompleteTaskAt(const u8 team, const u16 x, const u16 y)
 		{
 			if (states[j] != AIBP_TaskState::completed && states[j] != AIBP_TaskState::cancelled) { allDone = false; break; }
 		}
+		AIB_ActionQueueBoundary(AIBActionBoundary::task_complete,
+			builderNetID == 0 ? AIBActionActorKind::system : AIBActionActorKind::ai_builder,
+			builderNetID, getRules().get_u16(AIBP_PlanKey(team, "id")), team, x, y, block, AIBP_BlockCost(block));
 		if (allDone)
 		{
 			getRules().set_u8(AIBP_PlanKey(team, "status"), 2);
@@ -646,6 +660,10 @@ void AIBP_ArchiveCurrentPlan(const u8 team, const string &in reason)
 		for (uint i = 0; i < history.length; i++) if (history[i] == planID) { found = true; break; }
 		if (!found) { history.push_back(planID); rules.set("aib strategy history ids team " + int(team), history); }
 	}
+	Vec2f anchor = rules.get_Vec2f(AIBP_PlanKey(team, "anchor"));
+	AIB_ActionQueueBoundary(AIBActionBoundary::plan_archive, AIBActionActorKind::system, 0, planID, team,
+		u16(Maths::Max(0, int(anchor.x))), u16(Maths::Max(0, int(anchor.y))),
+		AIB_ActionArchiveReasonCode(reason), rules.get_u8(AIBP_PlanKey(team, "status")));
 	AIBS_Log("archive", team, "plan=" + planID + " reason=" + reason);
 }
 
@@ -789,6 +807,8 @@ void AIBP_RefreshPlanState(const u8 team, const bool reactivateDamaged)
 				if (work !is null && index < work.length) { work[index] = blocks[i]; workChanged = true; }
 				changed = true;
 				pending++;
+				AIB_ActionQueueBoundary(AIBActionBoundary::task_damage, AIBActionActorKind::system, 0,
+					rules.get_u16(AIBP_PlanKey(team, "id")), team, xs[i], ys[i], blocks[i], AIBP_BlockCost(blocks[i]));
 				AIBS_Log("damage", team, "plan=" + rules.get_u16(AIBP_PlanKey(team, "id")) + " x=" + xs[i] + " y=" + ys[i]);
 			}
 			else completed++;
@@ -796,12 +816,16 @@ void AIBP_RefreshPlanState(const u8 team, const bool reactivateDamaged)
 		else if (states[i] == AIBP_TaskState::completed) completed++;
 		else if (states[i] != AIBP_TaskState::cancelled && matches)
 		{
+			const u16 builderNetID = i < reserved.length ? reserved[i] : 0;
 			states[i] = AIBP_TaskState::completed;
 			if (i < reserved.length) reserved[i] = 0;
 			if (i < untils.length) untils[i] = 0;
 			if (work !is null && index < work.length) { work[index] = 0; workChanged = true; }
 			changed = true;
 			completed++;
+			AIB_ActionQueueBoundary(AIBActionBoundary::task_complete,
+				builderNetID == 0 ? AIBActionActorKind::system : AIBActionActorKind::ai_builder,
+				builderNetID, rules.get_u16(AIBP_PlanKey(team, "id")), team, xs[i], ys[i], blocks[i], AIBP_BlockCost(blocks[i]));
 		}
 		else if (states[i] != AIBP_TaskState::cancelled) pending++;
 	}

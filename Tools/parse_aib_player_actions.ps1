@@ -9,6 +9,13 @@ function Read-U16([byte[]]$Bytes, [ref]$Offset) { $v = [BitConverter]::ToUInt16(
 function Read-S16([byte[]]$Bytes, [ref]$Offset) { $v = [BitConverter]::ToInt16($Bytes, $Offset.Value); $Offset.Value += 2; return $v }
 function Read-U32([byte[]]$Bytes, [ref]$Offset) { $v = [BitConverter]::ToUInt32($Bytes, $Offset.Value); $Offset.Value += 4; return $v }
 
+$boundaryNames = @{
+    1='human_blueprint_delta'; 2='human_blueprint_prefab'; 3='human_blueprint_clear'; 4='overseer_order'
+    5='director_mode'; 6='plan_publish'; 7='plan_archive'; 8='task_reserve'; 9='task_complete'; 10='task_damage'
+    11='purchase'; 12='hit'; 13='pickup'; 14='drop'
+}
+$actorKindNames = @{ 0='system'; 1='player'; 2='ai_builder' }
+
 $records = [System.Collections.Generic.List[object]]::new()
 $episodeTicks = @{}
 foreach ($path in $LogPath) {
@@ -69,6 +76,16 @@ foreach ($path in $LogPath) {
                     if ($mask -band 16) { $r.explosives=Read-U16 $bytes ([ref]$offset) }
                     if ($mask -band 32) { $r.coins=Read-U16 $bytes ([ref]$offset) }
                 }
+                9 {
+                    $r.action='boundary'; $r.event_tick=Read-U32 $bytes ([ref]$offset)
+                    $opcode=Read-U8 $bytes ([ref]$offset); $actorKind=Read-U8 $bytes ([ref]$offset)
+                    $r.boundary_opcode=$opcode; $r.boundary=if ($boundaryNames.ContainsKey([int]$opcode)) { $boundaryNames[[int]$opcode] } else { "unknown_$opcode" }
+                    $r.actor_kind_code=$actorKind; $r.actor_kind=if ($actorKindNames.ContainsKey([int]$actorKind)) { $actorKindNames[[int]$actorKind] } else { "unknown_$actorKind" }
+                    $r.actor=Read-U16 $bytes ([ref]$offset); $r.subject=Read-U16 $bytes ([ref]$offset); $r.team=Read-U8 $bytes ([ref]$offset)
+                    $r.x=Read-U16 $bytes ([ref]$offset); $r.y=Read-U16 $bytes ([ref]$offset)
+                    $r.detail=Read-U16 $bytes ([ref]$offset); $r.value=Read-U16 $bytes ([ref]$offset)
+                }
+                10 { $r.action='boundary_loss'; $r.dropped=Read-U16 $bytes ([ref]$offset) }
                 default { throw "Unknown AIB action record kind $kind in $path batch $batch" }
             }
             $records.Add([pscustomobject]$r); $decoded++

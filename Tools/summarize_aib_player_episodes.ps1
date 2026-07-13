@@ -13,10 +13,18 @@ $profiles = @{}
 $active = @{}
 $episodeCounters = @{}
 $mapHashes = @{}
+$boundaryLosses = @{}
 $results = [Collections.Generic.List[object]]::new()
 
 function Context-Key($row) { return "$($row.raw_log)|$($row.episode)" }
 function Player-Key($row, [int]$player) { return "$(Context-Key $row)|$player" }
+
+foreach ($row in $rows) {
+    if ($row.action -ne 'boundary_loss') { continue }
+    $key = Context-Key $row
+    $currentLoss = if ($boundaryLosses.ContainsKey($key)) { [int]$boundaryLosses[$key] } else { 0 }
+    $boundaryLosses[$key] = $currentLoss + [int]$row.dropped
+}
 
 function Get-Profile($row, [int]$player) {
     $key = Player-Key $row $player
@@ -37,11 +45,14 @@ function Start-Episode($row, [int]$player, [string]$cause) {
     $active[$key] = @{
         player = $player; task_episode = $counter; source_episode = [int]$row.episode
         raw_log = [string]$row.raw_log; map_hash = $mapHashes[(Context-Key $row)]
+        boundary_records_dropped = $(if ($boundaryLosses.ContainsKey((Context-Key $row))) { [int]$boundaryLosses[(Context-Key $row)] } else { 0 })
         team = [int]$profile.team; class_code = [int]$profile.class_code
         start_tick = [int64]$row.tick; last_tick = [int64]$row.tick; last_activity_tick = [int64]$row.tick
         start_x = $profile.x; start_y = $profile.y; end_x = $profile.x; end_y = $profile.y
         travel_px = 0.0; idle_ticks = 0; jumps = 0; previous_buttons = [int]$profile.buttons
         tile_placed = 0; tile_destroyed = 0; blobs_created = 0; kills = 0; deaths = 0
+        authoritative_boundaries = 0; blueprint_edits = 0; overseer_orders = 0; director_mode_changes = 0
+        purchases = 0; purchase_value = 0
         attributed_outcome_weight = 0.0; low_confidence_outcomes = 0; explicit_outcomes = 0
         wood_gain = 0; wood_spent = 0; stone_gain = 0; stone_spent = 0
         gold_gain = 0; gold_spent = 0; coin_gain = 0; coin_spent = 0
@@ -59,8 +70,11 @@ function Finish-Episode([string]$key, [string]$reason) {
         elseif ($s.tile_destroyed -gt 0 -or $s.stone_gain -gt 0 -or $s.gold_gain -gt 0) { 'mine' }
         elseif ($s.wood_gain -gt 0) { 'harvest' }
         elseif ($s.kills -gt 0 -or $s.deaths -gt 0) { 'combat' }
+        elseif ($s.blueprint_edits -gt 0) { 'plan_blueprint' }
+        elseif ($s.overseer_orders -gt 0 -or $s.director_mode_changes -gt 0) { 'direct_ai' }
+        elseif ($s.purchases -gt 0) { 'purchase' }
         else { 'traverse' }
-    $success = $s.tile_placed -gt 0 -or $s.blobs_created -gt 0 -or $resourceGain -gt 0 -or $s.kills -gt 0
+    $success = $s.tile_placed -gt 0 -or $s.blobs_created -gt 0 -or $resourceGain -gt 0 -or $s.kills -gt 0 -or $s.purchases -gt 0
     $cost = [double]$duration + $s.travel_px * 0.10 + $s.idle_ticks * 1.50 + $s.jumps * 12.0 +
         $s.deaths * 900.0 + $s.wood_spent * 0.25 + $s.stone_spent * 0.35 + $s.gold_spent * 0.50 -
         $s.attributed_outcome_weight * 105.0 - $resourceGain * 0.10 - $s.kills * 300.0
@@ -72,10 +86,14 @@ function Finish-Episode([string]$key, [string]$reason) {
         task_episode = $s.task_episode; map_hash = $s.map_hash; player = $s.player; team = $s.team
         class_code = $s.class_code; task = $task; start_tick = $s.start_tick; end_tick = $s.last_tick
         context_key_v1 = $contextKey
+        boundary_records_dropped = $s.boundary_records_dropped
         duration_ticks = $duration; end_reason = $reason; success = $success
         start_x = $s.start_x; start_y = $s.start_y; end_x = $s.end_x; end_y = $s.end_y
         travel_px = [Math]::Round($s.travel_px, 2); idle_ticks_estimate = $s.idle_ticks; jumps = $s.jumps
         tile_placed = $s.tile_placed; tile_destroyed = $s.tile_destroyed; blobs_created = $s.blobs_created
+        authoritative_boundaries = $s.authoritative_boundaries; blueprint_edits = $s.blueprint_edits
+        overseer_orders = $s.overseer_orders; director_mode_changes = $s.director_mode_changes
+        purchases = $s.purchases; purchase_value = $s.purchase_value
         attributed_outcome_weight = [Math]::Round($s.attributed_outcome_weight, 3)
         low_confidence_outcomes = $s.low_confidence_outcomes; explicit_outcomes = $s.explicit_outcomes
         kills = $s.kills; deaths = $s.deaths; wood_gain = $s.wood_gain; wood_spent = $s.wood_spent
@@ -140,6 +158,14 @@ foreach ($row in $rows) {
         $player = [int]$row.player; $p = Get-Profile $row $player; $s = Get-Activity $row $player 'inventory'
         Apply-Quantity $s $p $row 'wood' 'wood_gain' 'wood_spent'; Apply-Quantity $s $p $row 'stone' 'stone_gain' 'stone_spent'
         Apply-Quantity $s $p $row 'gold' 'gold_gain' 'gold_spent'; Apply-Quantity $s $p $row 'coins' 'coin_gain' 'coin_spent'; continue
+    }
+    if ($row.action -eq 'boundary' -and $row.actor_kind -eq 'player' -and [int]$row.actor -gt 0) {
+        $s = Get-Activity $row ([int]$row.actor) 'authoritative_boundary'; $s.authoritative_boundaries++
+        if ($row.boundary -eq 'human_blueprint_delta' -or $row.boundary -eq 'human_blueprint_prefab' -or $row.boundary -eq 'human_blueprint_clear') { $s.blueprint_edits++ }
+        elseif ($row.boundary -eq 'overseer_order') { $s.overseer_orders++ }
+        elseif ($row.boundary -eq 'director_mode') { $s.director_mode_changes++ }
+        elseif ($row.boundary -eq 'purchase') { $s.purchases++; $s.purchase_value += [int]$row.value }
+        continue
     }
     if ($row.action -eq 'tile' -and [int]$row.player -gt 0) {
         $s = Get-Activity $row ([int]$row.player) 'tile_outcome'

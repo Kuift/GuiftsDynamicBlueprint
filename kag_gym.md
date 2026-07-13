@@ -13,8 +13,8 @@ This is the order of work. Do not spend another milestone polishing test present
 1. Real builder primitives: selected tree, exposed stone, obstructed stone, material retrieval, one supported block, door/platform, recovery ladder, repair. Physical repair now has a complete focused pass; mining/pathing still need representative evidence.
 2. Resource lifecycle: home/crate deposit, crate retrieval, full-crate overflow, shortage recovery, no-home safety. Overflow production behavior is implemented, but the corrected final fixture is not yet run.
 3. Multi-builder construction: deterministic roles, reservation handoff, support-first sequencing, no duplicate work, full small-plan completion.
-4. Director fixtures: mirrored inward selection, an uneven near-edge blocked-primary fallback, exact scarce-storage scoring, and emergency selection under collapse pressure are now defined through the production planner, but remain runtime-unverified. No-build, occupied, damaged-front, and full physical-completion fixtures remain.
-5. Outcome/cost capture: schema v2 now covers tile mutation, important-blob creation, death, and resource/economy deltas plus an offline raw episode summary. Hits, explicit pickup/drop/purchase, plan completion, and runtime validation remain.
+4. Director fixtures: mirrored inward selection, an uneven near-edge blocked-primary fallback, exact scarce-storage scoring, emergency selection under collapse pressure, damaged-front retention, and full selected-plan completion are defined through production paths but remain runtime-unverified. No-build and occupied representative fixtures remain.
+5. Outcome/cost capture: schema v3 covers attributed outcomes, accepted blueprint/director actions, director-shop purchases, and plan/task boundaries plus an offline raw episode summary. Generic hits, explicit pickup/drop, non-director purchases, and runtime validation remain.
 6. Strategy evaluation: shared scoring and fixture/version/team/side/seed cohort identity now pass static contracts. Canonical reset automation, live validation of measurement fingerprints, representative both-side fixtures, and 48 paired trials remain.
 7. Public learning loop: retention/notice, task segmentation, matched human/AI comparisons, evidence-driven code/weight changes.
 
@@ -87,16 +87,18 @@ In public CTF, the first latched monitor violation per AI builder is also emitte
 
 `Scripts/AIBPlayerActionLog.as` is the first public-server demonstration stream. It writes compact binary delta records to an in-memory batch and emits one base64 transport envelope approximately every ten seconds or 2 KiB. There are no per-player/per-frame log strings. KAG console logs are the append-only storage available to scripts; offline tools restore the binary records and export versioned NDJSON. Raw usernames, IPs, chat, and free-form messages are deliberately excluded.
 
-Schema v2 retains the v1 lifecycle/input/aim/equipment/motion records and adds:
+Schema v3 retains the v1 lifecycle/input/aim/equipment/motion records and v2 outcome records:
 
 - kind 5: tile mutation with actor, attribution confidence, tile coordinate, old tile, and new tile;
 - kind 6: important blob creation with actor, confidence, blob/team/category, hashed name, and position;
 - kind 7: death with victim, killer, blob/team/category, hashed name, and position;
 - kind 8: changed-only wood, stone, gold, arrows, explosives, and coin totals behind a field mask.
+- kind 9: accepted human blueprint/director action, director-shop purchase, or production plan/task boundary with exact producer tick, actor kind/id, subject, team, tile, detail, and value;
+- kind 10: explicit count of boundaries dropped by the bounded queue.
 
-Attribution confidence is numeric and explicit: 3 is engine damage-owner attribution, 2 is a nearby player actively pressing an action, 1 is a nearby passive player, and 0 is unattributed. Do not silently treat proximity inference as ground truth. `Tools/parse_aib_player_actions.ps1` decodes both schema versions. `Tools/summarize_aib_player_episodes.ps1` segments actor-local activity using spawn/leave/death and a 150-tick idle gap, then emits raw build/mine/harvest/combat/traverse episode components, attribution-weighted outcomes, low-confidence counts, a privacy-safe coarse context key, and a versioned estimated cost. Raw fields remain authoritative; the task label, idle estimate, context bucket, attribution weight, and scalar cost are heuristics.
+Attribution confidence is numeric and explicit: 3 is engine damage-owner attribution, 2 is a nearby player actively pressing an action, 1 is a nearby passive player, and 0 is unattributed. Do not silently treat proximity inference as ground truth. `Tools/parse_aib_player_actions.ps1` decodes v1-v3. `Tools/summarize_aib_player_episodes.ps1` segments actor-local activity using spawn/leave/death and a 150-tick idle gap, then emits raw build/mine/harvest/combat/planning/director/traverse episode components, accepted-boundary counts, attribution-weighted outcomes, low-confidence counts, a privacy-safe coarse context key, and a versioned estimated cost. Raw fields remain authoritative; the task label, idle estimate, context bucket, attribution weight, and scalar cost are heuristics.
 
-The v2 AngelScript hooks are not yet KAG-runtime compiled because visible windows are currently prohibited. The parser, v1/v2 fixtures, and episode summarizer pass deterministic PowerShell regressions.
+The v3 AngelScript hooks are not yet KAG-runtime compiled because visible windows are currently prohibited. The parser, v1-v3 fixtures, boundary contract, and episode summarizer pass deterministic PowerShell regressions.
 
 ### 4. Assertions and online monitors
 
@@ -255,8 +257,8 @@ Production weights and template metadata must have one source of truth consumed 
 - [x] Test scenario start/pass/fail/done records.
 - [x] AI state/target/path/resource and strategy events at key transitions.
 - [x] Public CTF server-observed player action stream and NDJSON exporter.
-- [ ] PARTIAL — authoritative outcome hooks: tile mutation, important-blob creation, death, and changed resource/economy totals are implemented and statically tested; hit and explicit pickup/drop/purchase remain, and v2 still needs a KAG runtime compile.
-- [ ] PARTIAL — versioned episodes: the offline `aib_task_episode_v1`/`estimated_cost_v1` summarizer is deterministic, but explicit authoritative task start/end and the full AI-equivalent cost vector remain.
+- [ ] PARTIAL — authoritative outcome hooks: tile/blob/death/resource outcomes, accepted blueprint/director actions, director-shop purchases, and plan/task boundaries are implemented and statically tested; generic hit, pickup/drop, and non-director purchase producers remain, and v3 still needs a KAG runtime compile.
+- [ ] PARTIAL — versioned episodes: the offline `aib_task_episode_v1`/`estimated_cost_v1` summarizer deterministically counts accepted player boundaries, but AI motion/material joins and the full AI-equivalent cost vector remain.
 
 ### Phase B — failure monitors
 

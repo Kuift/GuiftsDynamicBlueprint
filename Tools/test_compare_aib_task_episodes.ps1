@@ -29,6 +29,12 @@ try {
     }
     if (!$rejected) { throw 'Worsened matched cohort was not rejected' }
 
+    $lossy = @(1..3 | ForEach-Object { $row = Episode 'm99-t0-c1-build-x0-y0' 80 90 $true; $row | Add-Member -NotePropertyName boundary_records_dropped -NotePropertyValue 1; $row })
+    @($lossy | ForEach-Object { $_ | ConvertTo-Json -Compress }) | Set-Content -LiteralPath $candidatePath -Encoding utf8
+    $lossRejected = $false
+    try { & $compare -BaselinePath $baselinePath -CandidatePath $candidatePath -AsJson | Out-Null } catch { $lossRejected = $_.Exception.Message -match 'incomplete telemetry' }
+    if (!$lossRejected) { throw 'Boundary-loss cohort was not rejected' }
+
     @($candidate[0..1] | ForEach-Object { $_ | ConvertTo-Json -Compress }) | Set-Content -LiteralPath $candidatePath -Encoding utf8
     $underSampled = $false
     try { & $compare -BaselinePath $baselinePath -CandidatePath $candidatePath -AsJson | Out-Null } catch { $underSampled = $_.Exception.Message -match 'at least 3 episodes' }

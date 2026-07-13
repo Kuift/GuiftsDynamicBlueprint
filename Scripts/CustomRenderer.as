@@ -2203,6 +2203,10 @@ void AIB_ServerSetDirectorMode(const u16 playerNetID, const u8 requestedMode)
 	rules.set_u32("aib strategy important event team " + int(team), getGameTime());
 	AIBP_SetAIWorkEnabled(team, requestedMode == AIBP_StrategyMode::auto_mode);
 	if(requestedMode == AIBP_StrategyMode::off) AIB_ServerStopDirectorAssignments(team);
+	u16 actionX = 0; u16 actionY = 0;
+	AIB_ActionBoundaryBlobTile(player.getBlob(), actionX, actionY);
+	AIB_ActionQueueBoundary(AIBActionBoundary::director_mode, AIBActionActorKind::player,
+		playerNetID, 0, team, actionX, actionY, requestedMode, 0);
 	AIB_LogEvent("player", "director_mode", AIB_EventPlayerRef(player), "mode=" + requestedMode + " team=" + team);
 }
 
@@ -2344,6 +2348,10 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 	builder.Sync("ai builder state", true);
 	builder.Sync("ai builder job", true);
 	builder.Sync("ai builder job active", true);
+	u16 actionX = 0; u16 actionY = 0;
+	AIB_ActionBoundaryBlobTile(builder, actionX, actionY);
+	AIB_ActionQueueBoundary(AIBActionBoundary::overseer_order, AIBActionActorKind::player,
+		playerNetID, builderNetID, u8(builder.getTeamNum()), actionX, actionY, order, 0);
 	AIB_LogEvent("player", "overseer_order", AIB_EventBlobRef(builder), "order=" + order + " player=" + playerNetID + " pos=" + AIB_EventPos(builder.getPosition()));
 }
 

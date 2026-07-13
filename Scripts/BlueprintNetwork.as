@@ -30,7 +30,13 @@ bool AIBP_ServerApplyHumanDelta(const u16 playerNetID, const u16 x, const u16 y,
 		return false;
 	}
 	if (!AIBP_ServerCanEdit(playerNetID, team)) return false;
-	return AIBP_SetHumanTile(team, x, y, value, expectedVersion);
+	const bool changed = AIBP_SetHumanTile(team, x, y, value, expectedVersion);
+	if (changed)
+	{
+		AIB_ActionQueueBoundary(AIBActionBoundary::human_blueprint_delta, AIBActionActorKind::player,
+			playerNetID, getRules().get_u16(AIBP_PlanKey(team, "human version")), team, x, y, value, 0);
+	}
+	return changed;
 }
 
 bool AIBP_ServerApplyHumanPrefab(const u16 playerNetID, const u16 expectedVersion,
@@ -46,7 +52,14 @@ bool AIBP_ServerApplyHumanPrefab(const u16 playerNetID, const u16 expectedVersio
 		return false;
 	}
 	if (!AIBP_ServerCanEdit(playerNetID, team)) return false;
-	return AIBP_ApplyHumanPlacement(team, centerX, centerY, width, height, source);
+	const bool changed = AIBP_ApplyHumanPlacement(team, centerX, centerY, width, height, source);
+	if (changed)
+	{
+		AIB_ActionQueueBoundary(AIBActionBoundary::human_blueprint_prefab, AIBActionActorKind::player,
+			playerNetID, getRules().get_u16(AIBP_PlanKey(team, "human version")), team,
+			centerX, centerY, width, height);
+	}
+	return changed;
 }
 
 void AIBP_ServerClearHumanLayer(const u16 playerNetID)
@@ -62,5 +75,7 @@ void AIBP_ServerClearHumanLayer(const u16 playerNetID)
 	getRules().Sync(AIBP_PlanKey(team, "human version"), true);
 	AIBP_RebuildCompatibility(team, false);
 	AIBP_SendDisplaySnapshot(0, team);
+	AIB_ActionQueueBoundary(AIBActionBoundary::human_blueprint_clear, AIBActionActorKind::player,
+		playerNetID, getRules().get_u16(AIBP_PlanKey(team, "human version")), team, 0, 0, 0, 0);
 	AIBS_Log("human_clear", team, "player=" + playerNetID);
 }

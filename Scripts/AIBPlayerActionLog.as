@@ -6,7 +6,9 @@
 // is only the transport envelope; Tools/parse_aib_player_actions.ps1 restores
 // the original bytes. No per-tick/per-player strings are printed.
 
-const u8 AIB_ACTION_SCHEMA_VERSION = 2;
+#include "AIBActionBoundaryCommon.as";
+
+const u8 AIB_ACTION_SCHEMA_VERSION = 3;
 const u32 AIB_ACTION_FRAME_TICKS = 30;
 const u32 AIB_ACTION_AIM_SAMPLE_TICKS = 5;
 const u32 AIB_ACTION_FLUSH_TICKS = 300;
@@ -171,6 +173,44 @@ void AIB_ActionRecordHeader(const u8 kind)
 	aibActionRecords++;
 }
 
+void AIB_ActionDrainBoundaries(CRules@ rules)
+{
+	if (rules is null) return;
+	array<u32>@ queue = null;
+	const bool hasQueue = rules.get(AIB_ACTION_BOUNDARY_QUEUE, @queue) && queue !is null;
+	u16 dropped = rules.get_u16(AIB_ACTION_BOUNDARY_DROPPED);
+	if (hasQueue && queue.length % AIB_ACTION_BOUNDARY_FIELDS == 0)
+	{
+		for (uint i = 0; i < queue.length; i += AIB_ACTION_BOUNDARY_FIELDS)
+		{
+			AIB_ActionRecordHeader(9); // authoritative action/plan/task boundary
+			AIB_ActionU32(queue[i]);
+			AIB_ActionByte(u8(queue[i + 1]));
+			AIB_ActionByte(u8(queue[i + 2]));
+			AIB_ActionU16(u16(queue[i + 3]));
+			AIB_ActionU16(u16(queue[i + 4]));
+			AIB_ActionByte(u8(queue[i + 5]));
+			AIB_ActionU16(u16(queue[i + 6]));
+			AIB_ActionU16(u16(queue[i + 7]));
+			AIB_ActionU16(u16(queue[i + 8]));
+			AIB_ActionU16(u16(queue[i + 9]));
+			if (aibActionBytes.length >= AIB_ACTION_MAX_BATCH_BYTES) AIB_ActionFlush(rules, "boundary_size");
+		}
+	}
+	else if (hasQueue && queue.length > 0 && dropped < 65535)
+	{
+		dropped++;
+	}
+	if (dropped > 0)
+	{
+		AIB_ActionRecordHeader(10); // bounded queue overflow; evidence is incomplete
+		AIB_ActionU16(dropped);
+	}
+	array<u32> empty;
+	rules.set(AIB_ACTION_BOUNDARY_QUEUE, empty);
+	rules.set_u16(AIB_ACTION_BOUNDARY_DROPPED, 0);
+}
+
 void AIB_ActionResetPlayer(CRules@ rules, CPlayer@ player)
 {
 	if (rules is null || player is null) return;
@@ -234,11 +274,13 @@ void AIB_ActionRecordInventoryDelta(CRules@ rules, CPlayer@ player, CBlob@ blob)
 void AIB_ActionBeginEpisode(CRules@ rules)
 {
 	if (!isServer() || rules is null) return;
+	AIB_ActionDrainBoundaries(rules);
 	AIB_ActionFlush(rules, "episode_end");
 	aibActionBatchSequence = 0;
 	aibActionLastRecordTick = getGameTime();
 	aibActionLastFlushTick = getGameTime();
 	rules.set_bool("aib player action log enabled", rules.gamemode_name == "CTF");
+	AIB_ActionClearBoundaryQueue(rules);
 	rules.set_u32("aib action episode", rules.get_u32("aib action episode") + 1);
 	if (rules.get_bool("aib player action log enabled"))
 	{
@@ -254,6 +296,7 @@ void onRestart(CRules@ this) { AIB_ActionBeginEpisode(this); }
 void onNewPlayerJoin(CRules@ this, CPlayer@ player)
 {
 	if (!isServer() || !this.get_bool("aib player action log enabled") || player is null) return;
+	AIB_ActionDrainBoundaries(this);
 	AIB_ActionResetPlayer(this, player);
 	AIB_ActionRecordHeader(1); // join
 	AIB_ActionU16(player.getNetworkID());
@@ -263,6 +306,7 @@ void onNewPlayerJoin(CRules@ this, CPlayer@ player)
 void onPlayerLeave(CRules@ this, CPlayer@ player)
 {
 	if (!isServer() || !this.get_bool("aib player action log enabled") || player is null) return;
+	AIB_ActionDrainBoundaries(this);
 	AIB_ActionRecordHeader(2); // leave
 	AIB_ActionU16(player.getNetworkID());
 	AIB_ActionByte(u8(player.getTeamNum()));
@@ -271,6 +315,7 @@ void onPlayerLeave(CRules@ this, CPlayer@ player)
 void onTick(CRules@ this)
 {
 	if (!isServer() || this is null || !this.get_bool("aib player action log enabled")) return;
+	AIB_ActionDrainBoundaries(this);
 	const u32 now = getGameTime();
 	for (int i = 0; i < getPlayersCount(); i++)
 	{
@@ -367,6 +412,7 @@ void onSetTile(CMap@ map, u32 index, TileType newTile, TileType oldTile)
 {
 	CRules@ rules = getRules();
 	if (!isServer() || map is null || rules is null || !rules.get_bool("aib player action log enabled") || newTile == oldTile) return;
+	AIB_ActionDrainBoundaries(rules);
 	const u16 x = u16(index % map.tilemapwidth);
 	const u16 y = u16(index / map.tilemapwidth);
 	const Vec2f center = Vec2f((x + 0.5f) * map.tilesize, (y + 0.5f) * map.tilesize);
@@ -384,6 +430,7 @@ void onSetTile(CMap@ map, u32 index, TileType newTile, TileType oldTile)
 void onBlobCreated(CRules@ rules, CBlob@ blob)
 {
 	if (!isServer() || rules is null || !rules.get_bool("aib player action log enabled") || !AIB_ActionImportantBlob(blob)) return;
+	AIB_ActionDrainBoundaries(rules);
 	u8 confidence = 0;
 	CPlayer@ actor = blob.getDamageOwnerPlayer();
 	if (actor !is null) confidence = 3;
@@ -402,6 +449,7 @@ void onBlobCreated(CRules@ rules, CBlob@ blob)
 void onBlobDie(CRules@ rules, CBlob@ blob)
 {
 	if (!isServer() || rules is null || blob is null || !rules.get_bool("aib player action log enabled")) return;
+	AIB_ActionDrainBoundaries(rules);
 	CPlayer@ victim = blob.getPlayer();
 	CPlayer@ killer = blob.getPlayerOfRecentDamage();
 	if (victim is null && killer is null && !AIB_ActionImportantBlob(blob)) return;

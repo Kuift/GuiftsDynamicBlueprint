@@ -4,6 +4,7 @@
 #include "GenericButtonCommon.as"
 #include "TeamIconToken.as"
 #include "AutoBuilderCommon.as"
+#include "AIBActionBoundaryCommon.as"
 
 void onInit(CBlob@ this)
 {
@@ -123,6 +124,13 @@ void onShopMadeItem(CBitStream@ params)
 
 	bot.server_setTeamNum(caller.getTeamNum());
 	bot.setPosition(caller.getPosition() + Vec2f(0.0f, -8.0f));
+	CPlayer@ buyer = caller.getPlayer();
+	u16 actionX = 0; u16 actionY = 0;
+	AIB_ActionBoundaryBlobTile(shop, actionX, actionY);
+	AIB_ActionQueueBoundary(AIBActionBoundary::purchase,
+		buyer is null ? AIBActionActorKind::system : AIBActionActorKind::player,
+		buyer is null ? 0 : buyer.getNetworkID(), bot.getNetworkID(), u8(caller.getTeamNum()), actionX, actionY,
+		name == AIBU_ENTITY_NAME ? AIBActionPurchase::autobuilder : AIBActionPurchase::ai_builder, 0);
 	if (name == AIBU_ENTITY_NAME && caller.getTeamNum() >= 0 && caller.getTeamNum() < 8)
 	{
 		CRules@ rules = getRules();
@@ -148,6 +156,11 @@ void onCommand(CBlob@ this, u8 cmd, CBitStream @params)
 
 		inventory.server_RemoveItems("mat_gold", AIBU_SPEED_UPGRADE_GOLD_COST);
 		AIBU_SetSpeedLevel(rules, team, AIBU_GetSpeedLevel(team) + 1);
+		u16 actionX = 0; u16 actionY = 0;
+		AIB_ActionBoundaryBlobTile(this, actionX, actionY);
+		AIB_ActionQueueBoundary(AIBActionBoundary::purchase, AIBActionActorKind::player,
+			player.getNetworkID(), this.getNetworkID(), team, actionX, actionY,
+			AIBActionPurchase::autobuilder_speed, AIBU_SPEED_UPGRADE_GOLD_COST);
 		CBitStream soundParams;
 		this.SendCommand(this.getCommandID("shop made item client"), soundParams);
 	}

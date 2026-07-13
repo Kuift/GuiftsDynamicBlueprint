@@ -16,6 +16,9 @@ function Read-Episodes([string[]]$paths, [string]$label) {
     foreach ($row in $rows) {
         if ($row.schema -ne 'aib_task_episode_v1') { throw "$label contains unsupported episode schema '$($row.schema)'" }
         if ([string]::IsNullOrWhiteSpace([string]$row.context_key_v1)) { throw "$label episode is missing context_key_v1" }
+        if ($null -ne $row.boundary_records_dropped -and [int]$row.boundary_records_dropped -gt 0) {
+            throw "$label contains incomplete telemetry: boundary_records_dropped=$($row.boundary_records_dropped)"
+        }
     }
     return @($rows)
 }

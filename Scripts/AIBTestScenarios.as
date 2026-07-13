@@ -78,7 +78,8 @@ string[] AIBT_SCENARIOS =
 	"strategic_scarcity_penalizes_unfunded_large_plan",
 	"strategic_collapse_pressure_prefers_emergency_barrier",
 	"strategic_damaged_front_reactivates_without_plan_replacement",
-	"strategic_autobuilder_physically_completes_selected_plan"
+	"strategic_autobuilder_physically_completes_selected_plan",
+	"strategic_bootstrap_rejects_sealed_cave_spawn"
 };
 
 string AIBT_ScenarioName(const int index)
@@ -2257,6 +2258,76 @@ void AIBT_SetupScenario(const int index)
 			break;
 		}
 
+		case 60:
+		{
+			const int homeX = 220;
+			const int leftPocketX = 208;
+			const int rightPocketX = 232;
+			const int pocketTop = AIBT_GROUND_Y - 7;
+			const int pocketFloor = AIBT_GROUND_Y - 4;
+			const int pocketBodyY = pocketFloor - 1;
+			const int openX = homeX - AIBS_BOOTSTRAP_MIN_HOME_DISTANCE;
+
+			// Normalize one broad surface arena and build two mirrored pockets.
+			// Each pocket contains a locally clear three-column/two-tile spawn
+			// envelope with solid ground, but its castle shell has no terrain
+			// connection to the home surface.
+			for (int x = homeX - 30; x <= homeX + 30; x++)
+			{
+				for (int y = AIBT_GROUND_Y - 8; y <= AIBT_GROUND_Y; y++)
+				{
+					u16 type = y == AIBT_GROUND_Y ? CMap::tile_ground : CMap::tile_empty;
+					for (int side = -1; side <= 1; side += 2)
+					{
+						const int centerX = side < 0 ? leftPocketX : rightPocketX;
+						const bool withinPocket = x >= centerX - 2 && x <= centerX + 2 && y >= pocketTop && y <= pocketFloor;
+						const bool shell = withinPocket && (y == pocketTop || y == pocketFloor || x == centerX - 2 || x == centerX + 2);
+						if (shell) type = CMap::tile_castle;
+					}
+					AIBT_SetTemporaryTile(x, y, type);
+				}
+			}
+
+			CBlob@ home = AIBT_SpawnTent(homeX);
+			AIBWorldState@ world = AIBWorldState();
+			world.team = 0;
+			world.home = home is null ? Vec2f_zero : home.getPosition();
+			world.enemyDirection = 1;
+			array<Vec2f> blockerMins;
+			array<Vec2f> blockerMaxs;
+			AIBS_CollectBootstrapBlockers(blockerMins, blockerMaxs);
+			AIBBootstrapReachability@ reachability = AIBS_BuildBootstrapReachability(world);
+			Vec2f leftPocket = AIBT_Pos(leftPocketX, pocketBodyY);
+			Vec2f rightPocket = AIBT_Pos(rightPocketX, pocketBodyY);
+			Vec2f openSurface = AIBT_Pos(openX, AIBT_GROUND_Y - 1);
+
+			const bool leftEnvelope = AIBS_IsBootstrapSpawnEnvelopeSafe(world, leftPocket, blockerMins, blockerMaxs);
+			const bool rightEnvelope = AIBS_IsBootstrapSpawnEnvelopeSafe(world, rightPocket, blockerMins, blockerMaxs);
+			const bool leftConnected = AIBS_BootstrapReachable(reachability, leftPocket);
+			const bool rightConnected = AIBS_BootstrapReachable(reachability, rightPocket);
+			const bool leftRejected = !AIBS_IsSafeBootstrapSpawn(world, leftPocket, blockerMins, blockerMaxs, reachability);
+			const bool rightRejected = !AIBS_IsSafeBootstrapSpawn(world, rightPocket, blockerMins, blockerMaxs, reachability);
+			const bool openAccepted = AIBS_IsSafeBootstrapSpawn(world, openSurface, blockerMins, blockerMaxs, reachability);
+			Vec2f selected = AIBS_FindBootstrapSpawn(world);
+			const int selectedX = selected == Vec2f_zero ? -1 : Maths::Floor(selected.x / getMap().tilesize);
+			const int selectedY = selected == Vec2f_zero ? -1 : Maths::Floor(selected.y / getMap().tilesize);
+			const bool selectedOutsidePockets = selectedX < leftPocketX - 1 || selectedX > leftPocketX + 1;
+			const bool selectedOutsideRightPocket = selectedX < rightPocketX - 1 || selectedX > rightPocketX + 1;
+			const bool selectedReachable = selected != Vec2f_zero && AIBS_BootstrapReachable(reachability, selected);
+			const bool passed = home !is null && reachability !is null && reachability.seeded && leftEnvelope && rightEnvelope &&
+				!leftConnected && !rightConnected && leftRejected && rightRejected && openAccepted &&
+				selectedReachable && selectedOutsidePockets && selectedOutsideRightPocket;
+			AIBT_SetStrategicResult(passed,
+				"sealed_envelopes_clear=true mirrored_sealed_rejected=true open_surface_accepted=true selected_reachable=true selected=" + selectedX + "," + selectedY,
+				"bootstrap_connectivity_failed seeded=" + (reachability !is null && reachability.seeded ? "true" : "false") +
+					" left_envelope=" + (leftEnvelope ? "true" : "false") + " right_envelope=" + (rightEnvelope ? "true" : "false") +
+					" left_connected=" + (leftConnected ? "true" : "false") + " right_connected=" + (rightConnected ? "true" : "false") +
+					" left_rejected=" + (leftRejected ? "true" : "false") + " right_rejected=" + (rightRejected ? "true" : "false") +
+					" open_accepted=" + (openAccepted ? "true" : "false") + " selected=" + selectedX + "," + selectedY +
+					" selected_reachable=" + (selectedReachable ? "true" : "false"));
+			break;
+		}
+
 	}
 }
 
@@ -2277,7 +2348,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 	// background so cleanup can restore the exact pre-shop fixture tiles.
 	AIBT_TrackWorkshopBackgrounds(AIBT_GROUND_Y);
 
-	if (bot is null && index != 18 && index != 48 && index != 54 && index != 55 && index != 56 && index != 57 && index != 58)
+	if (bot is null && index != 18 && index != 48 && index != 54 && index != 55 && index != 56 && index != 57 && index != 58 && index != 60)
 	{
 		failure = "bot_missing";
 		return true;
@@ -2869,6 +2940,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 39:
 		case 40:
 		case 41:
+		case 60:
 		{
 			const bool passed = getRules().get_bool("aibt strategic result");
 			details = getRules().get_string("aibt strategic details");

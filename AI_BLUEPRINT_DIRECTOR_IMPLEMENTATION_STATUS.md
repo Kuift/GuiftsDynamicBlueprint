@@ -12,20 +12,21 @@ This is not yet a claim that the director makes consistently good strategic deci
 
 Final no-popup checkpoint (2026-07-10): the consolidated offline/static batch passed 15/15 checks, covering the 58-scenario registry, canonical reset and representative fixtures, 68-key shared weights, wave identity/matrix/comparison, compact telemetry and episode tools, and the expanded passive gym monitor/failure-window parsers. No KAG process is running. The latest AngelScript telemetry, weight-loader, canonical-fixture, and gym-window paths remain runtime-uncompiled and must not be presented as live evidence.
 
-Incremental no-popup checkpoint (2026-07-13): prior work was committed as `3c29ff8`. Overflow conservation, mirrored corner recovery, shared world-manifest identity, damaged-front retention, full selected-plan completion, and schema-v3 authoritative action boundaries now have static coverage. The current 60-scenario registry and complete offline batch pass 19/19 checks. Runtime evidence is unchanged because KAG was not launched.
+Incremental no-popup checkpoint (2026-07-13): work through schema-v3 authoritative action boundaries is committed as `57d80af`. Overflow conservation, mirrored corner recovery, shared world-manifest identity, damaged-front retention, full selected-plan completion, schema-v3 boundaries, and home-connected bootstrap siting now have static coverage. The current 61-scenario registry and complete offline batch pass 20/20 checks. Runtime evidence is unchanged because KAG was not launched.
 
 | Area | Weight | Earned | Evidence |
 | --- | ---: | ---: | --- |
 | Blueprint authority, layers, catalog, history | 20 | 20 | Shared server APIs, human-wins merge, desired/work split, task archives |
 | World model, candidates, validation, scoring | 20 | 17 | Five procedural templates, terrain/threat observations, hard validation and explanations; map diversity remains narrow |
 | Autonomous publication, jobs, construction | 20 | 19 | CTF auto default, pre-builder planning, guarded first-worker provisioning, deterministic assignment, reservations/phases, real task completion, safer workshop siting, and low-destruction stone execution |
-| Deterministic and component verification | 15 | 15 | Source defines 60 scenarios; the earlier 44-scenario suite passed in full, scenarios 42-46 passed together, and production bootstrap, repair, and gym cases have focused passes |
+| Deterministic and component verification | 15 | 15 | Source defines 61 scenarios; the earlier 44-scenario suite passed in full, scenarios 42-46 passed together, and production bootstrap, repair, and gym cases have focused passes |
 | Representative in-engine evaluation/tuning | 15 | 3 | Instrumentation and wave harness exist, but no trustworthy paired dataset or production-weight tuning result is recorded |
 | Operational defaults, documentation, handoff | 10 | 8 | Visible localhost runner supports exact/range selection, stale-progress detection, and safe file restoration; the displayed test camera remains unreliable and manual multi-map acceptance remains |
 | **Total** | **100** | **82** | |
 
 ## Latest Implemented Milestone
 
+- Bootstrap provisioning no longer treats a locally clear grounded pocket as sufficient. Each spawn attempt now flood-fills a bounded set of two-tile standing cells from the nearest home terrain cell, constrained to the correct barrier side, and requires the final three-column spawn envelope to belong to that set. Blocker bounds and reachability are each built once rather than inside the roughly 950-candidate loop. `strategic_bootstrap_rejects_sealed_cave_spawn` proves mirrored sealed envelopes are locally valid but rejected while an open surface and the production-selected spawn remain reachable. The offline mirror contract passes; the new AngelScript code and scenario still need a visible KAG compile.
 - Two production-path scenarios close the remaining representative fixture gap. `strategic_damaged_front_reactivates_without_plan_replacement` requires two damaged owned tasks to reactivate while one healthy task stays complete and plan identity remains stable. `strategic_autobuilder_physically_completes_selected_plan` observes the world, selects and publishes a production candidate, assigns the real Autobuilder executor, and requires every task to match physically with zero reservation metadata, an empty work layer, stable plan identity, and a completed archive. Static contracts pass; both scenarios remain runtime-uncompiled.
 - Physical repair is now a production construction outcome rather than only task reactivation. Healthy autotile families count as complete; damaged matching wood/stone tiles and damaged same-team blueprint blobs remain valid repair occupants; plan invalidation no longer replaces a repairable plan; builders spend the block cost, restore health/tile state directly, preserve neighbors, and emit a compact `repair` event. `damaged_owned_tile_is_repaired_without_replacing_neighbors` completed with `[AIBTEST] DONE passed=1 failed=0` in `console-26-07-10-17-32-06.txt`.
 - Overflow storage now revalidates stale full-crate tags, searches grounded/distinct two-sided sites, protects both crate body cells from no-build sectors, and can pay the 150-wood cost from builder plus base storage. Full inventories only advertise merge capacity when a matching material stack is below `maxQuantity`; a full 250-material stack no longer traps delivery in repeated retries. Crates are created before charging, while workshop spawn failure refunds its exact paid cost. The focused verdict now requires 100 stone inside base crates, exactly 100 stored/live wood after the 150-wood purchase, two grounded distinct crates, and whole-world stone conservation. `Tools/test_aib_overflow_storage_contract.ps1` passes, but the corrected fixture still needs its focused KAG runtime run.
@@ -93,7 +94,7 @@ Incremental no-popup checkpoint (2026-07-13): prior work was committed as `3c29f
   - Spawn selection searches both sides of the home and requires a grounded three-column/two-tile body envelope, barrier safety, map bounds, and no important/collidable blob overlap. Failed searches cool down for 300 ticks.
   - Builders are assigned in deterministic network-ID order. An AI-builder death immediately releases its task reservation, while the provisioned latch prevents a death/respawn fountain.
 - `Scripts/AIBTestScenarios.as`
-  - The suite now contains 60 scenarios, including damaged-front plan retention and full planner-selected plan execution by the production Autobuilder path.
+  - The suite now contains 61 scenarios, including damaged-front plan retention, full planner-selected plan execution by the production Autobuilder path, and mirrored sealed-bootstrap rejection.
   - `strategic_auto_director_heartbeat_end_to_end` begins with a tent, stocked crate, and no builder. Production code publishes a plan, provisions one safe worker, assigns it, claims work, and physically completes director tasks.
   - Two guard scenarios cover existing-worker, suggest-mode, no-home, one-time provisioning, and reservation-release contracts. The first guard has a focused pass; the second was started but did not reach its director heartbeat before the known KAG simulation stall.
 
@@ -121,7 +122,7 @@ Logs: `../../Logs/console-26-07-09-23-00-07.txt` and `../../Logs/console-26-07-0
   - Stone miners discover line-of-sight gold, finish the visible cluster, and switch immediately to base return; no-build gold remains protected.
 - Base storage workshop construction now searches nearby legal ground instead of spawning on top of a tent or hall. It requires full footprint clearance, full foundation support, building/home separation, a grounded approach, and no-build safety.
 - `Tools/run_aib_tests.ps1`, `Scripts/AIBTestRunner.as`, `Scripts/aib_test_autostart.as`, and `Scripts/AIBTestCamera.as`
-  - The 60-scenario suite can run as a whole, as one exact scenario, or as a named contiguous range.
+  - The 61-scenario suite can run as a whole, as one exact scenario, or as a named contiguous range.
   - Stale log/heartbeat progress is detected and reported with scenario, game time, PID, and partial results.
   - Tests run through visible `RunLocalhost()` and completed fixtures receive a 15-tick visual hold. `AIBTestCamera.as` intends to follow the active fixture, but user-visible testing reports upper-left/middle recentering, jitter, loss of follow, and disabled manual movement. `CAMERA_TARGET`/`CAMERA_VIEW` logs do not prove what is actually displayed.
   - The launcher requires the actual `[AIBTEST] DONE` marker instead of treating matching START/PASS counts as final cleanup.
@@ -199,12 +200,12 @@ Verified on 2026-07-09:
 - Visible KAG compilation: pass after replacing three `const Vec2f` operands that KAG's non-const vector operators rejected in the first provisioning launch.
 - Production bootstrap heartbeat: focused pass at 156 ticks with one safe worker, one build assignment, a task claim, and three physically completed director tasks (`../../Logs/console-26-07-09-23-00-07.txt`).
 - Bootstrap guard case: focused pass at 65 ticks; existing worker, suggest mode, and no-home teams did not provision (`../../Logs/console-26-07-09-23-03-31.txt`).
-- The suite currently contains 60 scenarios.
+- The suite currently contains 61 scenarios.
 - Prior full-suite evidence, when the source contained 44 scenarios: `44 passed, 0 failed`, with `[AIBTEST] DONE` at game tick 599 in `../../Logs/console-26-07-09-19-57-48.txt`.
 - Latest focused evidence for scenarios 42-46: `5 passed, 0 failed`, with `[AIBTEST] DONE` in `../../Logs/console-26-07-09-22-06-03.txt`. This does not verify the displayed camera.
 - Post-fix exact route evidence: `[AIBTEST] PASS stone_route_prefers_reusable_open_corridor ... destroyed_dirt=1` in `../../Logs/console-26-07-09-22-33-34.txt`; no `DONE` claim is made for that operator-closed client.
 
-Do not describe the current 60-scenario source as fully passing. A final exact attempt of `strategic_bootstrap_is_one_time_and_releases_reservation` live-compiled the earlier post-audit source and reached tick 30: plan 1 was published, bootstrap worker 10 was created at `2036,572`, and it received blueprint job/state `2/12`. KAG then stopped advancing before the test runner could reserve and kill the worker, so the death/release assertions still did not execute (`../../Logs/console-26-07-09-23-14-01.txt`).
+Do not describe the current 61-scenario source as fully passing. A final exact attempt of `strategic_bootstrap_is_one_time_and_releases_reservation` live-compiled the earlier post-audit source and reached tick 30: plan 1 was published, bootstrap worker 10 was created at `2036,572`, and it received blueprint job/state `2/12`. KAG then stopped advancing before the test runner could reserve and kill the worker, so the death/release assertions still did not execute (`../../Logs/console-26-07-09-23-14-01.txt`).
 
 After the earlier runtime logs, a final source audit corrected director ownership of already-working builders, changed fixture material grants to legal 250-unit stacks, stored the original bootstrap spawn for assertions, fixed the reservation assertion to recognize `reserved` state, latched transient claim evidence, and strengthened suggest/no-home/death-release checks. Static regressions and structure checks pass, and the exact attempt above proves the revised source compiles and executes through provisioning/assignment. It does not prove the later death cleanup assertions.
 
@@ -224,7 +225,7 @@ After the earlier runtime logs, a final source audit corrected director ownershi
 5. Bootstrap economy and representative-map safety.
    - The server currently grants one free worker rather than purchasing it through the workshop economy. Balance and administrator configuration need live CTF acceptance.
    - Both team directions, blocked-home sites, uneven maps, and round-reset behavior still need live end-to-end evidence.
-   - Spawn search can still test as many as 950 positions, but blocker bounds are now cached once per attempt instead of rescanning world blobs per candidate. Local clearance still needs a surface/path-connectivity rule so a sealed cave cannot win.
+   - Spawn search can still test as many as 950 positions, but blocker bounds and one bounded home-surface reachability map are now computed once per attempt. Local clearance is no longer enough: a mirrored sealed-pocket fixture requires the candidate to be terrain-connected to the nearest standing cell at home. This remains runtime-uncompiled.
 6. Test-scene camera correctness.
    - User-visible behavior remains authoritative: the view has stuck upper-left, recentered, jittered, lost scene follow, and prevented manual movement despite logs claiming exact target/view coordinates.
 7. Complete player-action/outcome learning episodes.

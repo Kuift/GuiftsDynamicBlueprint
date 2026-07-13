@@ -13,7 +13,7 @@ This is the order of work. Do not spend another milestone polishing test present
 1. Real builder primitives: selected tree, exposed stone, obstructed stone, material retrieval, one supported block, door/platform, recovery ladder, repair. Physical repair now has a complete focused pass; mining/pathing still need representative evidence.
 2. Resource lifecycle: home/crate deposit, crate retrieval, full-crate overflow, shortage recovery, no-home safety. Overflow production behavior is implemented, but the corrected final fixture is not yet run.
 3. Multi-builder construction: deterministic roles, reservation handoff, support-first sequencing, no duplicate work, full small-plan completion.
-4. Director fixtures: mirrored inward selection, an uneven near-edge blocked-primary fallback, exact scarce-storage scoring, emergency selection under collapse pressure, damaged-front retention, and full selected-plan completion are defined through production paths but remain runtime-unverified. No-build and occupied representative fixtures remain.
+4. Director fixtures: mirrored inward selection, an uneven near-edge blocked-primary fallback, exact scarce-storage scoring, emergency selection under collapse pressure, damaged-front retention, full selected-plan completion, and mirrored sealed-bootstrap rejection are defined through production paths but remain runtime-unverified. No-build and occupied representative fixtures remain.
 5. Outcome/cost capture: schema v3 covers attributed outcomes, accepted blueprint/director actions, director-shop purchases, and plan/task boundaries plus an offline raw episode summary. Generic hits, explicit pickup/drop, non-director purchases, and runtime validation remain.
 6. Strategy evaluation: shared scoring and fixture/version/team/side/seed cohort identity now pass static contracts. Canonical reset automation, live validation of measurement fingerprints, representative both-side fixtures, and 48 paired trials remain.
 7. Public learning loop: retention/notice, task segmentation, matched human/AI comparisons, evidence-driven code/weight changes.
@@ -272,7 +272,7 @@ Production weights and template metadata must have one source of truth consumed 
 
 - [ ] Resolve `kag_path_mines_dirt_plug` with supported-chain and post-placement walkability evidence.
 - [ ] Add crate overflow, crate retrieval, editor delta, and selection save/load coverage.
-- [ ] PARTIAL — mirrored left/right and uneven blocked-primary fallback planner fixtures are defined; asymmetric pressure, scarce-resource, damaged-front, and full physical completion remain.
+- [ ] PARTIAL — mirrored left/right, uneven blocked-primary fallback, asymmetric pressure, scarce-resource, damaged-front, full physical completion, and mirrored sealed-bootstrap fixtures are defined; live KAG verdicts and occupied/no-build representative cases remain.
 - [ ] Complete and reproduce the entire current suite with final `DONE` evidence.
 
 ### Phase D — strategic evaluation

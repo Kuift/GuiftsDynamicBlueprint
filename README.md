@@ -71,7 +71,7 @@ Project direction: `ai_blueprint_direction.md`. Detailed deterministic gym archi
 
 Team members can select a director mode with `!aib_strategy off`, `!aib_strategy suggest`, or `!aib_strategy auto`. CTF defaults to `auto`, so a team plan is selected and activated without a player drawing it or entering a command. The deterministic AIB test mode defaults to `off` and opts in only in director-specific scenarios.
 
-The director can publish a plan before the team owns an AI builder. In CTF auto mode, a team with a home, an active non-empty plan, and no existing builder can receive one free bootstrap worker per round. The server searches both sides of the home for a grounded, clear, barrier-safe spawn, retries later when none is safe, assigns builders deterministically, and does not respawn the bootstrap worker after death. This is a guarded server spawn, not a workshop purchase, so its economy balance still needs live CTF acceptance.
+The director can publish a plan before the team owns an AI builder. In CTF auto mode, a team with a home, an active non-empty plan, and no existing builder can receive one free bootstrap worker per round. The server searches both sides of the home for a grounded, clear, barrier-safe spawn connected to the home by a bounded terrain route, so a locally valid sealed cave cannot win. It retries later when none is safe, assigns builders deterministically, and does not respawn the bootstrap worker after death. This is a guarded server spawn, not a workshop purchase, so its economy balance and new connectivity filter still need live CTF acceptance.
 
 Suggestion mode renders the proposed plan and its score reasons without assigning builders. Auto mode publishes the work layer and assigns wood, stone, and construction jobs according to current shortages.
 
@@ -91,15 +91,15 @@ The passive AI monitor emits at most one compact numeric `[AIBGYM]` record per b
 
 For an interactive director check, a moderator on a playing team can use `!aib_director_test`. It switches that team to automatic strategy and automatically creates one same-team AI builder at the moderator only when none exists. Automated coverage should use `strategic_auto_director_heartbeat_end_to_end`, which starts without a worker and verifies that production bootstrap provisioning creates and assigns one safely.
 
-The AIBTest suite contains 60 scenarios. A complete successful run reports:
+The AIBTest suite contains 61 scenarios. A complete successful run reports:
 
 ```text
-AIB tests passed: 60 passed, 0 failed
+AIB tests passed: 61 passed, 0 failed
 ```
 
 The game log must also contain the matching `[AIBTEST] DONE` marker; the launcher no longer accepts matching START/PASS counts alone. Run the full suite with `Tools/run_aib_tests.ps1`, one case with `-Scenario <name>`, or an inclusive range with `-StartScenario <name> -EndScenario <name>`. The default opens a visible `RunLocalhost` session and leaves KAG running; add `-StopAfterRun` only when desired. Intermediate fixtures remain visible for 15 ticks before cleanup, while the final selected fixture is retained indefinitely after `DONE` for human inspection. A lack of post-START log/simulation progress produces a distinct stale-run diagnostic. `AIBTestCamera.as` intends to follow the active fixture, but displayed follow and manual movement are currently unreliable; `CAMERA_TARGET`/`CAMERA_VIEW` logs must not be treated as proof of what the player sees.
 
-KAG can still stop advancing during visible localhost runs. The targeted log `console-26-07-09-22-06-03.txt` passed scenarios 42-46 with `DONE`; `console-26-07-10-17-32-06.txt` passed the physical repair scenario with `DONE`. These are focused results, not a full 60-scenario pass, and camera records are not visual verification. The newest canonical-reset, representative planner, damaged-front, and full selected-plan completion fixtures are statically contracted but have not been run.
+KAG can still stop advancing during visible localhost runs. The targeted log `console-26-07-09-22-06-03.txt` passed scenarios 42-46 with `DONE`; `console-26-07-10-17-32-06.txt` passed the physical repair scenario with `DONE`. These are focused results, not a full 61-scenario pass, and camera records are not visual verification. The newest canonical-reset, representative planner, damaged-front, full selected-plan completion, and sealed-bootstrap-pocket fixtures are statically contracted but have not been run.
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 

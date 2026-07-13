@@ -639,6 +639,8 @@ void AIBT_ClearScenarioRefs()
 	rules.set_bool("aibt right corner escape observed", false);
 	rules.set_bool("aibt left corner moved observed", false);
 	rules.set_bool("aibt right corner moved observed", false);
+	rules.set_bool("aibt left corner cycle complete", false);
+	rules.set_bool("aibt right corner cycle complete", false);
 	rules.set_bool("aibt workshop observed", false);
 	rules.set_u8("aibt bootstrap stage", 0);
 	rules.set_netid("aibt bootstrap dead id", 0);
@@ -2809,21 +2811,32 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				return true;
 			}
 
+			const u32 now = getGameTime();
 			const bool leftDriving = bot.get_s32("ai builder stone corner escape direction") == 1 &&
 				bot.get_u32("ai builder stone corner escape until") > getGameTime() &&
-				bot.isKeyPressed(key_right) && !bot.isKeyPressed(key_up);
+				bot.isKeyPressed(key_right) && !bot.isKeyPressed(key_up) && !bot.isKeyPressed(key_action2);
 			const bool rightDriving = mirror.get_s32("ai builder stone corner escape direction") == -1 &&
 				mirror.get_u32("ai builder stone corner escape until") > getGameTime() &&
-				mirror.isKeyPressed(key_left) && !mirror.isKeyPressed(key_up);
+				mirror.isKeyPressed(key_left) && !mirror.isKeyPressed(key_up) && !mirror.isKeyPressed(key_action2);
 			if (leftDriving) rules.set_bool("aibt left corner escape observed", true);
 			if (rightDriving) rules.set_bool("aibt right corner escape observed", true);
 
-			const bool leftMovedNow = bot.getPosition().x >= rules.get_f32("aibt left corner start x") + 3.0f;
-			const bool rightMovedNow = mirror.getPosition().x <= rules.get_f32("aibt right corner start x") - 3.0f;
+			const bool leftMovedNow = bot.getPosition().x >= rules.get_f32("aibt left corner start x") + 8.0f;
+			const bool rightMovedNow = mirror.getPosition().x <= rules.get_f32("aibt right corner start x") - 8.0f;
 			if (leftMovedNow) rules.set_bool("aibt left corner moved observed", true);
 			if (rightMovedNow) rules.set_bool("aibt right corner moved observed", true);
 			const bool leftMoved = rules.get_bool("aibt left corner moved observed");
 			const bool rightMoved = rules.get_bool("aibt right corner moved observed");
+			const bool leftCycleNow = rules.get_bool("aibt left corner escape observed") &&
+				bot.get_u32("ai builder stone corner escape until") == 0 &&
+				bot.get_u32("ai builder stone corner escape cooldown") > now;
+			const bool rightCycleNow = rules.get_bool("aibt right corner escape observed") &&
+				mirror.get_u32("ai builder stone corner escape until") == 0 &&
+				mirror.get_u32("ai builder stone corner escape cooldown") > now;
+			if (leftCycleNow) rules.set_bool("aibt left corner cycle complete", true);
+			if (rightCycleNow) rules.set_bool("aibt right corner cycle complete", true);
+			const bool cyclesComplete = rules.get_bool("aibt left corner cycle complete") &&
+				rules.get_bool("aibt right corner cycle complete");
 			CMap@ map = getMap();
 			const int y = AIBT_GROUND_Y - 2;
 			const bool trapTilesIntact = map.isTileCastle(map.getTile(AIBT_Pos(320, y - 1)).type) &&
@@ -2837,16 +2850,18 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				map.isTileGround(map.getTile(AIBT_Pos(320, AIBT_GROUND_Y)).type) &&
 				map.isTileGround(map.getTile(AIBT_Pos(336, AIBT_GROUND_Y)).type);
 			if (rules.get_bool("aibt left corner escape observed") && rules.get_bool("aibt right corner escape observed") &&
-				leftMoved && rightMoved && trapTilesIntact)
+				cyclesComplete && leftMoved && rightMoved && trapTilesIntact)
 			{
-				details = "mirrored_corner_escape=true obstruction_preload=false physical_displacement_latched=true castle_traps_preserved=true";
+				details = "mirrored_corner_escape=true full_escape_cycle=true cooldown_latched=true obstruction_preload=false " +
+					"one_tile_displacement=true castle_traps_preserved=true";
 				return true;
 			}
-			if (elapsed > 90)
+			if (elapsed > 150)
 			{
 				failure = "mirrored_corner_escape_timeout left_observed=" + (rules.get_bool("aibt left corner escape observed") ? "true" : "false") +
 					" right_observed=" + (rules.get_bool("aibt right corner escape observed") ? "true" : "false") +
-					" left_moved=" + (leftMoved ? "true" : "false") + " right_moved=" + (rightMoved ? "true" : "false") +
+					" cycles_complete=" + (cyclesComplete ? "true" : "false") + " left_moved=" + (leftMoved ? "true" : "false") +
+					" right_moved=" + (rightMoved ? "true" : "false") +
 					" trap_tiles_intact=" + (trapTilesIntact ? "true" : "false") + " first=" + AIBT_DescribeBuilder(bot) +
 					" mirror=" + AIBT_DescribeBuilder(mirror);
 				return true;
@@ -3156,20 +3171,25 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			const u8 fillers = getRules().get_u8("aibt overflow fillers");
 			const u16 liveWood = AIBT_CountAllLiveMaterial("mat_wood");
 			const u16 liveStone = AIBT_CountAllLiveMaterial("mat_stone");
+			const u16 storedWood = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 160.0f);
+			const u16 storedStone = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_stone", tent.getPosition(), 160.0f);
 			u8 crateCount = 0;
 			string placement;
 			const bool validCrates = AIBT_OverflowCratesAreGroundedAndDistinct(tent, crateCount, placement);
-			const bool delivered = AIBT_CountInventoryMaterial(bot, "mat_stone") == 0 && liveStone == 100;
-			const bool conserved = initialWood >= 150 && liveWood == initialWood - 150;
+			const bool delivered = AIBT_CountInventoryMaterial(bot, "mat_stone") == 0 && storedStone == 100;
+			const bool conserved = initialWood >= 150 && liveWood == initialWood - 150 &&
+				storedWood == initialWood - 150 && liveStone == 100;
 			if (fillers == 8 && validCrates && delivered && conserved)
 			{
-				details = "overflow_created=true stored_stone=100 wood_cost=150 material_conserved=true " + placement;
+				details = "overflow_created=true stored_stone=" + storedStone + " stored_wood=" + storedWood +
+					" wood_cost=150 material_conserved=true " + placement;
 				return true;
 			}
 			if (elapsed > 300)
 			{
 				failure = "overflow_storage_timeout fillers=" + fillers + " initial_wood=" + initialWood + " live_wood=" + liveWood +
-					" live_stone=" + liveStone + " crates=" + crateCount + " placement=" + placement + " " + AIBT_DescribeBuilder(bot);
+					" stored_wood=" + storedWood + " live_stone=" + liveStone + " stored_stone=" + storedStone +
+					" crates=" + crateCount + " placement=" + placement + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;

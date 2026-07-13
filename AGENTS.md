@@ -89,6 +89,8 @@ Director role assignment is atomic at the resource-episode boundary. A builder a
 
 Stone miners prefer a reusable, low-dirt route made from a two-wide shaft and cross-tunnel. The route requires a clear surface approach, uses direct shaft movement, and only destroys dirt on the chosen route; bedrock and castle obstructions reject the route. Dedicated tunnel movement suppresses generic obstruction jumps and recovery ladders so it cannot fight the shaft controller. A miner also discovers line-of-sight gold, mines the visible cluster, then returns it to the assigned base crate immediately after that cluster is exhausted. Mirrored upper-corner recovery drives the miner away from either left or right overhang instead of repeatedly jumping in place.
 
+Run `Tools/test_aib_corner_recovery_contract.ps1` after changing overhang geometry detection, direct escape ownership, cooldown behavior, or the mirrored recovery fixture. The fixture must observe the complete 36-tick cycle and 90-tick cooldown with at least one tile of displacement on both sides; merely seeing an escape event or transient key press is insufficient.
+
 ## Resource Filters
 
 Tree, log, and loose wood targets pass through accessibility checks before the AI commits to them.
@@ -207,6 +209,8 @@ AIBTest captures the originally loaded map tile array once, restores every chang
 Current operator constraint (2026-07-10): the user needs the computer and KAG pop-up windows are disruptive. Do not launch KAG until the user explicitly permits visible runtime testing again. Static checks and documentation work may continue.
 
 The two newest scenarios are `full_crate_creates_grounded_overflow_storage` and `damaged_owned_tile_is_repaired_without_replacing_neighbors`. Repair has a complete focused pass in `console-26-07-10-17-32-06.txt`. Overflow production code compiles, but the final lightweight fixture (one wood stack plus eight distinct fillers) has not been run; earlier attempts either froze during an oversized same-tick inventory fixture or correctly showed that identical material blobs merged and did not fill the crate.
+
+Run `Tools/test_aib_overflow_storage_contract.ps1` after changing base crate/workshop payment, crate-site validation, merge-capacity checks, or the overflow fixture. A slot-full crate is mergeable only when a matching stored stack is below `maxQuantity`; a positive material count alone does not prove capacity. The focused verdict must prove the delivered material is inside base crates as well as globally conserved.
 
 ## Strategic Director Bootstrap
 

@@ -179,14 +179,14 @@ Exit gate: deployment requires no developer-only setup beyond enabling the mod a
 
 Do these next, in order. The current user has asked for no disruptive KAG pop-ups, so steps marked runtime wait until explicit permission.
 
-1. Static-audit the final overflow fixture and base-payment/site-selection conservation. Runtime: run only `full_crate_creates_grounded_overflow_storage` with a 15-second cap and 5-second stale detector.
-2. Static-audit the longer exact overhang recovery. Runtime: reproduce the real CTF return route from roughly `239,368` to `132,316`; require delivery, not just an escape event.
+1. Runtime (waiting for explicit permission): run only `full_crate_creates_grounded_overflow_storage` with a 15-second cap and 5-second stale detector. Its fixture/payment/placement conservation audit is complete and protected by `Tools/test_aib_overflow_storage_contract.ps1`.
+2. Runtime (waiting for explicit permission): reproduce the real CTF return route from roughly `239,368` to `132,316`; require delivery, not just an escape event. The longer mirrored recovery static audit is complete and protected by `Tools/test_aib_corner_recovery_contract.ps1`.
 3. Runtime-compile and validate telemetry schema v2, then add the still-missing direct hit, pickup/drop, purchase, and plan/task-boundary records.
 4. Runtime-compile and validate the shared `AIBStrategyWeights.cfg` loader; both production placement scoring and the offline abstract simulator now consume it and static contracts pass.
 5. Runtime-compile the completed fixture/version/team/side identity, canonical/measurement fingerprint, deterministic seed-variation, and three-seed comparator contract.
 6. Runtime-compile the new canonical terrain/world reset plus mirrored/uneven/scarcity/pressure production-planner fixtures. Then add broader world-manifest hashing, damaged-front and physical-completion fixtures, and collect the first real 48-trial/24-pair dataset.
 
-Completed in the latest slice: complete tree/log episode before role handoff, generated backwall support, grounded storage point search, physical damaged-tile repair with exact cost, compact player delta telemetry, schema-v2 outcome/episode tooling (runtime verification pending), a shared strategy-weight source (runtime verification pending), fixture/team/side-aware three-seed paired evaluation (runtime verification pending), and production overflow mechanics (verification pending).
+Completed in the latest slice: the overflow path now refunds failed workshop creation, rejects false merge capacity from maxed material stacks, protects both crate cells from no-build sectors, and requires exact in-crate delivery plus global conservation. The mirrored overhang fixture now requires a complete 36-tick escape, latched cooldown, and one-tile displacement on both sides instead of a transient nudge. Both new static contracts pass; focused KAG and real-CTF delivery verification remain pending. Earlier completed work includes complete tree/log episode handoff, generated backwall support, grounded storage search, physical repair, compact telemetry, shared scoring weights, and fixture/team/side-aware evaluation infrastructure.
 
 ## Evidence Discipline
 

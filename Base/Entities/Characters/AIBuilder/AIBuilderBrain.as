@@ -3276,11 +3276,16 @@ CBlob@ AIB_BuildBaseBuilderShop(CBlob@ blob, CBlob@ home)
 		AIB_Debug(blob, "no supported ground available for base builder shop");
 		return null;
 	}
+	// Pay only after the site is revalidated. Unlike a loose crate, a workshop's
+	// initialization can mutate its footprint/background, so create it as a paid
+	// object and refund the exact cost if the engine rejects the spawn.
 	if (!AIB_TakeMaterial(blob, "mat_wood", AIB_BUILDER_SHOP_WOOD_COST)) return null;
-
 	CBlob@ shop = server_CreateBlob("buildershop", blob.getTeamNum(), buildPos);
 	if (shop is null)
 	{
+		u16 refund = AIB_BUILDER_SHOP_WOOD_COST;
+		string refundName = "mat_wood";
+		Material::createFor(blob, refundName, refund);
 		blob.set_u32(retryKey, now + AIB_BASE_WORKSHOP_RETRY_TICKS);
 		return null;
 	}
@@ -4009,6 +4014,7 @@ bool AIB_IsValidBaseCratePoint(CBlob@ home, Vec2f candidate)
 	if ((candidate - AIB_GetBaseStoragePoint(home)).Length() > 120.0f) return false;
 	if (!AIB_IsGroundedBaseStoragePoint(candidate)) return false;
 	if (map.getSectorAtPosition(candidate, "no build") !is null) return false;
+	if (map.getSectorAtPosition(candidate - Vec2f(0.0f, map.tilesize), "no build") !is null) return false;
 
 	CBlob@[] nearby;
 	if (!map.getBlobsInRadius(candidate, 14.0f, @nearby)) return true;
@@ -4113,9 +4119,19 @@ bool AIB_CrateCanTakeAnyResource(CBlob@ crate, CBlob@ blob)
 	for (uint i = 0; i < blobInv.getItemsCount(); i++)
 	{
 		CBlob@ item = blobInv.getItem(i);
-		if (AIB_IsResourceBlob(item) && crateInv.getCount(item.getName()) > 0)
+		if (!AIB_IsResourceBlob(item)) continue;
+
+		// A full inventory can only accept this resource by merging into a
+		// matching partial stack. getCount(name) alone is insufficient: a full
+		// 250-material stack still has a positive count but has no capacity.
+		for (uint j = 0; j < crateInv.getItemsCount(); j++)
 		{
-			return true;
+			CBlob@ stored = crateInv.getItem(j);
+			if (stored !is null && stored.getName() == item.getName() &&
+				stored.getQuantity() < stored.maxQuantity)
+			{
+				return true;
+			}
 		}
 	}
 	return false;

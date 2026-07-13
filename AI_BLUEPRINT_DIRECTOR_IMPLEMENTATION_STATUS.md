@@ -1,6 +1,6 @@
 # AI Blueprint Director Implementation Status
 
-Updated: 2026-07-10
+Updated: 2026-07-13
 
 ## Executive Status
 
@@ -11,6 +11,8 @@ Estimated completion against the full design contract: **82%**.
 This is not yet a claim that the director makes consistently good strategic decisions across real maps and attacks. Core planning and construction plumbing are strong; representative in-engine evaluation and evidence-driven tuning remain the largest gaps.
 
 Final no-popup checkpoint (2026-07-10): the consolidated offline/static batch passed 15/15 checks, covering the 58-scenario registry, canonical reset and representative fixtures, 68-key shared weights, wave identity/matrix/comparison, compact telemetry and episode tools, and the expanded passive gym monitor/failure-window parsers. No KAG process is running. The latest AngelScript telemetry, weight-loader, canonical-fixture, and gym-window paths remain runtime-uncompiled and must not be presented as live evidence.
+
+Incremental no-popup checkpoint (2026-07-13): prior work was committed as `3c29ff8`. Overflow conservation and mirrored corner recovery now have dedicated static contracts, making the current full static batch 17 checks. Runtime evidence is unchanged because KAG was not launched.
 
 | Area | Weight | Earned | Evidence |
 | --- | ---: | ---: | --- |
@@ -25,9 +27,10 @@ Final no-popup checkpoint (2026-07-10): the consolidated offline/static batch pa
 ## Latest Implemented Milestone
 
 - Physical repair is now a production construction outcome rather than only task reactivation. Healthy autotile families count as complete; damaged matching wood/stone tiles and damaged same-team blueprint blobs remain valid repair occupants; plan invalidation no longer replaces a repairable plan; builders spend the block cost, restore health/tile state directly, preserve neighbors, and emit a compact `repair` event. `damaged_owned_tile_is_repaired_without_replacing_neighbors` completed with `[AIBTEST] DONE passed=1 failed=0` in `console-26-07-10-17-32-06.txt`.
-- Overflow storage now revalidates stale full-crate tags, searches grounded/distinct two-sided sites, can pay the 150-wood cost from builder plus base storage, and creates before charging so an engine spawn failure cannot consume wood. The final nine-slot fixture uses one wood stack and eight distinct non-stackable items; it has not been run after that correction, so overflow behavior remains unverified despite successful compilation.
+- Overflow storage now revalidates stale full-crate tags, searches grounded/distinct two-sided sites, protects both crate body cells from no-build sectors, and can pay the 150-wood cost from builder plus base storage. Full inventories only advertise merge capacity when a matching material stack is below `maxQuantity`; a full 250-material stack no longer traps delivery in repeated retries. Crates are created before charging, while workshop spawn failure refunds its exact paid cost. The focused verdict now requires 100 stone inside base crates, exactly 100 stored/live wood after the 150-wood purchase, two grounded distinct crates, and whole-world stone conservation. `Tools/test_aib_overflow_storage_contract.ps1` passes, but the corrected fixture still needs its focused KAG runtime run.
 - `Tools/run_aib_tests.ps1` now reports fresh mod compile/rules errors even if `AIBTestRunner` never emits `[AIBTEST]`. This corrected a wasted full timeout caused by a stale test-only shared-helper call.
 - Exact overhang escape ownership increased from 12 to 36 ticks with a 90-tick cooldown after a normal-CTF return route repeatedly escaped correctly but re-entered the same corner. The change compiled but the failing geometry has not been rerun.
+- The mirrored overhang fixture can no longer pass from a transient three-pixel nudge while direct recovery is still active. It now requires both 36-tick escape cycles to finish, both 90-tick cooldowns to latch, at least one tile of mirrored displacement, suppressed jump/ladder input, and intact castle traps. `Tools/test_aib_corner_recovery_contract.ps1` protects the production-controller ownership and fixture assertions. This remains static evidence until the focused fixture and real CTF delivery route are rerun.
 
 - A fully unattended normal-CTF smoke test now verifies the cross-system behavior that was unreliable in AIBTest. In `console-26-07-10-17-03-04.txt`, worker 22 completed the entire selected tree/log episode, returned and stored the wood at the grounded base site, accepted the deferred blueprint job, retrieved stone, placed generated castle backwall followed by castle foreground, and passed exact material accounting:
 

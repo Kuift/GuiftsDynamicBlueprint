@@ -8,6 +8,8 @@ Updated: 2026-07-10
 
 ## 2026-07-10 Consolidated Resume Point
 
+2026-07-13 addendum: the previous 62-file director checkpoint is committed as `3c29ff8`. A subsequent no-popup overflow audit fixed maxed-stack false merge capacity, added exact workshop-spawn refunds and two-cell no-build validation, strengthened the focused verdict to require actual in-crate delivery/conservation, and added `Tools/test_aib_overflow_storage_contract.ps1`. The mirrored corner fixture was also strengthened from a transient three-pixel nudge to two completed 36-tick cycles, latched cooldowns, and one-tile displacement, with `Tools/test_aib_corner_recovery_contract.ps1`. The new contracts and affected static regressions pass; no new KAG runtime evidence exists.
+
 The user currently needs the computer and does **not** want disruptive KAG windows. Do not launch KAG again until the user explicitly says visible runtime testing is acceptable. No KAG process is running. Root startup is restored to `CTF`, blank `sv_mapcycle`, and shuffle enabled; all three AIBTest scenario selectors are blank; `Rules/CTF/gamemode.cfg` exists and no disabled rename remains.
 
 The current source defines **58 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
@@ -71,7 +73,7 @@ When runtime windows are allowed, continue in this order and stop on the first c
 
 ### Recommended next sequence (no KAG launch until user permits)
 
-1. Static-audit the final overflow fixture and production payment/placement paths for atomic conservation; add parser/static contracts if useful without opening KAG.
+1. Overflow static audit is complete. When runtime is permitted, run the corrected focused scenario and retain its DONE evidence.
 2. Static-audit schema-v2 callback/API compatibility. When runtime is allowed, compile it once; then add the still-missing direct hit, pickup/drop, purchase, and authoritative plan/task-boundary records. Keep them compact numeric deltas.
 3. The shared director weight/template source now exists and passes a 68-key static contract. When runtime is allowed, compile the AngelScript loader before any tuning; tune only from paired KAG evidence.
 4. Paired-wave identity, post-warm-up fingerprints, meaningful seed variation, and the default three-seed minimum are implemented. Next add canonical fixture reset automation and representative left/right fixtures; runtime-compile the record contract before collecting data.

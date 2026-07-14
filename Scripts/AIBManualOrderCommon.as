@@ -4,6 +4,7 @@
 
 const string AIBM_MANUAL_CONTROL_KEY = "aib player manual order";
 const string AIBM_RETIRE_PENDING_KEY = "aib strategy retire pending";
+const string AIBM_RESOURCE_HANDOFF_UNTIL_KEY = "aib strategy resource handoff until";
 const u8 AIBM_JOB_WOOD = 0;
 const u8 AIBM_JOB_STONE = 1;
 const u8 AIBM_JOB_BLUEPRINT = 2;
@@ -97,6 +98,7 @@ bool AIBM_ApplyStrategyRole(CBlob@ builder, const u8 job, const u8 state)
 	builder.set_bool("aib strategy assigned", true);
 	AIBM_ClearDeferredStrategyRole(builder);
 	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
+	builder.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, 0);
 	builder.Sync("ai builder job", true);
 	builder.Sync("ai builder state", true);
 	builder.Sync("ai builder job active", true);
@@ -112,6 +114,7 @@ void AIBM_ClearStrategyControl(CBlob@ builder)
 	builder.set_bool("aib strategy assigned", false);
 	AIBM_ClearDeferredStrategyRole(builder);
 	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
+	builder.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, 0);
 	builder.set_netid(AIBR_ASSIGNED_HOME_KEY, 0);
 	builder.Sync(AIBR_ASSIGNED_HOME_KEY, true);
 }

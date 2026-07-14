@@ -89,6 +89,7 @@ const u32 AIB_RESOURCE_REJECT_LOG_REFRESH = 30 * 30;
 const u32 AIB_TREE_NO_PROGRESS_TICKS = 10 * 30;
 const u32 AIB_TREE_RETRY_COOLDOWN = 30 * 30;
 const f32 AIB_TREE_DISTANCE_PROGRESS = 8.0f;
+const u32 AIB_RESOURCE_HANDOFF_HOLD_TICKS = 31;
 const u32 AIB_LOG_NO_PROGRESS_TICKS = 10 * 30;
 const u32 AIB_LOG_RETRY_COOLDOWN = 30 * 30;
 const f32 AIB_LOG_DISTANCE_PROGRESS = 8.0f;
@@ -168,6 +169,7 @@ void onInit(CBrain@ this)
 	blob.set_u32("ai builder log progress tick", 0);
 	blob.set_f32("ai builder log progress distance", 999999.0f);
 	blob.set_f32("ai builder log progress health", 0.0f);
+	blob.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, 0);
 	AIBG_Init(blob);
 	if (autoBuilder)
 	{
@@ -218,6 +220,11 @@ void onTick(CBrain@ this)
 	if (AIBU_IsAutoBuilder(blob))
 	{
 		AIB_TickAutoBuilder(this, blob);
+		return;
+	}
+	if (AIB_ShouldHoldAtResourceHandoff(blob))
+	{
+		AIB_FloatInWater(blob);
 		return;
 	}
 
@@ -675,18 +682,41 @@ void AIB_ReturnWood(CBrain@ brain, CBlob@ blob)
 	}
 	AIB_LogEvent("ai", "store_resources", AIB_EventBlobRef(blob), "home=" + AIB_EventBlobRef(home) + " pos=" + AIB_EventPos(home.getPosition()));
 
+	// Delivery is the resource episode's atomic handoff boundary. Clear the old
+	// tree/stone route before entering its neutral find state; otherwise the
+	// pending-role predicate still sees a tile target and the old job can start
+	// another long episode before the next director heartbeat.
+	blob.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, getGameTime() + AIB_RESOURCE_HANDOFF_HOLD_TICKS);
+	AIBM_ClearNavigationIntent(blob);
 	if (job == AIB_JOB_STONE)
 	{
 		AIB_SetState(blob, AIBuilderState::find_stone, "resources delivered");
+		if (AIBM_TryApplyDeferredRoleAtSafeBoundary(blob)) return;
 	}
 	else
 	{
+		AIB_SetState(blob, AIBuilderState::find_tree, "wood delivered");
+		if (AIBM_TryApplyDeferredRoleAtSafeBoundary(blob)) return;
 		if (AIB_TryMaintainBaseQuarry(brain, blob, home))
 		{
 			return;
 		}
-		AIB_SetState(blob, AIBuilderState::find_tree, "wood delivered");
 	}
+}
+
+bool AIB_ShouldHoldAtResourceHandoff(CBlob@ blob)
+{
+	if (blob is null || !blob.get_bool("aib strategy assigned")) return false;
+	const u32 until = blob.get_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY);
+	if (until == 0) return false;
+	if (getGameTime() >= until)
+	{
+		blob.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, 0);
+		return false;
+	}
+	if (!AIBM_IsAtStrategyHandoff(blob)) return false;
+	AIB_ReportWaitingStatus(blob, "Waiting for director role update");
+	return true;
 }
 
 void AIB_FindStone(CBrain@ brain, CBlob@ blob)

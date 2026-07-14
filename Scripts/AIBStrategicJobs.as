@@ -1,6 +1,7 @@
 #include "AIBPlacementPlanner.as";
 #include "AutoBuilderCommon.as";
 #include "AIBDirectorPolicy.as";
+#include "AIBManualOrderCommon.as";
 
 const u8 AIBS_JOB_WOOD = 0;
 const u8 AIBS_JOB_STONE = 1;
@@ -537,9 +538,14 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 	{
 		if (!AIBU_IsAutoBuilder(teamBuilders[i])) continue;
 		hasAutoBuilder = true;
+		if (AIBM_IsUnderManualControl(teamBuilders[i])) { teamBuilders.removeAt(i); continue; }
 		AIBS_SetBuilderResourceHome(teamBuilders[i], 0);
 		AIBS_SetBuilderJob(teamBuilders[i], AIBS_JOB_BLUEPRINT, AIBS_STATE_FIND_BLUEPRINT);
 		teamBuilders.removeAt(i);
+	}
+	for (int i = int(teamBuilders.length) - 1; i >= 0; i--)
+	{
+		if (AIBM_IsUnderManualControl(teamBuilders[i])) teamBuilders.removeAt(i);
 	}
 	if (world.resourceHome == Vec2f_zero)
 	{
@@ -589,25 +595,7 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 void AIBS_StopBuilderAssignment(const u8 team, CBlob@ builder)
 {
 	if (builder is null || !builder.get_bool("aib strategy assigned")) return;
-	AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());
-	CBrain@ brain = builder.getBrain();
-	if (brain !is null) brain.EndPath();
-	builder.set_u8("ai builder state", AIBS_STATE_IDLE);
-	builder.set_bool("ai builder job active", false);
-	builder.set_bool("aib strategy assigned", false);
-	builder.set_bool("aib strategy role pending", false);
-	AIBS_SetBuilderResourceHome(builder, 0);
-	builder.set_netid("ai builder target", 0);
-	builder.set_Vec2f("ai builder destination", Vec2f_zero);
-	builder.set_Vec2f("ai builder tile target", Vec2f_zero);
-	builder.setKeyPressed(key_left, false);
-	builder.setKeyPressed(key_right, false);
-	builder.setKeyPressed(key_up, false);
-	builder.setKeyPressed(key_down, false);
-	builder.setKeyPressed(key_action1, false);
-	builder.setKeyPressed(key_action2, false);
-	builder.Sync("ai builder state", true);
-	builder.Sync("ai builder job active", true);
+	AIBM_StopDirectorControl(builder);
 }
 
 void AIBS_StopAssignedBuilders(const u8 team)

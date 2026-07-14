@@ -1,6 +1,7 @@
 // AIBuilder.as
 
 #include "AIBEventLog.as";
+#include "AIBManualOrderCommon.as";
 
 void onInit(CBlob@ this)
 {
@@ -113,6 +114,7 @@ void onCommand(CBlob@ this, u8 cmd, CBitStream@ params)
 	}
 	else if (cmd == this.getCommandID("ai harvest wood") && isServer())
 	{
+		AIBM_TakeManualControl(this);
 		AIB_LogEvent("player", "command", AIB_EventBlobRef(this), "command=harvest_wood pos=" + AIB_EventPos(this.getPosition()));
 		this.set_u8("ai builder state", 1);
 		this.set_u8("ai builder job", 0);
@@ -125,6 +127,7 @@ void onCommand(CBlob@ this, u8 cmd, CBitStream@ params)
 	}
 	else if (cmd == this.getCommandID("ai mine stone") && isServer())
 	{
+		AIBM_TakeManualControl(this);
 		AIB_LogEvent("player", "command", AIB_EventBlobRef(this), "command=mine_stone pos=" + AIB_EventPos(this.getPosition()));
 		this.set_u8("ai builder state", 7);
 		this.set_u8("ai builder job", 1);
@@ -139,6 +142,7 @@ void onCommand(CBlob@ this, u8 cmd, CBitStream@ params)
 	}
 	else if (cmd == this.getCommandID("ai build blueprint") && isServer())
 	{
+		AIBM_TakeManualControl(this);
 		AIB_LogEvent("player", "command", AIB_EventBlobRef(this), "command=build_blueprint pos=" + AIB_EventPos(this.getPosition()));
 		this.set_u8("ai builder state", 12);
 		this.set_u8("ai builder job", 2);

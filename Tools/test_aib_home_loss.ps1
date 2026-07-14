@@ -3,6 +3,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $types = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicTypes.as') -Raw
 $world = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBWorldModel.as') -Raw
 $jobs = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicJobs.as') -Raw
+$manual = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBManualOrderCommon.as') -Raw
 $director = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicDirector.as') -Raw
 $boundaries = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBActionBoundaryCommon.as') -Raw
 $scenarios = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBTestScenarios.as') -Raw
@@ -38,13 +39,16 @@ $resourceGateAt = $assign.IndexOf('if (world.resourceHome == Vec2f_zero)')
 if ($autoAssignAt -lt 0 -or $resourceGateAt -le $autoAssignAt) {
     throw 'Infinite-resource Autobuilders must remain eligible before ordinary runners are suspended'
 }
+if (!$stop.Contains('AIBM_StopDirectorControl(builder);')) {
+    throw 'Suspended runner cleanup does not use the shared ownership boundary'
+}
 foreach ($needle in @(
-    'AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());',
+    'AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());',
     'builder.set_bool("aib strategy assigned", false);',
     'builder.set_bool("ai builder job active", false);',
-    'builder.set_u8("ai builder state", AIBS_STATE_IDLE);'
+    'builder.set_u8("ai builder state", 0);'
 )) {
-    if (!$stop.Contains($needle)) { throw "Suspended runner cleanup is incomplete: $needle" }
+    if (!$manual.Contains($needle)) { throw "Suspended runner cleanup is incomplete: $needle" }
 }
 foreach ($needle in @(
     'world.resourceHome == Vec2f_zero) return result;',

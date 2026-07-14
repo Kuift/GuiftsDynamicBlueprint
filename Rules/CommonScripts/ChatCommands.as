@@ -11,6 +11,7 @@
 #include "AIBDirectorPolicy.as";
 #include "AIBTelemetryPolicy.as";
 #include "AIBWorldFingerprint.as";
+#include "AIBManualOrderCommon.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
 const uint ChatCommandDelay = 3 * 30; // Cooldown in seconds
@@ -378,6 +379,7 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 		}
 		this.set_u8(AIBP_ModeKey(u8(team)), AIBP_StrategyMode::auto_mode);
 		this.Sync(AIBP_ModeKey(u8(team)), true);
+		AIBM_ReleaseTeamManualControl(u8(team));
 		this.set_u32("aib strategy important event team " + team, getGameTime());
 		SendChatMessage(this, player, worker is null ? "[AIB] director test worker spawn failed" : "[AIB] director test enabled; AI builder " + worker.getNetworkID() + " is ready", worker is null ? SColor(255, 255, 80, 80) : SColor(255, 100, 210, 255));
 		return false;
@@ -418,6 +420,7 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 			(tokens[1] == "suggest" ? AIBP_StrategyMode::suggest : AIBP_StrategyMode::auto_mode);
 		this.set_u8(AIBP_ModeKey(u8(team)), mode);
 		this.Sync(AIBP_ModeKey(u8(team)), true);
+		if(mode == AIBP_StrategyMode::auto_mode) AIBM_ReleaseTeamManualControl(u8(team));
 		this.set_u32("aib strategy important event team " + team, getGameTime());
 		SendChatMessage(this, player, "[AIB] strategy mode: " + tokens[1], SColor(255, 100, 210, 255));
 		return false;
@@ -443,6 +446,7 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 		this.set_string("aib wave variant", tokens[2]);
 		this.set_string("aib wave scenario", scenario);
 		this.set_u8(AIBP_ModeKey(u8(team)), withPlan ? AIBP_StrategyMode::auto_mode : AIBP_StrategyMode::off);
+		if(withPlan) AIBM_ReleaseTeamManualControl(u8(team));
 		this.set_bool("aib strategy event log enabled", true);
 		this.set_u32("aib wave arm tick", getGameTime() + 900);
 		this.set_bool("aib wave enabled", true);

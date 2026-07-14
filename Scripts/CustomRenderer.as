@@ -1,6 +1,7 @@
 #include "Inventory.as"
 #include "Item.as"
 #include "AIBEventLog.as"
+#include "AIBManualOrderCommon.as"
 #include "BlueprintMemory.as"
 #include "BlueprintNetwork.as"
 
@@ -2203,6 +2204,7 @@ void AIB_ServerSetDirectorMode(const u16 playerNetID, const u8 requestedMode)
 	rules.set_u32("aib strategy important event team " + int(team), getGameTime());
 	AIBP_SetAIWorkEnabled(team, requestedMode == AIBP_StrategyMode::auto_mode);
 	if(requestedMode == AIBP_StrategyMode::off) AIB_ServerStopDirectorAssignments(team);
+	else AIBM_ReleaseTeamManualControl(team);
 	u16 actionX = 0; u16 actionY = 0;
 	AIB_ActionBoundaryBlobTile(player.getBlob(), actionX, actionY);
 	AIB_ActionQueueBoundary(AIBActionBoundary::director_mode, AIBActionActorKind::player,
@@ -2219,15 +2221,7 @@ void AIB_ServerStopDirectorAssignments(const u8 team)
 	{
 		CBlob@ builder = builders[i];
 		if(builder is null || builder.hasTag("dead") || builder.getTeamNum() != team || !builder.get_bool("aib strategy assigned")) continue;
-		AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());
-		builder.set_u8("ai builder state", AIB_RENDERER_STATE_IDLE);
-		builder.set_bool("ai builder job active", false);
-		builder.set_bool("aib strategy assigned", false);
-		builder.set_netid("ai builder target", 0);
-		builder.set_Vec2f("ai builder destination", Vec2f_zero);
-		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
-		builder.Sync("ai builder state", true);
-		builder.Sync("ai builder job active", true);
+		AIBM_StopDirectorControl(builder);
 	}
 }
 
@@ -2314,7 +2308,7 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 	if(!AIB_ServerCanIssueOverseerCommand(playerNetID, u8(builder.getTeamNum()))) return;
 	const bool autoBuilder = builder.getName() == "autobuilder";
 	if(autoBuilder && order != AIB_OVERSEER_ORDER_BLUEPRINT) return;
-	AIBP_ReleaseBuilderReservation(u8(builder.getTeamNum()), builder.getNetworkID());
+	AIBM_TakeManualControl(builder);
 
 	if(order == AIB_OVERSEER_ORDER_WOOD)
 	{
@@ -2344,7 +2338,6 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 	builder.set_netid("ai builder target", 0);
 	builder.set_Vec2f("ai builder destination", Vec2f_zero);
 	builder.set_bool("ai builder job active", true);
-	builder.set_bool("aib strategy assigned", false);
 	builder.Sync("ai builder state", true);
 	builder.Sync("ai builder job", true);
 	builder.Sync("ai builder job active", true);

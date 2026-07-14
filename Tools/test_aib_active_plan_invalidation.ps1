@@ -131,8 +131,12 @@ $stopTeamFunction = [regex]::Match($jobs, 'void AIBS_StopAssignedBuilders[\s\S]*
 if (!$stopFunction -or !$stopTeamFunction -or !$stopTeamFunction.Contains('AIBS_StopBuilderAssignment(team, builder);')) {
     throw 'Director team-stop must delegate every assigned worker to the full per-builder cleanup helper'
 }
+$manual = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBManualOrderCommon.as') -Raw
+if (!$stopFunction.Contains('AIBM_StopDirectorControl(builder);')) {
+    throw 'Director worker stop bypasses the shared ownership cleanup boundary'
+}
 foreach ($needle in @(
-    'AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());',
+    'AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());',
     'if (brain !is null) brain.EndPath();',
     'builder.set_netid("ai builder target", 0);',
     'builder.set_Vec2f("ai builder destination", Vec2f_zero);',
@@ -140,7 +144,7 @@ foreach ($needle in @(
     'builder.setKeyPressed(key_action1, false);',
     'builder.setKeyPressed(key_action2, false);'
 )) {
-    if (!$stopFunction.Contains($needle)) { throw "Stopped director worker retains unsafe execution intent: $needle" }
+    if (!$manual.Contains($needle)) { throw "Stopped director worker retains unsafe execution intent: $needle" }
 }
 
 function Test-CancelDecision {

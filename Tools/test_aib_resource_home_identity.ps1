@@ -23,7 +23,7 @@ foreach ($needle in @(
     'void AIBS_SetBuilderResourceHome(CBlob@ builder, const u16 homeID)',
     'u16 AIBS_WorldResourceHomeID(AIBWorldState@ world)',
     'AIBS_SetBuilderResourceHome(teamBuilders[i], resourceHomeID);',
-    'AIBS_SetBuilderResourceHome(builder, 0);'
+    'AIBM_StopDirectorControl(builder);'
 )) {
     if (!$jobs.Contains($needle)) { throw "Director assignment does not own resource-home identity: $needle" }
 }

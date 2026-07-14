@@ -4009,6 +4009,22 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 					(stockRunner.getPosition() - stockHome.getPosition()).Length() &&
 				stockRunner.get_bool("aib strategy assigned") &&
 				stockRunner.get_netid(AIBR_ASSIGNED_HOME_KEY) == stockHome.getNetworkID();
+			if (stockRunner !is null)
+			{
+				stockRunner.set_bool("aib strategy role pending", true);
+				stockRunner.set_u8("aib strategy pending job", AIBS_JOB_STONE);
+				stockRunner.set_u8("aib strategy pending state", AIBS_STATE_FIND_STONE);
+				AIBM_TakeManualControl(stockRunner);
+			}
+			AIBS_AssignBuilders(stockWorld);
+			const bool manualOrderPreserved = stockRunner !is null && AIBM_IsUnderManualControl(stockRunner) &&
+				!stockRunner.get_bool("aib strategy assigned") && !stockRunner.get_bool("aib strategy role pending") &&
+				stockRunner.get_netid(AIBR_ASSIGNED_HOME_KEY) == 0;
+			AIBM_ReleaseManualControl(stockRunner);
+			AIBS_AssignBuilders(stockWorld);
+			const bool explicitAutoReclaims = stockRunner !is null && !AIBM_IsUnderManualControl(stockRunner) &&
+				stockRunner.get_bool("aib strategy assigned") &&
+				stockRunner.get_netid(AIBR_ASSIGNED_HOME_KEY) == stockHome.getNetworkID();
 			array<u8>@ resourceStates = null; array<u16>@ resourceReserved = null; array<u32>@ resourceUntils = null;
 			rules.get(AIBP_TaskKey(3, "state"), @resourceStates);
 			rules.get(AIBP_TaskKey(3, "reserved"), @resourceReserved);
@@ -4042,10 +4058,11 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				!rules.get_bool(AIBS_BootstrapKey(0, "provisioned")) &&
 				!rules.get_bool(AIBS_BootstrapKey(1, "provisioned")) &&
 				!rules.get_bool(AIBS_BootstrapKey(2, "provisioned")) && accessibleStockExact && assignedResourceHomePinned &&
+				manualOrderPreserved && explicitAutoReclaims &&
 				resourceHomeSuspended && homeLossClosed;
 			if (guardsHeld)
 			{
-				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true accessible_stock_exact=true remote_stock_excluded=true loose_home_stock_included=true assigned_resource_home_pinned=true nearer_secondary_ignored=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
+				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true accessible_stock_exact=true remote_stock_excluded=true loose_home_stock_included=true assigned_resource_home_pinned=true nearer_secondary_ignored=true manual_order_preserved=true pending_role_cleared=true explicit_auto_reclaims=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
 				return true;
 			}
 			if (elapsed > 100)
@@ -4054,6 +4071,8 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 					" suggest_plan=" + (suggestedTeam1Plan ? "true" : "false") + " no_home_plan=" + (noHomeTeam2Plan ? "true" : "false") +
 					" accessible_stock=" + (accessibleStockExact ? "true" : "false") +
 					" assigned_home=" + (assignedResourceHomePinned ? "true" : "false") +
+					" manual_order=" + (manualOrderPreserved ? "true" : "false") +
+					" auto_reclaim=" + (explicitAutoReclaims ? "true" : "false") +
 					" resource_home_suspended=" + (resourceHomeSuspended ? "true" : "false") + " home_loss_closed=" + (homeLossClosed ? "true" : "false") +
 					" team0=" + team0Builders + " team0_bootstrap=" + team0Bootstrap +
 					" team1=" + team1Builders + " team2=" + team2Builders +

@@ -12,6 +12,7 @@ foreach ($needle in @(
     'strategic_autobuilder_physically_completes_selected_plan',
     'strategic_no_build_primary_falls_back_and_physically_completes',
     'strategic_occupied_primary_falls_back_and_physically_completes',
+    'strategic_barrier_primary_falls_back_and_physically_completes',
     'bool AIBT_RepresentativeDirectorCandidate',
     'AIBWorldState@ world = AIBS_ObserveWorld(team);',
     'AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);',
@@ -31,11 +32,19 @@ foreach ($needle in @(
     'selected_plan_physically_complete=true',
     'AIBT_SetupRepresentativeFallback(AIBT_FALLBACK_NO_BUILD)',
     'AIBT_SetupRepresentativeFallback(AIBT_FALLBACK_OCCUPIED)',
+    'AIBT_SetupRepresentativeFallback(AIBT_FALLBACK_BARRIER)',
+    'const int barrierX = primaryAnchorX - initialWorld.enemyDirection * 2;',
+    'rules.set_bool("aib test resource barrier", true);',
+    'rules.set_u16("barrier_x1", barrierWorldX);',
+    'for (uint i = 0; i < 6; i++) AIBT_Spawn("knight", 1',
     'const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);',
-    'obstacleKind == AIBT_FALLBACK_NO_BUILD ? "no_build" : "building_overlap"',
+    'obstacleKind == AIBT_FALLBACK_NO_BUILD ? "no_build" :',
+    '(obstacleKind == AIBT_FALLBACK_OCCUPIED ? "building_overlap" : "barrier")',
     'primaryReason == expectedReason',
     'representative_fallback_physically_complete=true',
     'AIBT_FallbackPlanRespectsObstacle',
+    'AIBS_InsideBarrierSide(world, AIBT_Pos(xs[i], ys[i]))',
+    'barrier_active=',
     'RemoveSectorsAtPosition(AIBT_temporary_no_build_points[i], "no build"',
     'case 54:',
     'case 55:',
@@ -45,7 +54,8 @@ foreach ($needle in @(
     'case 59:',
     'case 60:',
     'case 61:',
-    'case 62:'
+    'case 62:',
+    'case 63:'
 )) {
     if (!$source.Contains($needle)) { throw "Representative director fixture contract is missing: $needle" }
 }
@@ -58,6 +68,7 @@ if ([regex]::Matches($source, 'case 58:').Count -ne 2) { throw 'Damaged-front fi
 if ([regex]::Matches($source, 'case 59:').Count -ne 2) { throw 'Physical selected-plan fixture requires one setup and one evaluation case' }
 if ([regex]::Matches($source, 'case 61:').Count -ne 2) { throw 'No-build fallback fixture requires one setup and one evaluation case' }
 if ([regex]::Matches($source, 'case 62:').Count -ne 2) { throw 'Occupied fallback fixture requires one setup and one evaluation case' }
+if ([regex]::Matches($source, 'case 63:').Count -ne 2) { throw 'Barrier fallback fixture requires one setup and one evaluation case' }
 if ($source -notmatch 'index != 54 && index != 55 && index != 56 && index != 57 && index != 58') { throw 'Planner-only fixtures are not exempt from the bot requirement' }
 if ($source -notmatch 'world\.planPending == 2 && world\.planCompleted == 1 && world\.planDamaged == 2') { throw 'Damaged-front fixture does not assert exact reactivation counts' }
 if ($source -notmatch 'AIBT_CountLayerTiles\(0, AIBP_Layer::ai_desired\) == expectedTasks') { throw 'Physical completion fixture does not verify the full desired layer' }

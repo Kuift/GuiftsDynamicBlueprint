@@ -10,6 +10,7 @@ const int AIBT_WIDTH = 150;
 const int AIBT_GROUND_Y = 72;
 const u8 AIBT_FALLBACK_NO_BUILD = 1;
 const u8 AIBT_FALLBACK_OCCUPIED = 2;
+const u8 AIBT_FALLBACK_BARRIER = 3;
 u16[] AIBT_spawned_ids;
 Vec2f[] AIBT_changed_tiles;
 u16[] AIBT_original_tiles;
@@ -86,7 +87,8 @@ string[] AIBT_SCENARIOS =
 	"strategic_autobuilder_physically_completes_selected_plan",
 	"strategic_bootstrap_rejects_sealed_cave_spawn",
 	"strategic_no_build_primary_falls_back_and_physically_completes",
-	"strategic_occupied_primary_falls_back_and_physically_completes"
+	"strategic_occupied_primary_falls_back_and_physically_completes",
+	"strategic_barrier_primary_falls_back_and_physically_completes"
 };
 
 string AIBT_ScenarioName(const int index)
@@ -959,6 +961,12 @@ void AIBT_SetupRepresentativeFallback(const u8 obstacleKind)
 	CBlob@ home = AIBT_SpawnTentTeam(54, 0);
 	AIBT_SpawnTentTeam(366, 1);
 	CBlob@ executor = AIBT_Spawn("autobuilder", 0, AIBT_Pos(58, AIBT_GROUND_Y - 3));
+	if (obstacleKind == AIBT_FALLBACK_BARRIER)
+	{
+		// Force the production emergency intent so a useful compact fallback
+		// exists entirely on the home side of the pre-match barrier.
+		for (uint i = 0; i < 6; i++) AIBT_Spawn("knight", 1, AIBT_Pos(118 + int(i * 2), AIBT_GROUND_Y - 2));
+	}
 	AIBT_SetBlob("aibt_bot", executor);
 	rules.set_u8("aibt fallback obstacle kind", obstacleKind);
 
@@ -969,8 +977,25 @@ void AIBT_SetupRepresentativeFallback(const u8 obstacleKind)
 	AIBPlanCandidate@ initialPrimary = AIBT_FindGeneratedCandidate(initialCandidates, "flag_gatehouse", primaryAnchorX);
 	const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);
 	BlueprintTask@ obstacleTask = AIBT_FirstNonLadderTask(initialPrimary);
-	bool obstacleReady = home !is null && executor !is null && initialWorld !is null && initialPrimaryValid && obstacleTask !is null;
-	if (obstacleTask !is null)
+	bool obstacleReady = home !is null && executor !is null && initialWorld !is null && initialPrimaryValid &&
+		(obstacleKind == AIBT_FALLBACK_BARRIER || obstacleTask !is null);
+	if (obstacleKind == AIBT_FALLBACK_BARRIER && initialWorld !is null)
+	{
+		// The primary gatehouse spans anchor +/-3. Put the barrier two tiles
+		// behind its anchor: the primary crosses it, while the emergency plan
+		// at home +6 remains wholly connected to the home side.
+		const int barrierX = primaryAnchorX - initialWorld.enemyDirection * 2;
+		const u16 barrierY = AIBT_GROUND_Y - 5;
+		const u16 barrierWorldX = u16(barrierX * map.tilesize + map.tilesize * 0.5f);
+		rules.set_u16("aibt fallback obstacle x", u16(barrierX));
+		rules.set_u16("aibt fallback obstacle y", barrierY);
+		rules.set_u16("aibt fallback obstacle tile", map.getTile(AIBT_Pos(barrierX, barrierY)).type);
+		rules.set_bool("aib test resource barrier", true);
+		rules.set_u16("barrier_x1", barrierWorldX);
+		rules.set_u16("barrier_x2", barrierWorldX);
+		obstacleReady = obstacleReady && barrierX > int(initialWorld.home.x / map.tilesize);
+	}
+	else if (obstacleTask !is null)
 	{
 		rules.set_u16("aibt fallback obstacle x", obstacleTask.x);
 		rules.set_u16("aibt fallback obstacle y", obstacleTask.y);
@@ -995,7 +1020,8 @@ void AIBT_SetupRepresentativeFallback(const u8 obstacleKind)
 	AIBPlanCandidate@ primary = AIBT_FindGeneratedCandidate(generated, "flag_gatehouse", primaryAnchorX);
 	const bool primaryRejected = primary !is null && !AIBS_ValidateCandidate(world, primary);
 	const string primaryReason = primary is null ? "missing" : primary.rejection;
-	const string expectedReason = obstacleKind == AIBT_FALLBACK_NO_BUILD ? "no_build" : "building_overlap";
+	const string expectedReason = obstacleKind == AIBT_FALLBACK_NO_BUILD ? "no_build" :
+		(obstacleKind == AIBT_FALLBACK_OCCUPIED ? "building_overlap" : "barrier");
 	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);
 	const bool selectedValid = selected !is null && AIBS_ValidateCandidate(world, selected);
 	const bool selectedDistinct = selected !is null && primary !is null &&
@@ -1087,6 +1113,22 @@ bool AIBT_FallbackPlanRespectsObstacle(const u8 obstacleKind, string &out obstac
 		obstacleDetails = "blocker_preserved=" + (blockerPreserved ? "true" : "false") +
 			" legal_tasks=" + (legalTasks ? "true" : "false");
 		return blockerPreserved && legalTasks;
+	}
+	if (obstacleKind == AIBT_FALLBACK_BARRIER)
+	{
+		AIBWorldState@ world = AIBS_ObserveWorld(0);
+		const u16 barrierWorldX = u16(obstacleX * map.tilesize + map.tilesize * 0.5f);
+		const bool barrierActive = rules.get_bool("aib test resource barrier") &&
+			rules.get_u16("barrier_x1") == barrierWorldX && rules.get_u16("barrier_x2") == barrierWorldX;
+		const bool tilePreserved = map.getTile(obstacleCenter).type == rules.get_u16("aibt fallback obstacle tile");
+		bool legalTasks = world !is null;
+		for (uint i = 0; legalTasks && i < xs.length; i++)
+		{
+			if (!AIBS_InsideBarrierSide(world, AIBT_Pos(xs[i], ys[i]))) legalTasks = false;
+		}
+		obstacleDetails = "barrier_active=" + (barrierActive ? "true" : "false") +
+			" tile_preserved=" + (tilePreserved ? "true" : "false") + " legal_tasks=" + (legalTasks ? "true" : "false");
+		return barrierActive && tilePreserved && legalTasks;
 	}
 	return false;
 }
@@ -2616,6 +2658,12 @@ void AIBT_SetupScenario(const int index)
 			break;
 		}
 
+		case 63:
+		{
+			AIBT_SetupRepresentativeFallback(AIBT_FALLBACK_BARRIER);
+			break;
+		}
+
 	}
 }
 
@@ -3890,6 +3938,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 61:
 		case 62:
+		case 63:
 		{
 			return AIBT_EvaluateRepresentativeFallback(elapsed, failure, details);
 		}

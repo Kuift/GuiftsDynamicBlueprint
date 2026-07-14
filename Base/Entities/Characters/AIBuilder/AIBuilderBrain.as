@@ -8,6 +8,7 @@
 #include "AIBStoneRouteCommon.as";
 #include "AIBEventLog.as";
 #include "AIBHomeResourceCommon.as";
+#include "AIBManualOrderCommon.as";
 #include "AutoBuilderCommon.as";
 #include "BlueprintData.as";
 #include "Pathing/BrainPathing.as";
@@ -179,6 +180,11 @@ void onTick(CBrain@ this)
 		AIB_FloatInWater(blob);
 		return;
 	}
+	// The director may decide that a completed/cancelled/absent plan has no more
+	// executable work while this runner is still finishing a resource episode.
+	// Consume that deferred retirement here, before a target-free find state can
+	// select another tree, stone route, or blueprint task between heartbeats.
+	if (AIBM_TryRetireAtSafeBoundary(blob)) return;
 	if (AIBU_IsAutoBuilder(blob))
 	{
 		AIB_TickAutoBuilder(this, blob);

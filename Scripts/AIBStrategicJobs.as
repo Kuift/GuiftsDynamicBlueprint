@@ -3,14 +3,14 @@
 #include "AIBDirectorPolicy.as";
 #include "AIBManualOrderCommon.as";
 
-const u8 AIBS_JOB_WOOD = 0;
-const u8 AIBS_JOB_STONE = 1;
-const u8 AIBS_JOB_BLUEPRINT = 2;
-const u8 AIBS_STATE_IDLE = 0;
-const u8 AIBS_STATE_FIND_TREE = 1;
-const u8 AIBS_STATE_FIND_STONE = 7;
+const u8 AIBS_JOB_WOOD = AIBM_JOB_WOOD;
+const u8 AIBS_JOB_STONE = AIBM_JOB_STONE;
+const u8 AIBS_JOB_BLUEPRINT = AIBM_JOB_BLUEPRINT;
+const u8 AIBS_STATE_IDLE = AIBM_STATE_IDLE;
+const u8 AIBS_STATE_FIND_TREE = AIBM_STATE_FIND_TREE;
+const u8 AIBS_STATE_FIND_STONE = AIBM_STATE_FIND_STONE;
 const u8 AIBS_STATE_COLLECT_BLUEPRINT = 12;
-const u8 AIBS_STATE_FIND_BLUEPRINT = 13;
+const u8 AIBS_STATE_FIND_BLUEPRINT = AIBM_STATE_FIND_BLUEPRINT;
 const u8 AIBS_BOOTSTRAP_MIN_HOME_DISTANCE = 6;
 const u8 AIBS_BOOTSTRAP_MAX_HOME_DISTANCE = 24;
 const u8 AIBS_BOOTSTRAP_VERTICAL_SEARCH = 12;
@@ -80,6 +80,8 @@ u16 AIBS_WorldResourceHomeID(AIBWorldState@ world)
 void AIBS_SetBuilderJob(CBlob@ builder, const u8 job, const u8 state)
 {
 	if (builder is null || builder.hasTag("dead")) return;
+	// New executable work supersedes a deferred no-work retirement.
+	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
 	if (!AIBU_IsAutoBuilder(builder) && builder.get_netid(AIBR_ASSIGNED_HOME_KEY) == 0)
 		AIBS_SetBuilderResourceHome(builder, AIBS_CurrentResourceHomeID(u8(builder.getTeamNum())));
 	const u8 oldJob = builder.get_u8("ai builder job");
@@ -122,12 +124,37 @@ void AIBS_SetBuilderJob(CBlob@ builder, const u8 job, const u8 state)
 
 bool AIBS_BuilderAtRoleHandoff(CBlob@ builder, const u8 job, const u8 state)
 {
-	if (builder is null || state == AIBS_STATE_IDLE) return true;
-	if (builder.get_netid("ai builder target") != 0 || builder.get_Vec2f("ai builder tile target") != Vec2f_zero) return false;
-	if (job == AIBS_JOB_WOOD) return state == AIBS_STATE_FIND_TREE;
-	if (job == AIBS_JOB_STONE) return state == AIBS_STATE_FIND_STONE;
-	if (job == AIBS_JOB_BLUEPRINT) return state == AIBS_STATE_FIND_BLUEPRINT;
-	return false;
+	return AIBM_IsAtStrategyHandoff(builder);
+}
+
+void AIBS_RetireBuilderAtSafeBoundary(const u8 team, CBlob@ builder)
+{
+	if (builder is null || !builder.get_bool("aib strategy assigned")) return;
+	const u8 job = builder.get_u8("ai builder job");
+	const u8 state = builder.get_u8("ai builder state");
+	// Autobuilders carry no resources. Once no work exists, they have no
+	// resource episode to preserve and can relinquish ownership immediately.
+	if (AIBU_IsAutoBuilder(builder) || AIBS_BuilderAtRoleHandoff(builder, job, state))
+	{
+		AIBS_StopBuilderAssignment(team, builder);
+		AIBS_Log("retire", team, "builder=" + builder.getNetworkID() + " reason=no_executable_work");
+		return;
+	}
+	if (!builder.get_bool(AIBM_RETIRE_PENDING_KEY))
+	{
+		builder.set_bool(AIBM_RETIRE_PENDING_KEY, true);
+		AIBS_Log("retire_deferred", team, "builder=" + builder.getNetworkID() + " job=" + job + " state=" + state);
+	}
+}
+
+void AIBS_RetireAssignedBuildersAtSafeBoundary(const u8 team, array<CBlob@> &in builders)
+{
+	for (uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if (builder is null || AIBM_IsUnderManualControl(builder)) continue;
+		AIBS_RetireBuilderAtSafeBoundary(team, builder);
+	}
 }
 
 void AIBS_GetTeamBuilders(const u8 team, array<CBlob@> &out teamBuilders)
@@ -529,6 +556,15 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 	for (int i = int(teamBuilders.length) - 1; i >= 0; i--)
 	{
 		if (teamBuilders[i].hasTag("aib developer scenario role locked")) teamBuilders.removeAt(i);
+	}
+	// A completed, cancelled, suggestion-only, or absent plan has no executable
+	// director work. Do not reclaim idle workers as blueprint builders. Preserve
+	// an in-flight resource episode until its normal target-free handoff, then
+	// relinquish the assignment on a later heartbeat.
+	if (!AIBS_HasActivePendingPlan(world.team))
+	{
+		AIBS_RetireAssignedBuildersAtSafeBoundary(world.team, teamBuilders);
+		return;
 	}
 	// Collisionless infinite-resource workers exist specifically to isolate
 	// director strategy from harvesting and pathing. They always execute the

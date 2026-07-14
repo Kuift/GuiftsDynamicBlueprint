@@ -2772,6 +2772,20 @@ void AIBT_SetupScenario(const int index)
 			AIBT_SetBlob("aibt_stock_home", stockHome);
 			AIBT_SetBlob("aibt_stock_secondary_home", secondaryHome);
 			AIBT_SetBlob("aibt_stock_runner", stockRunner);
+			BlueprintPlan@ stockPlan = AIBT_NewStrategicPlan(5, "accessible_stock_guard");
+			stockPlan.anchor = Vec2f(390, AIBT_GROUND_Y);
+			stockPlan.tasks.push_back(BlueprintTask(390, AIBT_GROUND_Y - 1, AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+			const bool stockPlanPublished = AIBP_PublishAIPlan(stockPlan, true);
+			CBlob@ noWorkHome = AIBT_SpawnTentTeam(20, 6);
+			CBlob@ noWorkIdle = AIBT_Spawn("aibuilder", 6, AIBT_Pos(26, AIBT_GROUND_Y - 2));
+			AIBT_DisableStarterMaterials(noWorkIdle);
+			AIBT_SetBlob("aibt_no_work_idle", noWorkIdle);
+			CBlob@ episodeHome = AIBT_SpawnTentTeam(40, 7);
+			CBlob@ episodeWorker = AIBT_Spawn("aibuilder", 7, AIBT_Pos(46, AIBT_GROUND_Y - 2));
+			AIBT_DisableStarterMaterials(episodeWorker);
+			AIBT_SetBlob("aibt_no_work_episode", episodeWorker);
+			getRules().set_bool("aibt no work retirement setup", noWorkHome !is null && noWorkIdle !is null &&
+				episodeHome !is null && episodeWorker !is null);
 			Vec2f stockPoint = AIBR_FindBaseStoragePoint(stockHome);
 			CBlob@ nearCrate = stockPoint == Vec2f_zero ? null : AIBT_Spawn("crate", 5, stockPoint);
 			CBlob@ farCrate = AIBT_Spawn("crate", 5, AIBT_Pos(250, AIBT_GROUND_Y - 2));
@@ -2781,7 +2795,7 @@ void AIBT_SetupScenario(const int index)
 			CBlob@ farLoose = AIBT_Spawn("mat_wood", 5, AIBT_Pos(270, AIBT_GROUND_Y - 2));
 			if (nearLoose !is null) nearLoose.server_SetQuantity(30);
 			if (farLoose !is null) farLoose.server_SetQuantity(70);
-			getRules().set_bool("aibt accessible stock setup", stockFlag !is null && stockHome !is null &&
+			getRules().set_bool("aibt accessible stock setup", stockFlag !is null && stockHome !is null && stockPlanPublished &&
 				secondaryHome !is null && stockRunner !is null && stockPoint != Vec2f_zero && nearCrate !is null &&
 				farCrate !is null && nearLoose !is null && farLoose !is null);
 			AIBT_SetBlob("aibt_bot", bot);
@@ -4025,6 +4039,35 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			const bool explicitAutoReclaims = stockRunner !is null && !AIBM_IsUnderManualControl(stockRunner) &&
 				stockRunner.get_bool("aib strategy assigned") &&
 				stockRunner.get_netid(AIBR_ASSIGNED_HOME_KEY) == stockHome.getNetworkID();
+			CBlob@ noWorkIdle = AIBT_GetBlob("aibt_no_work_idle");
+			AIBS_SetBuilderJob(noWorkIdle, AIBS_JOB_BLUEPRINT, AIBS_STATE_FIND_BLUEPRINT);
+			AIBWorldState@ noWorkWorld = AIBS_ObserveWorld(6);
+			AIBS_AssignBuilders(noWorkWorld);
+			const bool noWorkIdleRetired = noWorkIdle !is null && !noWorkIdle.get_bool("aib strategy assigned") &&
+				!noWorkIdle.get_bool("ai builder job active") && noWorkIdle.get_u8("ai builder state") == AIBS_STATE_IDLE;
+			CBlob@ episodeWorker = AIBT_GetBlob("aibt_no_work_episode");
+			AIBS_SetBuilderJob(episodeWorker, AIBS_JOB_WOOD, AIBS_STATE_FIND_TREE);
+			if (episodeWorker !is null)
+			{
+				episodeWorker.set_u8("ai builder state", AIBT_CHOP_TREE);
+				episodeWorker.set_netid("ai builder target", episodeWorker.getNetworkID());
+			}
+			AIBWorldState@ episodeWorld = AIBS_ObserveWorld(7);
+			AIBS_AssignBuilders(episodeWorld);
+			const bool noWorkEpisodeDeferred = episodeWorker !is null && episodeWorker.get_bool("aib strategy assigned") &&
+				episodeWorker.get_bool(AIBM_RETIRE_PENDING_KEY) && episodeWorker.get_u8("ai builder state") == AIBT_CHOP_TREE &&
+				episodeWorker.get_netid("ai builder target") != 0;
+			if (episodeWorker !is null)
+			{
+				episodeWorker.set_netid("ai builder target", 0);
+				episodeWorker.set_u8("ai builder state", AIBS_STATE_FIND_TREE);
+			}
+			const bool noWorkBoundaryConsumed = AIBM_TryRetireAtSafeBoundary(episodeWorker);
+			const bool noWorkEpisodeRetired = noWorkBoundaryConsumed && episodeWorker !is null && !episodeWorker.get_bool("aib strategy assigned") &&
+				!episodeWorker.get_bool(AIBM_RETIRE_PENDING_KEY) && !episodeWorker.get_bool("ai builder job active") &&
+				episodeWorker.get_u8("ai builder state") == AIBS_STATE_IDLE;
+			const bool noWorkRetirementSafe = rules.get_bool("aibt no work retirement setup") && noWorkIdleRetired &&
+				noWorkEpisodeDeferred && noWorkEpisodeRetired;
 			array<u8>@ resourceStates = null; array<u16>@ resourceReserved = null; array<u32>@ resourceUntils = null;
 			rules.get(AIBP_TaskKey(3, "state"), @resourceStates);
 			rules.get(AIBP_TaskKey(3, "reserved"), @resourceReserved);
@@ -4058,11 +4101,11 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				!rules.get_bool(AIBS_BootstrapKey(0, "provisioned")) &&
 				!rules.get_bool(AIBS_BootstrapKey(1, "provisioned")) &&
 				!rules.get_bool(AIBS_BootstrapKey(2, "provisioned")) && accessibleStockExact && assignedResourceHomePinned &&
-				manualOrderPreserved && explicitAutoReclaims &&
+				manualOrderPreserved && explicitAutoReclaims && noWorkRetirementSafe &&
 				resourceHomeSuspended && homeLossClosed;
 			if (guardsHeld)
 			{
-				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true accessible_stock_exact=true remote_stock_excluded=true loose_home_stock_included=true assigned_resource_home_pinned=true nearer_secondary_ignored=true manual_order_preserved=true pending_role_cleared=true explicit_auto_reclaims=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
+				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true accessible_stock_exact=true remote_stock_excluded=true loose_home_stock_included=true assigned_resource_home_pinned=true nearer_secondary_ignored=true manual_order_preserved=true pending_role_cleared=true explicit_auto_reclaims=true no_work_idle_retired=true no_work_episode_deferred=true no_work_episode_retired=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
 				return true;
 			}
 			if (elapsed > 100)
@@ -4073,6 +4116,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 					" assigned_home=" + (assignedResourceHomePinned ? "true" : "false") +
 					" manual_order=" + (manualOrderPreserved ? "true" : "false") +
 					" auto_reclaim=" + (explicitAutoReclaims ? "true" : "false") +
+					" no_work_retirement=" + (noWorkRetirementSafe ? "true" : "false") +
 					" resource_home_suspended=" + (resourceHomeSuspended ? "true" : "false") + " home_loss_closed=" + (homeLossClosed ? "true" : "false") +
 					" team0=" + team0Builders + " team0_bootstrap=" + team0Bootstrap +
 					" team1=" + team1Builders + " team2=" + team2Builders +

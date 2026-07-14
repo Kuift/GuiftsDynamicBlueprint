@@ -3,10 +3,31 @@
 #include "Pathing/BrainPathing.as";
 
 const string AIBM_MANUAL_CONTROL_KEY = "aib player manual order";
+const string AIBM_RETIRE_PENDING_KEY = "aib strategy retire pending";
+const u8 AIBM_JOB_WOOD = 0;
+const u8 AIBM_JOB_STONE = 1;
+const u8 AIBM_JOB_BLUEPRINT = 2;
+const u8 AIBM_STATE_IDLE = 0;
+const u8 AIBM_STATE_FIND_TREE = 1;
+const u8 AIBM_STATE_FIND_STONE = 7;
+const u8 AIBM_STATE_FIND_BLUEPRINT = 13;
 
 bool AIBM_IsUnderManualControl(CBlob@ builder)
 {
 	return builder !is null && builder.get_bool(AIBM_MANUAL_CONTROL_KEY);
+}
+
+bool AIBM_IsAtStrategyHandoff(CBlob@ builder)
+{
+	if (builder is null) return false;
+	const u8 state = builder.get_u8("ai builder state");
+	if (state == AIBM_STATE_IDLE) return true;
+	if (builder.get_netid("ai builder target") != 0 || builder.get_Vec2f("ai builder tile target") != Vec2f_zero) return false;
+	const u8 job = builder.get_u8("ai builder job");
+	if (job == AIBM_JOB_WOOD) return state == AIBM_STATE_FIND_TREE;
+	if (job == AIBM_JOB_STONE) return state == AIBM_STATE_FIND_STONE;
+	if (job == AIBM_JOB_BLUEPRINT) return state == AIBM_STATE_FIND_BLUEPRINT;
+	return false;
 }
 
 void AIBM_ClearStrategyControl(CBlob@ builder)
@@ -20,6 +41,7 @@ void AIBM_ClearStrategyControl(CBlob@ builder)
 	if (builder.get("ai builder brain path", @path) && path !is null) path.EndPath();
 	builder.set_bool("aib strategy assigned", false);
 	builder.set_bool("aib strategy role pending", false);
+	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
 	builder.set_u8("aib strategy pending job", 0);
 	builder.set_u8("aib strategy pending state", 0);
 	builder.set_netid(AIBR_ASSIGNED_HOME_KEY, 0);
@@ -66,6 +88,14 @@ void AIBM_StopDirectorControl(CBlob@ builder)
 	builder.Sync("ai builder state", true);
 	builder.Sync("ai builder job active", true);
 	builder.Sync(AIBM_MANUAL_CONTROL_KEY, true);
+}
+
+bool AIBM_TryRetireAtSafeBoundary(CBlob@ builder)
+{
+	if (builder is null || !builder.get_bool("aib strategy assigned") ||
+		!builder.get_bool(AIBM_RETIRE_PENDING_KEY) || !AIBM_IsAtStrategyHandoff(builder)) return false;
+	AIBM_StopDirectorControl(builder);
+	return true;
 }
 
 void AIBM_ReleaseManualControl(CBlob@ builder)

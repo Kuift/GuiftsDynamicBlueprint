@@ -1,6 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $jobs = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicJobs.as') -Raw
+$manualCommon = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBManualOrderCommon.as') -Raw
+$brain = Get-Content -LiteralPath (Join-Path $root 'Base\Entities\Characters\AIBuilder\AIBuilderBrain.as') -Raw
+$scenarios = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBTestScenarios.as') -Raw
 
 foreach ($needle in @(
     'const u16 AIBS_COLLECTOR_LOAD = 250;',
@@ -17,6 +20,50 @@ foreach ($needle in @(
 }
 if ($jobs.Contains('if (woodShort > 0 && woodCollectors == 0 && collectors > 0) woodCollectors = 1;')) {
     throw 'The single-slot wood-first bias has returned'
+}
+
+foreach ($needle in @(
+    'void AIBS_RetireBuilderAtSafeBoundary(const u8 team, CBlob@ builder)',
+    'AIBU_IsAutoBuilder(builder) || AIBS_BuilderAtRoleHandoff(builder, job, state)',
+    'builder.set_bool(AIBM_RETIRE_PENDING_KEY, true);',
+    'void AIBS_RetireAssignedBuildersAtSafeBoundary',
+    'if (!AIBS_HasActivePendingPlan(world.team))',
+    'AIBS_RetireAssignedBuildersAtSafeBoundary(world.team, teamBuilders);'
+)) {
+    if (!$jobs.Contains($needle)) { throw "No-work role retirement is incomplete: $needle" }
+}
+$assign = [regex]::Match($jobs, 'void AIBS_AssignBuilders[\s\S]*?\n\}').Value
+$noWorkAt = $assign.IndexOf('if (!AIBS_HasActivePendingPlan(world.team))')
+$autoAt = $assign.IndexOf('bool hasAutoBuilder = false;')
+if ($noWorkAt -lt 0 -or $autoAt -le $noWorkAt) {
+    throw 'No-work retirement must run before Autobuilder or ordinary role assignment'
+}
+if (!$jobs.Contains('builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);') -or
+    !$manualCommon.Contains('const string AIBM_RETIRE_PENDING_KEY = "aib strategy retire pending";') -or
+    !$manualCommon.Contains('builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);') -or
+    !$manualCommon.Contains('bool AIBM_IsAtStrategyHandoff(CBlob@ builder)') -or
+    !$manualCommon.Contains('bool AIBM_TryRetireAtSafeBoundary(CBlob@ builder)')) {
+    throw 'New work and ownership cleanup must cancel a stale retirement latch'
+}
+$brainTickStart = $brain.IndexOf('void onTick(CBrain@ this)')
+$brainTickEnd = $brain.IndexOf('void AIB_TickAutoBuilder(', $brainTickStart)
+if ($brainTickStart -lt 0 -or $brainTickEnd -le $brainTickStart) { throw 'Could not isolate the AI builder brain tick' }
+$brainTick = $brain.Substring($brainTickStart, $brainTickEnd - $brainTickStart)
+$brainHook = $brainTick.IndexOf('if (AIBM_TryRetireAtSafeBoundary(blob)) return;')
+$autoBuilderHook = $brainTick.IndexOf('if (AIBU_IsAutoBuilder(blob))')
+if (!$brain.Contains('#include "AIBManualOrderCommon.as";') -or $brainHook -lt 0 -or
+    $autoBuilderHook -lt 0 -or $brainHook -ge $autoBuilderHook) {
+    throw 'The brain must consume deferred retirement before a safe find state can select another target'
+}
+foreach ($needle in @(
+    'stockPlanPublished',
+    'aibt no work retirement setup',
+    'no_work_idle_retired=true no_work_episode_deferred=true no_work_episode_retired=true',
+    'episodeWorker.get_bool(AIBM_RETIRE_PENDING_KEY)',
+    'episodeWorker.set_u8("ai builder state", AIBS_STATE_FIND_TREE);',
+    'AIBM_TryRetireAtSafeBoundary(episodeWorker)'
+)) {
+    if (!$scenarios.Contains($needle)) { throw "Runtime-ready no-work retirement guard is incomplete: $needle" }
 }
 
 function Get-RoleDemand {
@@ -95,5 +142,19 @@ $minimal = Get-StableRoles -Current @('stone', 'build', 'wood') -Assigned @($tru
 if (($minimal -join ',') -ne 'build,build,wood') { throw 'Role reduction changed more builders than necessary' }
 $manual = Get-StableRoles -Current @('stone', 'stone', 'build') -Assigned @($false, $true, $true) -Wood 1 -Stone 1 -Build 1
 if (($manual -join ',') -ne 'wood,stone,build') { throw 'Unassigned low-netid worker did not fill the remaining deterministic slot' }
+
+function Get-NoWorkRetirement {
+    param([bool]$Assigned, [bool]$AutoBuilder, [string]$State, [bool]$HasTarget)
+    if (!$Assigned) { return 'untouched' }
+    $safe = $State -eq 'idle' -or (!$HasTarget -and $State -in @('find_tree', 'find_stone', 'find_blueprint'))
+    if ($AutoBuilder -or $safe) { return 'retired' }
+    return 'deferred'
+}
+if ((Get-NoWorkRetirement $true $false 'find_blueprint' $false) -ne 'retired' -or
+    (Get-NoWorkRetirement $true $false 'chop_tree' $true) -ne 'deferred' -or
+    (Get-NoWorkRetirement $true $false 'find_tree' $false) -ne 'retired' -or
+    (Get-NoWorkRetirement $true $true 'place_blueprint' $true) -ne 'retired') {
+    throw 'No-work retirement mirror violated immediate, deferred, or Autobuilder behavior'
+}
 
 Write-Output 'AIB demand-aware stable role allocation contract passed'

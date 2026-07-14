@@ -13,6 +13,7 @@ foreach ($needle in @(
     'AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());',
     'builder.set_bool("aib strategy assigned", false);',
     'builder.set_bool("aib strategy role pending", false);',
+    'builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);',
     'builder.set_netid(AIBR_ASSIGNED_HOME_KEY, 0);',
     'void AIBM_TakeManualControl(CBlob@ builder)',
     'void AIBM_StopDirectorControl(CBlob@ builder)',

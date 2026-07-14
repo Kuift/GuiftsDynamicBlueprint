@@ -190,6 +190,8 @@ Completed in the latest slices: overflow conservation and mirrored overhang evid
 
 The shared overseer command now validates wood, stone, or blueprint worker opcodes before calling the destructive manual-ownership handoff. Unknown authenticated packet opcodes cannot release a reservation, deferred role, path, or resource-home pin without accepting a real replacement job; `Tools/test_aib_manual_order_ownership.ps1` pins that validation-before-mutation order.
 
+Automatic role assignment now requires an active pending plan with a non-empty AI work layer. With no executable work, Autobuilders and target-free runners relinquish director ownership immediately; in-flight resource episodes latch retirement, finish normally, and are stopped by the brain at the first safe boundary before another target can be selected between 30-tick director observations. The expanded bootstrap guard no longer depends on empty-plan assignment for its stock/home assertions and adds runtime-ready immediate/deferred retirement checks.
+
 ## Evidence Discipline
 
 - A focused PASS proves only its named behavior.

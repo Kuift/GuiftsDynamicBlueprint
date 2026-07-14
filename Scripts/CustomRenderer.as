@@ -2294,6 +2294,12 @@ void AIB_SendOverseerOrder(const u8 order)
 	}
 }
 
+bool AIB_IsValidWorkerOverseerOrder(const u8 order)
+{
+	return order == AIB_OVERSEER_ORDER_WOOD || order == AIB_OVERSEER_ORDER_STONE ||
+		order == AIB_OVERSEER_ORDER_BLUEPRINT;
+}
+
 void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID, const u8 order)
 {
 	if(!isServer()) return;
@@ -2303,6 +2309,10 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 			order == AIB_OVERSEER_ORDER_DIRECTOR_ON ? AIBP_StrategyMode::auto_mode : AIBP_StrategyMode::off);
 		return;
 	}
+	// Reject unknown packet opcodes before looking up or mutating a worker.  The
+	// manual-control boundary releases reservations, deferred roles, paths, and
+	// the resource-home pin, so it must run only after a real job was accepted.
+	if(!AIB_IsValidWorkerOverseerOrder(order)) return;
 	CBlob@ builder = getBlobByNetworkID(builderNetID);
 	if(builder is null || (builder.getName() != "aibuilder" && builder.getName() != "autobuilder") || builder.hasTag("dead")) return;
 	if(!AIB_ServerCanIssueOverseerCommand(playerNetID, u8(builder.getTeamNum()))) return;
@@ -2329,10 +2339,6 @@ void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID,
 		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
 		builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
 		builder.set_bool("ai builder saw blueprint target", false);
-	}
-	else
-	{
-		return;
 	}
 
 	builder.set_netid("ai builder target", 0);

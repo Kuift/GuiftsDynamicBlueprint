@@ -31,6 +31,17 @@ if (!$renderer.Contains('AIBM_TakeManualControl(builder);') -or
     !$renderer.Contains('else AIBM_ReleaseTeamManualControl(team);')) {
     throw 'Overseer orders or director toggles bypass the shared ownership boundary'
 }
+$applyStart = $renderer.IndexOf('void AIB_ServerApplyOverseerOrder(')
+$applyEnd = $renderer.IndexOf('bool UpdateTreeSelectionButton()', $applyStart)
+if ($applyStart -lt 0 -or $applyEnd -le $applyStart) { throw 'Could not isolate the server overseer-order handler' }
+$apply = $renderer.Substring($applyStart, $applyEnd - $applyStart)
+$validateAt = $apply.IndexOf('if(!AIB_IsValidWorkerOverseerOrder(order)) return;')
+$takeAt = $apply.IndexOf('AIBM_TakeManualControl(builder);')
+if (!$renderer.Contains('bool AIB_IsValidWorkerOverseerOrder(const u8 order)') -or
+    !$renderer.Contains('return order == AIB_OVERSEER_ORDER_WOOD || order == AIB_OVERSEER_ORDER_STONE ||') -or
+    $validateAt -lt 0 -or $takeAt -lt 0 -or $validateAt -ge $takeAt) {
+    throw 'Unknown overseer opcodes can still release worker ownership before a valid job is accepted'
+}
 if (!$jobs.Contains('if (AIBM_IsUnderManualControl(teamBuilders[i])) teamBuilders.removeAt(i);') -or
     !$jobs.Contains('if (AIBM_IsUnderManualControl(teamBuilders[i])) { teamBuilders.removeAt(i); continue; }')) {
     throw 'Automatic assignment can still reclaim a manual runner or Autobuilder'

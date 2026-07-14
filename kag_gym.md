@@ -26,7 +26,7 @@ normal CTF. Keep short deterministic contracts in AIBTest, but run sustained
 harvesting, mining, pathing, construction, and director acceptance in visible
 CTF. Never change production AI solely from an AIBTest-only freeze.
 
-Operator boundary as of 2026-07-10: do not launch visible KAG while the user is using the computer. Continue static architecture, telemetry, evaluator, and documentation work until the user explicitly permits runtime windows.
+Operator boundary as of 2026-07-14: visible KAG runtime windows are permitted. Use the normal player-facing CTF mode and the same map for initial evidence, prioritize high-value director behavior, and close KAG immediately after every completed or failed run unless actively iterating with reload/TCPR.
 
 Latest focused evidence:
 
@@ -100,7 +100,7 @@ Schema v3 retains the v1 lifecycle/input/aim/equipment/motion records and v2 out
 
 Attribution confidence is numeric and explicit: 3 is engine damage-owner attribution, 2 is a nearby player actively pressing an action, 1 is a nearby passive player, and 0 is unattributed. Do not silently treat proximity inference as ground truth. `Tools/parse_aib_player_actions.ps1` decodes v1-v3. `Tools/summarize_aib_player_episodes.ps1` segments actor-local activity using spawn/leave/death and a 150-tick idle gap, then emits raw build/mine/harvest/combat/planning/director/traverse episode components, accepted-boundary counts, attribution-weighted outcomes, low-confidence counts, a privacy-safe coarse context key, and a versioned estimated cost. Raw fields remain authoritative; the task label, idle estimate, context bucket, attribution weight, and scalar cost are heuristics.
 
-The v3 AngelScript hooks are not yet KAG-runtime compiled because visible windows are currently prohibited. The parser, v1-v3 fixtures, boundary contract, and episode summarizer pass deterministic PowerShell regressions.
+The v3 AngelScript hooks are now KAG-runtime compiled. `console-26-07-14-07-53-21.txt` contains two interval batches; the parser decoded 47 schema-v3 records including episode, join, spawn, inventory, motion, blob creation, and a production `plan_publish` boundary. Generic hit/pickup/drop producers and moderator transition/notice UX remain acceptance work. The parser, v1-v3 fixtures, boundary contract, and episode summarizer also pass deterministic PowerShell regressions.
 
 ### 4. Assertions and online monitors
 
@@ -259,7 +259,7 @@ Production weights and template metadata must have one source of truth consumed 
 - [x] Test scenario start/pass/fail/done records.
 - [x] AI state/target/path/resource and strategy events at key transitions.
 - [x] Public CTF server-observed player action stream and NDJSON exporter.
-- [ ] PARTIAL — authoritative outcome hooks: tile/blob/death/resource outcomes, accepted blueprint/director actions, director-shop purchases, and plan/task boundaries are implemented and statically tested; generic hit, pickup/drop, and non-director purchase producers remain, and v3 still needs a KAG runtime compile.
+- [ ] PARTIAL — authoritative outcome hooks: tile/blob/death/resource outcomes, accepted blueprint/director actions, director-shop purchases, and plan/task boundaries are implemented; visible CTF decoded a live production `plan_publish` boundary, while generic hit, pickup/drop, non-director purchase producers, and broader runtime boundary coverage remain.
 - [ ] PARTIAL — versioned episodes: the offline `aib_task_episode_v1`/`estimated_cost_v1` summarizer deterministically counts accepted player boundaries, but AI motion/material joins and the full AI-equivalent cost vector remain.
 
 ### Phase B — failure monitors

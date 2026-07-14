@@ -28,6 +28,8 @@ foreach ($needle in @(
     'cfg.read_bool("ctf_enabled", true)',
     'cfg.read_bool("player_notice_enabled", true)',
     'cfg.read_string("player_notice"',
+	'sourceLoaded = loaded',
+	'sourceFile = filename',
     'return gamemode == "CTF" && policy.ctfEnabled;'
 )) {
     if (!$policy.Contains($needle)) { throw "Shared telemetry policy loader is missing: $needle" }
@@ -36,28 +38,32 @@ foreach ($needle in @(
 $log = Get-Content -LiteralPath $logPath -Raw
 foreach ($needle in @(
     '#include "AIBTelemetryPolicy.as";',
-    'this.addCommandID(AIB_ACTION_NOTICE_COMMAND);',
-    'if (!this.exists("aib player action log enabled"))',
-    'AIB_DefaultTelemetryForGamemode(this.gamemode_name)',
+	'const bool policyInitialized = this.get_bool("aib telemetry policy initialized");',
+	'if (!policyInitialized)',
+	'this.set_bool("aib telemetry policy initialized", true);',
+	'const bool defaultEnabled = AIB_DefaultTelemetryForGamemode(this.gamemode_name);',
     'this.Sync("aib player action log enabled", true);',
-    'this.set_bool(AIB_ActionNoticeKey(player), false);',
-    'AIB_ActionSendNotice(this, player);',
+	'print("[AIBTELEMETRY] init gamemode=" + this.gamemode_name +',
+	'AIB_ActionMaybeNotifyLocalPlayer(this);',
+	'player.isMyPlayer()',
+	'this.set_bool(AIB_ActionNoticeKey(player), false);',
     'AIB_ActionObserveEnabledTransition(this);',
     'AIB_ActionFlush(rules, "disabled");',
     'AIB_ActionClearBoundaryQueue(rules);',
     'AIB_ActionBeginEpisode(rules);',
-    'AIB_ActionNotifyUnsentPlayers(rules);',
-    'rules.SendCommand(rules.getCommandID(AIB_ACTION_NOTICE_COMMAND), params, player);',
-    'client_AddToChat("[AIB] " + notice'
+	'client_AddToChat("[AIB] " + policy.playerNotice'
 )) {
     if (!$log.Contains($needle)) { throw "Telemetry lifecycle/notice contract is missing: $needle" }
 }
 if ($log.Contains('rules.set_bool("aib player action log enabled", rules.gamemode_name == "CTF")')) {
     throw 'Round episode reset must not overwrite the administrator runtime telemetry override'
 }
-$noticeFunction = [regex]::Match($log, 'void AIB_ActionSendNotice[\s\S]*?\n\}').Value
+$noticeFunction = [regex]::Match($log, 'void AIB_ActionMaybeNotifyLocalPlayer[\s\S]*?\n\}').Value
 if (!$noticeFunction -or $noticeFunction -match 'getUsername|getCharacterName') {
     throw 'Player notice must be targeted without inserting player identity'
+}
+if ($log.Contains('addCommandID(AIB_ACTION_NOTICE_COMMAND)') -or $log.Contains('SendCommand(rules.getCommandID(AIB_ACTION_NOTICE_COMMAND)')) {
+    throw 'Telemetry notice must not consume a rules command ID'
 }
 
 $chat = Get-Content -LiteralPath $chatPath -Raw

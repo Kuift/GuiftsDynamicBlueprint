@@ -22,8 +22,6 @@ u32 aibActionLastFlushTick = 0;
 u32 aibActionBatchSequence = 0;
 bool aibActionObservedEnabled = false;
 
-const string AIB_ACTION_NOTICE_COMMAND = "aib telemetry notice";
-
 string AIB_ActionKey(const u16 playerNetID, const string &in field)
 {
 	return "aib action player " + playerNetID + " " + field;
@@ -299,21 +297,15 @@ string AIB_ActionNoticeKey(CPlayer@ player)
 	return "aib telemetry notice sent " + (player is null ? 0 : player.getNetworkID());
 }
 
-void AIB_ActionSendNotice(CRules@ rules, CPlayer@ player)
+void AIB_ActionMaybeNotifyLocalPlayer(CRules@ rules)
 {
-	if (!isServer() || rules is null || player is null || !rules.get_bool("aib player action log enabled")) return;
+	if (!isClient() || rules is null || !rules.get_bool("aib player action log enabled")) return;
+	CPlayer@ player = getLocalPlayer();
+	if (player is null) return;
 	AIBTelemetryPolicy@ policy = AIB_GetTelemetryPolicy();
 	if (!policy.playerNoticeEnabled || policy.playerNotice == "" || rules.get_bool(AIB_ActionNoticeKey(player))) return;
-	CBitStream params;
-	params.write_string(policy.playerNotice);
-	rules.SendCommand(rules.getCommandID(AIB_ACTION_NOTICE_COMMAND), params, player);
+	client_AddToChat("[AIB] " + policy.playerNotice, SColor(255, 100, 210, 255));
 	rules.set_bool(AIB_ActionNoticeKey(player), true);
-}
-
-void AIB_ActionNotifyUnsentPlayers(CRules@ rules)
-{
-	if (rules is null) return;
-	for (int i = 0; i < getPlayersCount(); i++) AIB_ActionSendNotice(rules, getPlayer(i));
 }
 
 void AIB_ActionObserveEnabledTransition(CRules@ rules)
@@ -324,7 +316,6 @@ void AIB_ActionObserveEnabledTransition(CRules@ rules)
 	if (enabled)
 	{
 		AIB_ActionBeginEpisode(rules);
-		AIB_ActionNotifyUnsentPlayers(rules);
 		return;
 	}
 	AIB_ActionDrainBoundaries(rules);
@@ -335,21 +326,31 @@ void AIB_ActionObserveEnabledTransition(CRules@ rules)
 
 void onInit(CRules@ this)
 {
-	this.addCommandID(AIB_ACTION_NOTICE_COMMAND);
 	if (!isServer()) return;
-	if (!this.exists("aib player action log enabled"))
-		this.set_bool("aib player action log enabled", AIB_DefaultTelemetryForGamemode(this.gamemode_name));
+	AIBTelemetryPolicy@ policy = AIB_GetTelemetryPolicy();
+	const bool policyInitialized = this.get_bool("aib telemetry policy initialized");
+	const bool defaultEnabled = AIB_DefaultTelemetryForGamemode(this.gamemode_name);
+	if (!policyInitialized)
+	{
+		this.set_bool("aib player action log enabled", defaultEnabled);
+		this.set_bool("aib telemetry policy initialized", true);
+	}
 	this.Sync("aib player action log enabled", true);
+	print("[AIBTELEMETRY] init gamemode=" + this.gamemode_name +
+		" policy_initialized=" + (policyInitialized ? "true" : "false") +
+		" default=" + (defaultEnabled ? "true" : "false") +
+		" enabled=" + (this.get_bool("aib player action log enabled") ? "true" : "false") +
+		" policy_loaded=" + (policy.sourceLoaded ? "true" : "false") +
+		" file=" + policy.sourceFile);
 	AIB_ActionBeginEpisode(this);
-	AIB_ActionNotifyUnsentPlayers(this);
 }
 void onRestart(CRules@ this) { AIB_ActionBeginEpisode(this); }
 
 void onNewPlayerJoin(CRules@ this, CPlayer@ player)
 {
+	if (isClient() && player !is null && player.isMyPlayer())
+		this.set_bool(AIB_ActionNoticeKey(player), false);
 	if (!isServer() || player is null) return;
-	this.set_bool(AIB_ActionNoticeKey(player), false);
-	AIB_ActionSendNotice(this, player);
 	if (!this.get_bool("aib player action log enabled")) return;
 	AIB_ActionDrainBoundaries(this);
 	AIB_ActionResetPlayer(this, player);
@@ -369,6 +370,7 @@ void onPlayerLeave(CRules@ this, CPlayer@ player)
 
 void onTick(CRules@ this)
 {
+	AIB_ActionMaybeNotifyLocalPlayer(this);
 	if (!isServer() || this is null) return;
 	AIB_ActionObserveEnabledTransition(this);
 	if (!this.get_bool("aib player action log enabled")) return;
@@ -463,14 +465,6 @@ void onTick(CRules@ this)
 
 	if (aibActionBytes.length >= AIB_ACTION_MAX_BATCH_BYTES || now - aibActionLastFlushTick >= AIB_ACTION_FLUSH_TICKS)
 		AIB_ActionFlush(this, aibActionBytes.length >= AIB_ACTION_MAX_BATCH_BYTES ? "size" : "interval");
-}
-
-void onCommand(CRules@ this, u8 cmd, CBitStream@ params)
-{
-	if (cmd != this.getCommandID(AIB_ACTION_NOTICE_COMMAND) || !isClient()) return;
-	string notice;
-	if (!params.saferead_string(notice) || notice == "") return;
-	client_AddToChat("[AIB] " + notice, SColor(255, 100, 210, 255));
 }
 
 void onSetTile(CMap@ map, u32 index, TileType newTile, TileType oldTile)

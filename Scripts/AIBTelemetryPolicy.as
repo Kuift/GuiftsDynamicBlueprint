@@ -4,6 +4,8 @@ class AIBTelemetryPolicy
 	bool ctfEnabled = true;
 	bool playerNoticeEnabled = true;
 	string playerNotice = "Privacy-bounded gameplay telemetry is enabled for AI evaluation. It excludes usernames, IP addresses, and chat.";
+	bool sourceLoaded = false;
+	string sourceFile = "";
 }
 
 AIBTelemetryPolicy AIB_telemetry_policy;
@@ -16,7 +18,9 @@ AIBTelemetryPolicy@ AIB_GetTelemetryPolicy()
 
 	ConfigFile cfg = ConfigFile();
 	const string filename = CFileMatcher("AIBTelemetryPolicy.cfg").getFirst();
-	if (filename != "") cfg.loadFile(filename);
+	const bool loaded = filename != "" && cfg.loadFile(filename);
+	AIB_telemetry_policy.sourceLoaded = loaded;
+	AIB_telemetry_policy.sourceFile = filename;
 	AIB_telemetry_policy.version = u16(cfg.read_s32("config_version", 1));
 	AIB_telemetry_policy.ctfEnabled = cfg.read_bool("ctf_enabled", true);
 	AIB_telemetry_policy.playerNoticeEnabled = cfg.read_bool("player_notice_enabled", true);

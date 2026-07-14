@@ -37,9 +37,16 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 ### Rules command IDs are a limited resource
 
 - Symptom: rules startup prints `Too many commands added ... results will be bad!` even though the game continues loading.
-- Observed on build 4762: the current CTF rules report this for `clearBlueprintLayer` and `SendChatMessage` during initialization.
+- Observed on build 4762: the current CTF rules reported this for `clearBlueprintLayer`, the original `aib telemetry notice`, and `SendChatMessage` during initialization. The telemetry notice now renders client-side from the synced capture flag and does not allocate a command ID.
 - Do not conclude: another `addCommandID` is harmless because command names are strings or because compilation succeeds.
 - Workaround: reuse existing commands, consolidate related operations behind one command plus a compact opcode, and remove duplicate registrations before adding new IDs. Treat this startup warning as a correctness risk requiring a separate command-table audit.
+
+### An early typed-property read can defeat an `exists()` initialization guard
+
+- Symptom: CTF telemetry resolves an enabled policy and `gamemode_name = CTF`, but its rules boolean is already present and false when the owning script initializes.
+- Reproduced on build 4762: director boundary code read `get_bool("aib player action log enabled")` before `AIBPlayerActionLog.as::onInit`; the later `exists("aib player action log enabled")` returned true and suppressed the configured `true` default. The runtime line recorded `policy_loaded=true`, `default=true`, and `enabled=false`.
+- Do not conclude: `exists()` proves that an administrator or an earlier owner intentionally assigned the value.
+- Workaround: use a dedicated owner-controlled initialization sentinel. Apply the policy when that sentinel is false, then set it true; round restarts preserve both the sentinel and moderator override, while a newly created rules object receives the configured default.
 
 ### Visible `RunLocalhost()` can stop advancing
 

@@ -63,7 +63,9 @@ The current blueprint/editor code works, but it is too coupled and fragile. Most
 - Runtime-validate and finish authoritative live editing and AI-visible blueprint publication.
   - The server owns accepted add/remove/prefab/clear mutations, validates the active command player and overseer permission, rate-limits edits, updates the human/compatibility layers, and emits authoritative action boundaries. Same-value single-tile packets are now no-ops rather than version/telemetry churn.
   - Tile deltas and full display snapshots use targeted rules commands for same-team players and spectators; enemy clients no longer receive another team's blueprint contents and merely discard them locally. `Tools/test_aib_editor_delta_authority.ps1` pins recipient, authority, rate, version, and HUD-defense paths.
+  - Blueprint saves use a committed rectangle independent of tree/stone/overseer gestures, reject save-before-selection, and retain inclusive 1x1/asymmetric dimensions through memory, PNG, packet, and authoritative-placement paths. `Tools/test_aib_blueprint_selection_roundtrip.ps1` pins the source contract.
   - Live-test two teams plus a spectator: same-team and spectator clients must receive add/remove/prefab/clear updates, the enemy must not, and the AI-visible compatibility grid must match after every mutation and after AI consumption.
+  - Runtime-save an asymmetric selection, restart KAG, reload its PNG, and verify the exact dimensions, orientation, rotation, preview footprint, and authoritative placement.
   - Add a physical fixture for a live ghost blueprint block being accepted and completed by an AI builder.
 
 - Improve network efficiency.
@@ -100,8 +102,7 @@ The current blueprint/editor code works, but it is too coupled and fragile. Most
 
 - Keep the 65-scenario registry and expected final result synchronized when blueprint-editor scenarios are added.
 - Keep `Tools/run_aib_tests.ps1` as the main regression path, but split long pathing scenarios into a separate slower suite if they keep masking unrelated regressions.
-- Add focused tests for:
-  - selection rectangle save/load dimensions
+- The focused selection rectangle save/load dimensions contract is implemented; keep runtime disk/process evidence distinct from the in-memory/static proof.
 - Runtime-validate the existing authoritative editor-delta contract with two teams and a spectator; static recipient/source checks cannot prove actual network delivery or non-delivery.
 - Runtime-run the existing focused contracts for supported recovery, crate overflow/second-crate purchase, and blueprint material retrieval; their source/static coverage is not a substitute for a visible KAG verdict.
 

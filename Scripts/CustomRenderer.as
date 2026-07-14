@@ -162,6 +162,7 @@ void onRestart(CRules@ this)
 {
 	localBlueprintTeam = 255;
 	justJoined = true;
+	blueprintSaveSelectionValid = false;
 	dynamicMapTileData.clear();
 	currentBlueprintData.clear();
 	networkBlueprintData.clear();
@@ -190,6 +191,7 @@ void onTick(CRules@ this)
 		if(team != localBlueprintTeam)
 		{
 			localBlueprintTeam = team;
+			blueprintSaveSelectionValid = false;
 			overseerSelectedBuilders.clear();
 			AIB_CloseSelectionModes();
 			CMap@ map = getMap();
@@ -359,6 +361,8 @@ Vec2f currentPlacementPosition;
 uint16 customMenuTurn;
 bool customCatalogSelectionActive = false;
 array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
+array<Vec2f> blueprintSaveSelect = {Vec2f(0.0f,0.0f),Vec2f(0.0f,0.0f)};
+bool blueprintSaveSelectionValid = false;
 bool displayMouseSelect = false;
 bool aibTreeSelectMode = false;
 bool aibTreeSelecting = false;
@@ -512,7 +516,7 @@ void AIB_ClearOverseerNetIDs()
 	}
 }
 
-bool AIB_NormalizeSelectionRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
+bool AIB_NormalizeTileRect(Vec2f first, Vec2f second, u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
 {
 	CMap@ map = getMap();
 	if(map is null)
@@ -520,10 +524,10 @@ bool AIB_NormalizeSelectionRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out 
 		return false;
 	}
 
-	int ax = Maths::Floor(mouseSelect[0].x);
-	int ay = Maths::Floor(mouseSelect[0].y);
-	int bx = Maths::Floor(mouseSelect[1].x);
-	int by = Maths::Floor(mouseSelect[1].y);
+	int ax = Maths::Floor(first.x);
+	int ay = Maths::Floor(first.y);
+	int bx = Maths::Floor(second.x);
+	int by = Maths::Floor(second.y);
 
 	const int sx = Maths::Max(0, Maths::Min(ax, bx));
 	const int sy = Maths::Max(0, Maths::Min(ay, by));
@@ -541,13 +545,32 @@ bool AIB_NormalizeSelectionRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out 
 	return true;
 }
 
-bool AIB_SelectionHasArea()
+bool AIB_NormalizeSelectionRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
+{
+	return AIB_NormalizeTileRect(mouseSelect[0], mouseSelect[1], x1, y1, x2, y2);
+}
+
+bool AIB_GetBlueprintSaveRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
+{
+	return blueprintSaveSelectionValid &&
+		AIB_NormalizeTileRect(blueprintSaveSelect[0], blueprintSaveSelect[1], x1, y1, x2, y2);
+}
+
+bool AIB_CommitBlueprintSelection()
 {
 	u16 x1;
 	u16 y1;
 	u16 x2;
 	u16 y2;
-	return AIB_NormalizeSelectionRect(x1, y1, x2, y2) && (x1 != x2 || y1 != y2);
+	if(!AIB_NormalizeSelectionRect(x1, y1, x2, y2))
+	{
+		blueprintSaveSelectionValid = false;
+		return false;
+	}
+	blueprintSaveSelect[0] = Vec2f(x1, y1);
+	blueprintSaveSelect[1] = Vec2f(x2, y2);
+	blueprintSaveSelectionValid = true;
+	return true;
 }
 
 void AIB_SendBlueprintBlockCommand(const bool add, const u16 x, const u16 y, const u16 value = 0)
@@ -712,6 +735,7 @@ void ChangeIfNeeded()
 			if(c.isKeyJustPressed(KEY_LBUTTON) && inMap)
 			{
 				blueprintEditorSelecting = true;
+				blueprintSaveSelectionValid = false;
 				mouseSelect[0] = Vec2f(indexX, indexY);
 				mouseSelect[1] = Vec2f(indexX, indexY);
 				displayMouseSelect = true;
@@ -724,7 +748,7 @@ void ChangeIfNeeded()
 			else if(blueprintEditorSelecting && !c.isKeyPressed(KEY_LBUTTON))
 			{
 				AIB_SetSelectionCorner(1, c.getMouseWorldPos());
-				displayMouseSelect = AIB_SelectionHasArea();
+				displayMouseSelect = AIB_CommitBlueprintSelection();
 				blueprintEditorSelecting = false;
 			}
 		}
@@ -832,12 +856,9 @@ void ChangeIfNeeded()
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		blueprintSaveSelectionValid = false;
 		mouseSelect[0] = Vec2f(indexX,indexY);
 		displayMouseSelect = true;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 		
@@ -849,11 +870,7 @@ void ChangeIfNeeded()
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		mouseSelect[1] = Vec2f(indexX, indexY);
-		displayMouseSelect = true;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
+		displayMouseSelect = AIB_CommitBlueprintSelection();
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
@@ -863,12 +880,9 @@ void ChangeIfNeeded()
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		blueprintSaveSelectionValid = false;
 		mouseSelect[0] = Vec2f(indexX, indexY);
 		displayMouseSelect = false;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 	}
@@ -879,11 +893,7 @@ void ChangeIfNeeded()
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		mouseSelect[1] = Vec2f(indexX, indexY);
-		displayMouseSelect = true;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
+		displayMouseSelect = AIB_CommitBlueprintSelection();
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
@@ -3487,9 +3497,9 @@ void SaveBlueprintToPng(CRules@ this)
 	u16 y1;
 	u16 x2;
 	u16 y2;
-	if(!AIB_NormalizeSelectionRect(x1, y1, x2, y2))
+	if(!AIB_GetBlueprintSaveRect(x1, y1, x2, y2))
 	{
-		print("couldn't save blueprint : selection is outside the map");
+		print("couldn't save blueprint : no valid blueprint selection");
 		keyOJustPressed = false;
 		return;
 	}

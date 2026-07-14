@@ -4,6 +4,28 @@ const f32 AIBR_LOOSE_HOME_RADIUS = 88.0f;
 const f32 AIBR_CRATE_STORAGE_RADIUS = 128.0f;
 const string AIBR_ASSIGNED_HOME_KEY = "aib strategy resource home";
 
+s8 AIBR_GetBarrierZone(const f32 x, const u16 x1, const u16 x2)
+{
+	const u16 left = Maths::Min(x1, x2);
+	const u16 right = Maths::Max(x1, x2);
+	if (x < left) return -1;
+	if (x > right) return 1;
+	return 0;
+}
+
+bool AIBR_IsOnSameBarrierSide(CBlob@ reference, Vec2f position)
+{
+	CRules@ rules = getRules();
+	if (rules is null || !AIB_ShouldBarrier(rules)) return true;
+	const u16 x1 = rules.get_u16("barrier_x1");
+	const u16 x2 = rules.get_u16("barrier_x2");
+	if (x1 == x2) return true;
+	if (reference is null) return false;
+	const s8 referenceZone = AIBR_GetBarrierZone(reference.getPosition().x, x1, x2);
+	const s8 resourceZone = AIBR_GetBarrierZone(position.x, x1, x2);
+	return referenceZone != 0 && referenceZone == resourceZone;
+}
+
 bool AIBR_IsFriendlyResourceHome(CBlob@ builder, CBlob@ home)
 {
 	if (builder is null || home is null || home.hasTag("dead")) return false;
@@ -28,6 +50,7 @@ bool AIBR_IsLooseWorldResource(CBlob@ blob)
 bool AIBR_IsLooseHomeMaterial(CBlob@ home, CBlob@ material)
 {
 	if (home is null || !AIBR_IsLooseWorldResource(material)) return false;
+	if (!AIBR_IsOnSameBarrierSide(home, material.getPosition())) return false;
 	// AIB_GetHomeDropPoint may move up to three tiles sideways and two tiles
 	// vertically around this nominal point.  Eleven tiles covers the old
 	// seven-tile pickup radius around every one of those legal drop points,
@@ -51,7 +74,7 @@ bool AIBR_IsInsideCurrentBarrierZoneAt(Vec2f position)
 	const u16 x1 = rules.get_u16("barrier_x1");
 	const u16 x2 = rules.get_u16("barrier_x2");
 	if (x1 == x2) return true;
-	return AIB_GetBarrierZone(position.x, x1, x2) != 0;
+	return AIBR_GetBarrierZone(position.x, x1, x2) != 0;
 }
 
 bool AIBR_IsGroundedStoragePoint(Vec2f candidate)
@@ -64,6 +87,11 @@ bool AIBR_IsGroundedStoragePoint(Vec2f candidate)
 	if (!AIBR_IsBuilderPassableAt(candidate) || !AIBR_IsBuilderPassableAt(candidate - Vec2f(0.0f, ts))) return false;
 	if (!map.isTileSolid(map.getTile(candidate + Vec2f(0.0f, ts)).type)) return false;
 	return AIBR_IsInsideCurrentBarrierZoneAt(candidate);
+}
+
+bool AIBR_IsGroundedStoragePoint(CBlob@ home, Vec2f candidate)
+{
+	return AIBR_IsGroundedStoragePoint(candidate) && AIBR_IsOnSameBarrierSide(home, candidate);
 }
 
 Vec2f AIBR_FindBaseStoragePoint(CBlob@ home)
@@ -88,7 +116,7 @@ Vec2f AIBR_FindBaseStoragePoint(CBlob@ home)
 			{
 				const int y = homeY + yOffset;
 				Vec2f candidate = Vec2f((x + 0.5f) * ts, (y + 0.5f) * ts);
-				if (!AIBR_IsGroundedStoragePoint(candidate)) continue;
+				if (!AIBR_IsGroundedStoragePoint(home, candidate)) continue;
 				const f32 score = Maths::Abs(distance - 9) * 3.0f + Maths::Abs(yOffset) + (side > 0 ? 0.25f : 0.0f);
 				if (score < bestScore) { bestScore = score; best = candidate; }
 			}
@@ -101,6 +129,7 @@ bool AIBR_IsBaseResourceCrate(CBlob@ crate, CBlob@ home, Vec2f storage)
 {
 	if (crate is null || home is null || storage == Vec2f_zero || crate.hasTag("dead")) return false;
 	if (crate.isAttached() || crate.isInInventory() || crate.getTeamNum() != home.getTeamNum() || crate.exists("packed")) return false;
+	if (!AIBR_IsOnSameBarrierSide(home, crate.getPosition())) return false;
 	if ((crate.getPosition() - storage).Length() > AIBR_CRATE_STORAGE_RADIUS) return false;
 	return crate.getInventory() !is null;
 }

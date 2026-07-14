@@ -8,6 +8,8 @@ $renderer = Get-Content -LiteralPath (Join-Path $root 'Scripts\CustomRenderer.as
 $scenarios = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBTestScenarios.as') -Raw
 
 foreach ($needle in @(
+	's8 AIBR_GetBarrierZone(const f32 x, const u16 x1, const u16 x2)',
+	'bool AIBR_IsOnSameBarrierSide(CBlob@ reference, Vec2f position)',
     'bool AIBR_IsLooseHomeMaterial(CBlob@ home, CBlob@ material)',
     'Vec2f AIBR_FindBaseStoragePoint(CBlob@ home)',
     'bool AIBR_IsBaseResourceCrate(CBlob@ crate, CBlob@ home, Vec2f storage)',
@@ -16,6 +18,30 @@ foreach ($needle in @(
     'AIBR_CRATE_STORAGE_RADIUS'
 )) {
     if (!$common.Contains($needle)) { throw "Shared accessible-stock contract is missing: $needle" }
+}
+if ($common.Contains('AIB_GetBarrierZone(')) {
+	throw 'Shared stock must not depend on the AI-brain-local barrier zone helper'
+}
+$barrierSide = [regex]::Match($common, 'bool AIBR_IsOnSameBarrierSide[\s\S]*?\n\}').Value
+foreach ($needle in @(
+	'AIBR_GetBarrierZone(reference.getPosition().x, x1, x2)',
+	'AIBR_GetBarrierZone(position.x, x1, x2)',
+	'referenceZone != 0 && referenceZone == resourceZone'
+)) {
+	if (!$barrierSide.Contains($needle)) { throw "Home-side barrier comparison is incomplete: $needle" }
+}
+$looseEligibility = [regex]::Match($common, 'bool AIBR_IsLooseHomeMaterial[\s\S]*?\n\}').Value
+if (!$looseEligibility.Contains('AIBR_IsOnSameBarrierSide(home, material.getPosition())')) {
+	throw 'Loose stock across the active barrier can still be credited'
+}
+$storageSearch = [regex]::Match($common, 'Vec2f AIBR_FindBaseStoragePoint[\s\S]*?\n\}').Value
+if (!$common.Contains('bool AIBR_IsGroundedStoragePoint(CBlob@ home, Vec2f candidate)') -or
+	!$storageSearch.Contains('AIBR_IsGroundedStoragePoint(home, candidate)')) {
+	throw 'Grounded storage search can still select the opposite side of the active barrier'
+}
+$crateEligibility = [regex]::Match($common, 'bool AIBR_IsBaseResourceCrate[\s\S]*?\n\}').Value
+if (!$crateEligibility.Contains('AIBR_IsOnSameBarrierSide(home, crate.getPosition())')) {
+	throw 'A base crate across the active barrier can still be credited'
 }
 $count = [regex]::Match($common, 'u16 AIBR_CountAccessibleHomeMaterial[\s\S]*?\n\}').Value
 foreach ($needle in @(
@@ -49,6 +75,11 @@ if (!$director.Contains('AIBS_RefreshAccessibleStock(rules, team);')) {
 }
 
 if (!$brain.Contains('#include "AIBHomeResourceCommon.as";')) { throw 'Production executor does not include the shared stock contract' }
+if (!$brain.Contains('return AIBR_IsInsideCurrentBarrierZoneAt(position);') -or
+	!$brain.Contains('return AIBR_IsOnSameBarrierSide(blob, position);') -or
+	$brain.Contains('s8 AIB_GetBarrierZone(')) {
+	throw 'Executor barrier filtering must consume the shared normalized zone contract'
+}
 $brainCount = [regex]::Match($brain, 'u16 AIB_CountHomeMaterial[\s\S]*?\n\}').Value
 if (!$brainCount.Contains('return AIBR_CountAccessibleHomeMaterial(home, name);')) {
     throw 'Production executor and director can still disagree on home stock totals'
@@ -86,26 +117,28 @@ function Measure-AccessibleStock {
     param([object[]]$Loose, [object[]]$Crates, [double]$LooseRadius = 88, [double]$CrateRadius = 128)
     $total = 0
     foreach ($item in $Loose) {
-        if (!$item.Attached -and !$item.InInventory -and !$item.Dead -and $item.Distance -le $LooseRadius) { $total += $item.Quantity }
+		if (!$item.Attached -and !$item.InInventory -and !$item.Dead -and $item.Distance -le $LooseRadius -and $item.Zone -eq $item.HomeZone -and $item.HomeZone -ne 0) { $total += $item.Quantity }
     }
     foreach ($crate in $Crates) {
-        if (!$crate.Dead -and !$crate.Attached -and !$crate.Packed -and $crate.TeamMatch -and $crate.Distance -le $CrateRadius) { $total += $crate.Quantity }
+		if (!$crate.Dead -and !$crate.Attached -and !$crate.Packed -and $crate.TeamMatch -and $crate.Distance -le $CrateRadius -and $crate.Zone -eq $crate.HomeZone -and $crate.HomeZone -ne 0) { $total += $crate.Quantity }
     }
     return $total
 }
 
 $loose = @(
-    [pscustomobject]@{ Quantity=30; Distance=0; Attached=$false; InInventory=$false; Dead=$false },
-    [pscustomobject]@{ Quantity=70; Distance=900; Attached=$false; InInventory=$false; Dead=$false },
-    [pscustomobject]@{ Quantity=40; Distance=10; Attached=$false; InInventory=$true; Dead=$false }
+	[pscustomobject]@{ Quantity=30; Distance=0; Attached=$false; InInventory=$false; Dead=$false; HomeZone=-1; Zone=-1 },
+	[pscustomobject]@{ Quantity=70; Distance=900; Attached=$false; InInventory=$false; Dead=$false; HomeZone=-1; Zone=-1 },
+	[pscustomobject]@{ Quantity=40; Distance=10; Attached=$false; InInventory=$true; Dead=$false; HomeZone=-1; Zone=-1 },
+	[pscustomobject]@{ Quantity=700; Distance=40; Attached=$false; InInventory=$false; Dead=$false; HomeZone=-1; Zone=1 }
 )
 $crates = @(
-    [pscustomobject]@{ Quantity=100; Distance=0; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$true },
-    [pscustomobject]@{ Quantity=500; Distance=900; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$true },
-    [pscustomobject]@{ Quantity=60; Distance=20; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$false }
+	[pscustomobject]@{ Quantity=100; Distance=0; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$true; HomeZone=-1; Zone=-1 },
+	[pscustomobject]@{ Quantity=500; Distance=900; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$true; HomeZone=-1; Zone=-1 },
+	[pscustomobject]@{ Quantity=60; Distance=20; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$false; HomeZone=-1; Zone=-1 },
+	[pscustomobject]@{ Quantity=800; Distance=30; Dead=$false; Attached=$false; Packed=$false; TeamMatch=$true; HomeZone=-1; Zone=1 }
 )
 if ((Measure-AccessibleStock $loose $crates) -ne 130) {
-    throw 'Accessible-stock mirror credited remote, carried, or wrong-team resources'
+	throw 'Accessible-stock mirror credited remote, carried, wrong-team, or cross-barrier resources'
 }
 
 Write-Output 'AIB executor-aligned accessible home stock contract passed'

@@ -110,6 +110,7 @@ Barrier rule:
 - `AIBuilderBrain.as` includes `RedBarrierCommon.as`.
 - While `shouldBarrier(rules)` is true, resources must be on the same side of `barrier_x1`/`barrier_x2` as the AI builder.
 - Resources inside the barrier strip or across the barrier are ignored.
+- The shared accessible-home-stock contract applies the same side test to loose material, grounded storage selection, and base crates. The director must not credit stock across the barrier that its assigned runner cannot retrieve. `Tools/test_aib_accessible_stock.ps1` pins this shared boundary and its self-contained zone helper.
 
 Safety rule:
 

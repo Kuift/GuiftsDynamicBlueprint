@@ -5007,14 +5007,7 @@ bool AIB_IsInsideMap(Vec2f pos)
 
 bool AIB_IsInsideCurrentBarrierZoneAt(Vec2f position)
 {
-	CRules@ rules = getRules();
-	if (rules is null || !AIB_ShouldBarrier(rules)) return true;
-
-	const u16 x1 = rules.get_u16("barrier_x1");
-	const u16 x2 = rules.get_u16("barrier_x2");
-	if (x1 == x2) return true;
-
-	return AIB_GetBarrierZone(position.x, x1, x2) != 0;
+	return AIBR_IsInsideCurrentBarrierZoneAt(position);
 }
 
 bool AIB_IsSafePosition(Vec2f position, const int team)
@@ -5565,24 +5558,7 @@ void AIB_LogResourceRejectionDelta(CBlob@ blob, CBlob@ resource, const string &i
 
 bool AIB_IsInsideCurrentBarrierZone(CBlob@ blob, Vec2f position)
 {
-	CRules@ rules = getRules();
-	if (rules is null || !AIB_ShouldBarrier(rules)) return true;
-
-	const u16 x1 = rules.get_u16("barrier_x1");
-	const u16 x2 = rules.get_u16("barrier_x2");
-	if (x1 == x2) return true;
-
-	const s8 blobZone = AIB_GetBarrierZone(blob.getPosition().x, x1, x2);
-	const s8 resourceZone = AIB_GetBarrierZone(position.x, x1, x2);
-
-	return blobZone != 0 && blobZone == resourceZone;
-}
-
-s8 AIB_GetBarrierZone(const f32 x, const u16 x1, const u16 x2)
-{
-	if (x < x1) return -1;
-	if (x > x2) return 1;
-	return 0;
+	return AIBR_IsOnSameBarrierSide(blob, position);
 }
 
 bool AIB_IsSafeResource(CBlob@ blob, Vec2f position)

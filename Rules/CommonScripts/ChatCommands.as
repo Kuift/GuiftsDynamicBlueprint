@@ -8,6 +8,7 @@
 #include "MakeScroll.as";
 #include "BlueprintCommon.as";
 #include "AutoBuilderCommon.as";
+#include "AIBDirectorPolicy.as";
 #include "AIBWorldFingerprint.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
@@ -365,6 +366,31 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 		this.Sync(AIBP_ModeKey(u8(team)), true);
 		this.set_u32("aib strategy important event team " + team, getGameTime());
 		SendChatMessage(this, player, worker is null ? "[AIB] director test worker spawn failed" : "[AIB] director test enabled; AI builder " + worker.getNetworkID() + " is ready", worker is null ? SColor(255, 255, 80, 80) : SColor(255, 100, 210, 255));
+		return false;
+	}
+	if(tokens.length > 0 && tokens[0] == "!aib_bootstrap")
+	{
+		if(!player.isMod() || team < 0 || team >= 8 || tokens.length != 2 ||
+			(tokens[1] != "on" && tokens[1] != "off" && tokens[1] != "status"))
+		{
+			SendChatMessage(this, player, "[AIB] usage: !aib_bootstrap on|off|status (moderator on a playing team)", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		const string enabledKey = AIBS_BootstrapKey(u8(team), "enabled");
+		if(tokens[1] != "status")
+		{
+			this.set_bool(enabledKey, tokens[1] == "on");
+			this.Sync(enabledKey, true);
+			if(tokens[1] == "on") this.set_u32("aib strategy important event team " + team, getGameTime());
+		}
+		const bool enabled = this.get_bool(enabledKey);
+		const bool provisioned = this.get_bool(AIBS_BootstrapKey(u8(team), "provisioned"));
+		const u32 retryAt = this.get_u32(AIBS_BootstrapKey(u8(team), "next retry"));
+		const u32 retryTicks = retryAt > getGameTime() ? retryAt - getGameTime() : 0;
+		SendChatMessage(this, player, "[AIB] team " + team + " free bootstrap: " + (enabled ? "on" : "off") +
+			"; round grant " + (provisioned ? "used" : "available") +
+			(retryTicks > 0 ? "; retry in " + retryTicks + " ticks" : ""), SColor(255, 100, 210, 255));
 		return false;
 	}
 	if(tokens.length > 0 && tokens[0] == "!aib_strategy")

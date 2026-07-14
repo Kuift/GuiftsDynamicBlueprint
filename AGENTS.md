@@ -218,12 +218,14 @@ Run `Tools/test_aib_overflow_storage_contract.ps1` after changing base crate/wor
 
 - `CustomRenderer.as` always shows the local team's `Director AI: ON/OFF` status and a server-authoritative `Turn on`/`Turn off` button. The button toggles between `auto` and `off`; suggestion mode remains available through the strategy command and is displayed as automatic orders being off.
 - A manual `Build blueprint` order in suggestion mode explicitly activates the visible suggested plan for that builder without enabling autonomous role assignment. Blueprint wait bubbles distinguish paused suggestions, reservations, and physically blocked work.
-- CTF defaults to autonomous strategy and enables guarded first-worker provisioning; AIBTest and non-CTF modes do not enable it by default.
+- `Rules/CommonScripts/AIBDirectorPolicy.cfg` owns the public CTF startup policy. It defaults CTF to autonomous strategy with guarded first-worker provisioning; AIBTest remains off and other modes remain suggestion-only. Administrators can change `ctf_default_mode` or `ctf_bootstrap_enabled` and restart/reload rules.
 - Provisioning requires a team home, an active non-empty auto plan, and zero live team AI builders.
 - It searches both sides of the home for a grounded, clear, barrier-safe spawn that belongs to a bounded terrain route flood-filled from the nearest standing cell at home; locally clear sealed caves are rejected. The reachability map and blocker bounds are each built once per spawn attempt, and failed searches cool down before retrying.
 - At most one free bootstrap worker is granted per team per round. Its death does not trigger another free worker.
+- A moderator on a playing team can use `!aib_bootstrap on|off|status` to change that team's free-bootstrap policy at runtime. Toggling policy must never clear the round grant or retry deadline, and disabling it must not kill an existing worker.
 - Builders are assigned deterministically by network ID, and AI-builder death immediately releases its task reservation.
 - This is a free server spawn rather than a workshop purchase; economy balance and representative-map safety are still acceptance work.
+- Run `Tools/test_aib_director_policy.ps1` after changing startup defaults, policy loading, bootstrap initialization/reset, or the moderator command.
 - Developer CTF autostart may force one team-0 worker without an active plan so an unattended smoke test can run. The override is team-scoped to avoid spawning an unnecessary enemy worker and doubling AI load. This is developer-only; public CTF provisioning remains plan-gated.
 - `AIBCTFDevScenario.as` is the unattended real-CTF acceptance path. It waits for a worker, lets an active harvest episode finish, then requests blueprint work and verifies a generated backwall plus foreground block with exact material accounting.
 - Bootstrap spawn search snapshots relevant blob bounds once per attempt. Do not put `getBlobs()` back inside the candidate loop; the old form could perform roughly 950 full-world scans in one director heartbeat.

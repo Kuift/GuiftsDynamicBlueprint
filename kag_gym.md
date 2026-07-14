@@ -73,6 +73,8 @@ Drivers issue intents through the same server APIs used in play:
 
 Director tests must never wait silently for a human to buy a worker. Interactive CTF checks use `!aib_director_test`, which enables automatic strategy and creates a same-team test worker if none exists. The production-bootstrap scenario is stricter: it begins with no worker and passes only when production director code safely provisions and assigns one.
 
+Public servers configure CTF startup mode and free-bootstrap enablement in `Rules/CommonScripts/AIBDirectorPolicy.cfg`. Moderators can override the free-bootstrap policy for their current team with `!aib_bootstrap on|off|status`; the command intentionally preserves the consumed-round latch and retry deadline so it cannot become a worker-spawn fountain.
+
 Fixture code may create the initial world, but must not directly set a success side effect that production code is supposed to cause. Any unavoidable fixture shortcut must be declared in the episode record.
 
 ### 3. Observation layer

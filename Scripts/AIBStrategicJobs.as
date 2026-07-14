@@ -1,5 +1,6 @@
 #include "AIBPlacementPlanner.as";
 #include "AutoBuilderCommon.as";
+#include "AIBDirectorPolicy.as";
 
 const u8 AIBS_JOB_WOOD = 0;
 const u8 AIBS_JOB_STONE = 1;
@@ -31,16 +32,6 @@ class AIBBootstrapReachability
 	}
 }
 
-string AIBS_BootstrapKey(const u8 team, const string &in field)
-{
-	return "aib strategy bootstrap " + field + " team " + int(team);
-}
-
-bool AIBS_DefaultBootstrapForGamemode(const string &in gamemode)
-{
-	return gamemode == "CTF";
-}
-
 void AIBS_InitBootstrapPolicy(CRules@ rules, const u8 team)
 {
 	if (rules is null) return;
@@ -59,16 +50,6 @@ void AIBS_ResetBootstrapForRound(CRules@ rules, const u8 team)
 	rules.set_bool(AIBS_BootstrapKey(team, "provisioned"), false);
 	rules.set_u32(AIBS_BootstrapKey(team, "next retry"), 0);
 	rules.Sync(AIBS_BootstrapKey(team, "provisioned"), true);
-}
-
-u8 AIBS_DefaultModeForGamemode(const string &in gamemode)
-{
-	// Automated fixtures opt in per scenario so the director cannot mutate
-	// their world unexpectedly.  CTF is the production target: it must publish
-	// active work without requiring a player to enter a chat command first.
-	if (gamemode == "AIBTest") return AIBP_StrategyMode::off;
-	if (gamemode == "CTF") return AIBP_StrategyMode::auto_mode;
-	return AIBP_StrategyMode::suggest;
 }
 
 void AIBS_SetBuilderJob(CBlob@ builder, const u8 job, const u8 state)

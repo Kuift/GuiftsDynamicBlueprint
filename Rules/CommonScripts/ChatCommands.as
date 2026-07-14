@@ -9,6 +9,7 @@
 #include "BlueprintCommon.as";
 #include "AutoBuilderCommon.as";
 #include "AIBDirectorPolicy.as";
+#include "AIBTelemetryPolicy.as";
 #include "AIBWorldFingerprint.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
@@ -205,6 +206,30 @@ void onInit(CRules@ this)
 	this.addCommandID("SendChatMessage");
 }
 
+bool AIB_HandleTelemetryCommand(CRules@ rules, const string &in text, CPlayer@ player)
+{
+	if (rules is null || player is null) return false;
+	string[]@ tokens = text.split(" ");
+	if (tokens.length == 0 || tokens[0] != "!aib_telemetry") return false;
+	if (!player.isMod() || tokens.length != 2 ||
+		(tokens[1] != "on" && tokens[1] != "off" && tokens[1] != "status"))
+	{
+		SendChatMessage(rules, player, "[AIB] usage: !aib_telemetry on|off|status (moderator)", SColor(255, 255, 220, 80));
+		return true;
+	}
+	if (tokens[1] != "status")
+	{
+		rules.set_bool("aib player action log enabled", tokens[1] == "on");
+		rules.Sync("aib player action log enabled", true);
+	}
+	const string telemetryState = rules.get_bool("aib player action log enabled") ? "on" : "off";
+	AIBTelemetryPolicy@ telemetryPolicy = AIB_GetTelemetryPolicy();
+	SendChatMessage(rules, player, "[AIB] privacy-bounded player action telemetry: " + telemetryState +
+		"; CTF startup " + (telemetryPolicy.ctfEnabled ? "on" : "off") +
+		"; player notice " + (telemetryPolicy.playerNoticeEnabled ? "on" : "off"), SColor(255, 100, 210, 255));
+	return true;
+}
+
 bool onServerProcessChat(CRules@ this, const string& in text_in, string& out text_out, CPlayer@ player)
 {
 	//--------MAKING CUSTOM COMMANDS-------//
@@ -300,6 +325,7 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 		SendChatMessage(this, player, "[Codex] request submitted", SColor(255, 100, 210, 255));
 		return false;
 	}
+	if (AIB_HandleTelemetryCommand(this, text_in, player)) return false;
 
 	CBlob@ blob = player.getBlob(); // now, when the code references "blob," it means the player who called the command
 
@@ -331,18 +357,6 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 	}
 
 	string[]@ tokens = (text_in.substr(0, text_in.size())).split(" ");
-	if(tokens.length > 0 && tokens[0] == "!aib_telemetry")
-	{
-		if(!player.isMod() || tokens.length != 2 || (tokens[1] != "on" && tokens[1] != "off" && tokens[1] != "status"))
-		{
-			SendChatMessage(this, player, "[AIB] usage: !aib_telemetry on|off|status (moderator)", SColor(255, 255, 220, 80));
-			return false;
-		}
-		if(tokens[1] != "status") this.set_bool("aib player action log enabled", tokens[1] == "on");
-		const string telemetryState = this.get_bool("aib player action log enabled") ? "on" : "off";
-		SendChatMessage(this, player, "[AIB] privacy-bounded player action telemetry: " + telemetryState, SColor(255, 100, 210, 255));
-		return false;
-	}
 	if(tokens.length > 0 && tokens[0] == "!aib_director_test")
 	{
 		if(!player.isMod() || team < 0 || team >= 8)

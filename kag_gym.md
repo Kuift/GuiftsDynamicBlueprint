@@ -185,7 +185,7 @@ Also instrument outcome events at authoritative mutation points:
 - class change, spawn, death, flag/tent proximity, and resource totals;
 - blueprint/director commands and AI-builder orders.
 
-Do not collect usernames, IP addresses, chat, or raw client files. Publish a short server notice before public deployment, define retention/rotation outside the mod, and let moderators disable capture with `!aib_telemetry off`. Network IDs are episode-local actor identifiers, not durable player profiles.
+Do not collect usernames, IP addresses, chat, or raw client files. `AIBTelemetryPolicy.cfg` supplies the built-in once-per-connection notice and startup default; moderators can disable capture with `!aib_telemetry off` without having it silently reactivate next round. The mod flushes before disable and separates a later enable into a new episode. Console logs may contain unrelated server identity/chat outside `[AIBACT]`, so `PUBLIC_SERVER_OPERATIONS.md` defines host-owned access, rotation, retention, export, and deletion procedures. Network IDs are episode-local actor identifiers, not durable player profiles.
 
 Demonstrations are not copied blindly. Segment builder play into tasks (harvest, mine, traverse, build support, erect defense, repair, retreat), derive the same cost vector used for AI, and compare only within matched world contexts.
 
@@ -287,7 +287,7 @@ Production weights and template metadata must have one source of truth consumed 
 
 ### Phase E — public learning loop
 
-- [ ] Server notice, retention/rotation, moderator control, and privacy review.
+- [ ] Runtime-validate the implemented server notice, persistent moderator control, retention/rotation runbook, and privacy review.
 - [ ] PARTIAL — heuristic task segmentation and a three-episode matched-context comparator exist; authoritative task boundaries, richer world context, and real human/AI cohorts remain.
 - [ ] Evidence-driven weight/code proposals with regression reports.
 - [ ] Manual multiplayer CTF acceptance before public release.

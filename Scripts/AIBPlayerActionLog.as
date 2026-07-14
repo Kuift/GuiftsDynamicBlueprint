@@ -7,6 +7,7 @@
 // the original bytes. No per-tick/per-player strings are printed.
 
 #include "AIBActionBoundaryCommon.as";
+#include "AIBTelemetryPolicy.as";
 
 const u8 AIB_ACTION_SCHEMA_VERSION = 3;
 const u32 AIB_ACTION_FRAME_TICKS = 30;
@@ -19,6 +20,9 @@ u16 aibActionRecords = 0;
 u32 aibActionLastRecordTick = 0;
 u32 aibActionLastFlushTick = 0;
 u32 aibActionBatchSequence = 0;
+bool aibActionObservedEnabled = false;
+
+const string AIB_ACTION_NOTICE_COMMAND = "aib telemetry notice";
 
 string AIB_ActionKey(const u16 playerNetID, const string &in field)
 {
@@ -279,10 +283,10 @@ void AIB_ActionBeginEpisode(CRules@ rules)
 	aibActionBatchSequence = 0;
 	aibActionLastRecordTick = getGameTime();
 	aibActionLastFlushTick = getGameTime();
-	rules.set_bool("aib player action log enabled", rules.gamemode_name == "CTF");
 	AIB_ActionClearBoundaryQueue(rules);
 	rules.set_u32("aib action episode", rules.get_u32("aib action episode") + 1);
-	if (rules.get_bool("aib player action log enabled"))
+	aibActionObservedEnabled = rules.get_bool("aib player action log enabled");
+	if (aibActionObservedEnabled)
 	{
 		AIB_ActionRecordHeader(0); // episode
 		AIB_ActionU32(u32(getMap() is null ? 0 : getMap().getMapName().getHash()));
@@ -290,12 +294,63 @@ void AIB_ActionBeginEpisode(CRules@ rules)
 	for (int i = 0; i < getPlayersCount(); i++) AIB_ActionResetPlayer(rules, getPlayer(i));
 }
 
-void onInit(CRules@ this) { AIB_ActionBeginEpisode(this); }
+string AIB_ActionNoticeKey(CPlayer@ player)
+{
+	return "aib telemetry notice sent " + (player is null ? 0 : player.getNetworkID());
+}
+
+void AIB_ActionSendNotice(CRules@ rules, CPlayer@ player)
+{
+	if (!isServer() || rules is null || player is null || !rules.get_bool("aib player action log enabled")) return;
+	AIBTelemetryPolicy@ policy = AIB_GetTelemetryPolicy();
+	if (!policy.playerNoticeEnabled || policy.playerNotice == "" || rules.get_bool(AIB_ActionNoticeKey(player))) return;
+	CBitStream params;
+	params.write_string(policy.playerNotice);
+	rules.SendCommand(rules.getCommandID(AIB_ACTION_NOTICE_COMMAND), params, player);
+	rules.set_bool(AIB_ActionNoticeKey(player), true);
+}
+
+void AIB_ActionNotifyUnsentPlayers(CRules@ rules)
+{
+	if (rules is null) return;
+	for (int i = 0; i < getPlayersCount(); i++) AIB_ActionSendNotice(rules, getPlayer(i));
+}
+
+void AIB_ActionObserveEnabledTransition(CRules@ rules)
+{
+	if (!isServer() || rules is null) return;
+	const bool enabled = rules.get_bool("aib player action log enabled");
+	if (enabled == aibActionObservedEnabled) return;
+	if (enabled)
+	{
+		AIB_ActionBeginEpisode(rules);
+		AIB_ActionNotifyUnsentPlayers(rules);
+		return;
+	}
+	AIB_ActionDrainBoundaries(rules);
+	AIB_ActionFlush(rules, "disabled");
+	AIB_ActionClearBoundaryQueue(rules);
+	aibActionObservedEnabled = false;
+}
+
+void onInit(CRules@ this)
+{
+	this.addCommandID(AIB_ACTION_NOTICE_COMMAND);
+	if (!isServer()) return;
+	if (!this.exists("aib player action log enabled"))
+		this.set_bool("aib player action log enabled", AIB_DefaultTelemetryForGamemode(this.gamemode_name));
+	this.Sync("aib player action log enabled", true);
+	AIB_ActionBeginEpisode(this);
+	AIB_ActionNotifyUnsentPlayers(this);
+}
 void onRestart(CRules@ this) { AIB_ActionBeginEpisode(this); }
 
 void onNewPlayerJoin(CRules@ this, CPlayer@ player)
 {
-	if (!isServer() || !this.get_bool("aib player action log enabled") || player is null) return;
+	if (!isServer() || player is null) return;
+	this.set_bool(AIB_ActionNoticeKey(player), false);
+	AIB_ActionSendNotice(this, player);
+	if (!this.get_bool("aib player action log enabled")) return;
 	AIB_ActionDrainBoundaries(this);
 	AIB_ActionResetPlayer(this, player);
 	AIB_ActionRecordHeader(1); // join
@@ -314,7 +369,9 @@ void onPlayerLeave(CRules@ this, CPlayer@ player)
 
 void onTick(CRules@ this)
 {
-	if (!isServer() || this is null || !this.get_bool("aib player action log enabled")) return;
+	if (!isServer() || this is null) return;
+	AIB_ActionObserveEnabledTransition(this);
+	if (!this.get_bool("aib player action log enabled")) return;
 	AIB_ActionDrainBoundaries(this);
 	const u32 now = getGameTime();
 	for (int i = 0; i < getPlayersCount(); i++)
@@ -406,6 +463,14 @@ void onTick(CRules@ this)
 
 	if (aibActionBytes.length >= AIB_ACTION_MAX_BATCH_BYTES || now - aibActionLastFlushTick >= AIB_ACTION_FLUSH_TICKS)
 		AIB_ActionFlush(this, aibActionBytes.length >= AIB_ACTION_MAX_BATCH_BYTES ? "size" : "interval");
+}
+
+void onCommand(CRules@ this, u8 cmd, CBitStream@ params)
+{
+	if (cmd != this.getCommandID(AIB_ACTION_NOTICE_COMMAND) || !isClient()) return;
+	string notice;
+	if (!params.saferead_string(notice) || notice == "") return;
+	client_AddToChat("[AIB] " + notice, SColor(255, 100, 210, 255));
 }
 
 void onSetTile(CMap@ map, u32 index, TileType newTile, TileType oldTile)

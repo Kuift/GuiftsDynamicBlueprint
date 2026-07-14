@@ -169,8 +169,8 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 ### Newly placed recovery structures may not immediately solve routing
 
 - Symptom: after the AI places a backwall/ladder chain, it keeps selecting the same mineable obstruction or replanning instead of traversing it.
-- Current status: this is still visible in `kag_path_mines_dirt_plug`; the exact cache/update behavior is not yet proven.
-- Workaround: log the low-level next path node, chosen mineable block, support chain, and post-placement walkability. Do not add blind delays until the first tick on which the pathfinder recognizes the structure is measured.
+- Current status: the previous fixture accepted a mined plug, any nearby ladder, or merely reaching the far side independently, so it could not establish which recovery side effect helped. Production source now places paid missing backwalls in a separate simulation phase and refuses to spawn the ladder until `hasSupportAtPos` recognizes support. This revised AngelScript path has static coverage but is not yet runtime-compiled or evidence that KAG refreshes routing correctly.
+- Workaround: keep support and ladder creation separated by a simulation boundary. Charge only newly missing backwall cells so cache lag cannot double-charge the chain. The one-shot post-ladder probe records low/waypoint counts, next node, ray obstruction, the hypothetical `AIB_GetMineablePathBlock` result, and pathfinder acceptance. The focused fixture additionally requires actual crossing while the dirt plug remains intact; do not treat the probe or ladder alone as movement proof.
 
 ## Evidence Rules For Future Entries
 

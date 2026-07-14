@@ -4,10 +4,10 @@ This file is the active backlog. Completed historical notes and old investigatio
 
 ## AI Builder
 
-- Fix the remaining `kag_path_mines_dirt_plug` timeout.
-  - The bot reaches the obstacle/recovery area and can now place a supported recovery backwall chain plus ladder, but it still keeps replanning instead of finishing the route.
-  - Add logging around the low-level path node after ladder placement, the next blocked tile chosen by `AIB_GetMineablePathBlock`, and whether the ladder/backwall chain is actually considered walkable by the pathfinder.
-  - Add a focused scenario that asserts recovery backwalls are connected to support before any ladder is placed.
+- Runtime-validate the remaining dirt-plug recovery route (registered as `kag_path_builds_supported_ladder_chain`).
+  - Production now pays for and places only missing support backwalls, returns to simulation, and creates the ladder only after the engine recognizes support on a later tick.
+  - A bounded one-shot probe records the post-ladder low-level node, hypothetical `AIB_GetMineablePathBlock` result, ray obstruction, and pathfinder acceptance.
+  - The focused scenario now requires the connected support tick to precede ladder creation, then requires a post-placement path and actual crossing while every dirt-plug tile remains intact. `Tools/test_aib_recovery_ladder_contract.ps1` pins the source ordering, but visible KAG evidence remains required.
 
 - Make crate storage more production-quality.
   - Avoid hard-coded storage/shop offsets when the team home is near map edges, terrain, or enemy-controlled space.

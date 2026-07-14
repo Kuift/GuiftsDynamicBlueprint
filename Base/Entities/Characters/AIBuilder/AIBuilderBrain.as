@@ -35,6 +35,12 @@ const u8 AIB_LADDER_OBSTRUCTION_THRESHOLD = 14;
 const u8 AIB_LADDER_PLACE_DELAY = 45;
 const u8 AIB_LADDER_BACKWALL_MAX_CHAIN = 8;
 const f32 AIB_LADDER_HORIZONTAL_ANGLE = 90.0f;
+const string AIB_RECOVERY_SUPPORT_TARGET_KEY = "ai builder recovery support target";
+const string AIB_RECOVERY_SUPPORT_TICK_KEY = "ai builder recovery support tick";
+const string AIB_RECOVERY_SUPPORT_CHAIN_KEY = "ai builder recovery support chain";
+const string AIB_RECOVERY_PROBE_PENDING_KEY = "ai builder recovery path probe pending";
+const string AIB_RECOVERY_PROBE_LADDER_KEY = "ai builder recovery path probe ladder";
+const string AIB_RECOVERY_LADDER_TICK_KEY = "ai builder recovery ladder tick";
 const u8 AIB_STONE_CORNER_OBSTRUCTION_THRESHOLD = 12;
 // Twelve ticks was long enough to unpress jump but not long enough to leave a
 // one-tile overhang with a usable run-up. Pathing immediately drove the worker
@@ -130,6 +136,12 @@ void onInit(CBrain@ this)
 	blob.set_u32("ai builder next place", 0);
 	blob.set_u32("ai builder next pickup", 0);
 	blob.set_u32("ai builder next ladder", 0);
+	blob.set_Vec2f(AIB_RECOVERY_SUPPORT_TARGET_KEY, Vec2f_zero);
+	blob.set_u32(AIB_RECOVERY_SUPPORT_TICK_KEY, 0);
+	blob.set_u8(AIB_RECOVERY_SUPPORT_CHAIN_KEY, 0);
+	blob.set_bool(AIB_RECOVERY_PROBE_PENDING_KEY, false);
+	blob.set_netid(AIB_RECOVERY_PROBE_LADDER_KEY, 0);
+	blob.set_u32(AIB_RECOVERY_LADDER_TICK_KEY, 0);
 	blob.set_u32("ai builder stone corner escape until", 0);
 	blob.set_u32("ai builder stone corner escape cooldown", 0);
 	blob.set_s32("ai builder stone corner escape direction", 0);
@@ -1313,6 +1325,7 @@ bool AIB_GoToBrainPath(CBrain@ brain, CBlob@ blob, Vec2f destination)
 		brain.EndPath();
 		AIB_LogEvent("ai", "path_set", AIB_EventBlobRef(blob), "destination=" + AIB_EventPos(destination) + " waypoints=" + path.waypoints.length + " low=" + path.path.length);
 	}
+	AIB_RecordRecoveryPathProbe(blob, path, destination);
 
 	if (!path.isPathing())
 	{
@@ -1743,36 +1756,117 @@ bool AIB_TryPlaceRecoveryLadder(CBlob@ blob, Vec2f next)
 	const bool needsBackwall = AIB_RecoveryLadderNeedsBackwall(tile);
 	Vec2f[] backwallChain;
 	if (needsBackwall && !AIB_GetRecoveryBackwallChain(blob, tile, backwallChain)) return false;
+	// Recovery support is a distinct, paid phase. Creating the ladder before
+	// these writes let the fixture observe an unsupported ladder and gave KAG's
+	// path cache no simulation boundary in which to recognize the new backwall.
+	if (needsBackwall)
+	{
+		AIB_PrepareRecoveryLadderSupport(blob, tile, backwallChain);
+		return false;
+	}
 
-	const u16 woodCost = AIB_LADDER_WOOD_COST + backwallChain.length * AIB_LADDER_BACKWALL_WOOD_COST;
-	if (AIB_CountWood(blob) < woodCost) return false;
-
+	const bool supportReadyBeforeSpawn = map.hasSupportAtPos(AIB_TileCenter(tile));
+	if (!supportReadyBeforeSpawn || AIB_CountWood(blob) < AIB_LADDER_WOOD_COST) return false;
 	CBlob@ ladder = server_CreateBlob("ladder", blob.getTeamNum(), AIB_TileCenter(tile));
 	if (ladder is null) return false;
-	if (!AIB_TakeMaterial(blob, "mat_wood", woodCost))
+	if (!AIB_TakeMaterial(blob, "mat_wood", AIB_LADDER_WOOD_COST))
 	{
 		ladder.server_Die();
 		return false;
 	}
 
-	for (uint i = 0; i < backwallChain.length; i++)
-	{
-		map.server_SetTile(backwallChain[i], CMap::tile_wood_back);
-	}
-	if (needsBackwall && !map.hasSupportAtPos(AIB_TileCenter(tile)))
-	{
-		ladder.server_Die();
-		return false;
-	}
-
+	const u32 now = getGameTime();
+	const bool preparedHere = (blob.get_Vec2f(AIB_RECOVERY_SUPPORT_TARGET_KEY) - tile).Length() < 0.1f;
+	const u32 supportTick = preparedHere ? blob.get_u32(AIB_RECOVERY_SUPPORT_TICK_KEY) : 0;
+	const u8 supportChain = preparedHere ? blob.get_u8(AIB_RECOVERY_SUPPORT_CHAIN_KEY) : 0;
 	ladder.Tag("aibuilder recovery ladder");
+	ladder.set_bool("aibuilder recovery support ready before spawn", supportReadyBeforeSpawn);
+	ladder.set_u32("aibuilder recovery support tick", supportTick);
+	ladder.set_u8("aibuilder recovery support chain", supportChain);
+	ladder.set_u32("aibuilder recovery ladder tick", now);
 	ladder.setAngleDegrees(AIB_LADDER_HORIZONTAL_ANGLE);
 	ladder.getShape().SetStatic(true);
 	ladder.getShape().SetGravityScale(0.0f);
-	blob.set_u32("ai builder next ladder", getGameTime() + AIB_LADDER_PLACE_DELAY);
+	blob.set_u32("ai builder next ladder", now + AIB_LADDER_PLACE_DELAY);
 	blob.set_Vec2f("ai builder jump peak", Vec2f_zero);
-	AIB_LogEvent("ai", "place_ladder", AIB_EventBlobRef(blob), "tile=" + AIB_EventPos(tile) + " next=" + AIB_EventPos(next) + " angle=90 backwall=" + AIB_BoolString(needsBackwall) + " chain=" + backwallChain.length);
+	blob.set_bool(AIB_RECOVERY_PROBE_PENDING_KEY, true);
+	blob.set_netid(AIB_RECOVERY_PROBE_LADDER_KEY, ladder.getNetworkID());
+	blob.set_u32(AIB_RECOVERY_LADDER_TICK_KEY, now);
+	AIB_LogEvent("ai", "place_ladder", AIB_EventBlobRef(blob), "tile=" + AIB_EventPos(tile) +
+		" next=" + AIB_EventPos(next) + " angle=90 support_before_spawn=true prepared_tick=" + supportTick +
+		" chain=" + supportChain);
 	return true;
+}
+
+bool AIB_PrepareRecoveryLadderSupport(CBlob@ blob, Vec2f tile, Vec2f[] &in backwallChain)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null || backwallChain.length == 0) return false;
+
+	Vec2f[] missing;
+	for (uint i = 0; i < backwallChain.length; i++)
+	{
+		const TileType type = map.getTile(backwallChain[i]).type;
+		if (!AIB_IsSupportBackwall(type)) missing.push_back(backwallChain[i]);
+	}
+	// Tile support/cache updates may lag a same-tick server_SetTile. If every
+	// chain cell already exists, wait for a later obstruction cycle instead of
+	// charging for or rewriting the same backwalls again.
+	if (missing.length == 0) return false;
+
+	const u16 supportCost = missing.length * AIB_LADDER_BACKWALL_WOOD_COST;
+	if (AIB_CountWood(blob) < AIB_LADDER_WOOD_COST + supportCost ||
+		!AIB_TakeMaterial(blob, "mat_wood", supportCost)) return false;
+	for (uint i = 0; i < missing.length; i++) map.server_SetTile(missing[i], CMap::tile_wood_back);
+
+	blob.set_Vec2f(AIB_RECOVERY_SUPPORT_TARGET_KEY, tile);
+	blob.set_u32(AIB_RECOVERY_SUPPORT_TICK_KEY, getGameTime());
+	blob.set_u8(AIB_RECOVERY_SUPPORT_CHAIN_KEY, u8(Maths::Min(backwallChain.length, uint(255))));
+	AIB_LogEvent("ai", "place_ladder_support", AIB_EventBlobRef(blob), "tile=" + AIB_EventPos(tile) +
+		" chain=" + backwallChain.length + " new=" + missing.length + " support_cost=" + supportCost);
+	return true;
+}
+
+void AIB_RecordRecoveryPathProbe(CBlob@ blob, BrainPath@ path, Vec2f destination)
+{
+	if (blob is null || path is null || !blob.get_bool(AIB_RECOVERY_PROBE_PENDING_KEY) ||
+		getGameTime() <= blob.get_u32(AIB_RECOVERY_LADDER_TICK_KEY)) return;
+
+	CBlob@ ladder = getBlobByNetworkID(blob.get_netid(AIB_RECOVERY_PROBE_LADDER_KEY));
+	if (ladder is null || ladder.hasTag("dead"))
+	{
+		blob.set_bool(AIB_RECOVERY_PROBE_PENDING_KEY, false);
+		blob.set_netid(AIB_RECOVERY_PROBE_LADDER_KEY, 0);
+		return;
+	}
+
+	Vec2f next = Vec2f_zero;
+	if (path.path.length > 0) next = path.path[0];
+	else if (path.waypoints.length > 0) next = path.waypoints[0];
+	const Vec2f mineable = AIB_GetMineablePathBlock(blob, path);
+	Vec2f collision;
+	CMap@ map = getMap();
+	const bool nextBlocked = map !is null && next != Vec2f_zero && map.rayCastSolid(blob.getPosition(), next, collision);
+	// This is deliberately only the pathfinder's acceptance signal. The focused
+	// fixture separately requires real traversal, because a non-empty path alone
+	// is not evidence that movement can follow it.
+	const bool accepted = path.isPathing() && next != Vec2f_zero;
+
+	ladder.set_bool("aibuilder recovery post path probe", true);
+	ladder.set_bool("aibuilder recovery post path accepted", accepted);
+	ladder.set_bool("aibuilder recovery post next blocked", nextBlocked);
+	ladder.set_u16("aibuilder recovery post low nodes", u16(Maths::Min(path.path.length, uint(65535))));
+	ladder.set_u16("aibuilder recovery post waypoints", u16(Maths::Min(path.waypoints.length, uint(65535))));
+	ladder.set_Vec2f("aibuilder recovery post next", next);
+	ladder.set_Vec2f("aibuilder recovery post mineable", mineable);
+	ladder.set_u32("aibuilder recovery post probe tick", getGameTime());
+	AIB_LogEvent("ai", "ladder_path_probe", AIB_EventBlobRef(blob), "ladder=" + AIB_EventBlobRef(ladder) +
+		" destination=" + AIB_EventPos(destination) + " pathing=" + AIB_BoolString(path.isPathing()) +
+		" low=" + path.path.length + " waypoints=" + path.waypoints.length + " next=" + AIB_EventPos(next) +
+		" next_blocked=" + AIB_BoolString(nextBlocked) + " mineable=" + AIB_EventPos(mineable) +
+		" accepted=" + AIB_BoolString(accepted));
+	blob.set_bool(AIB_RECOVERY_PROBE_PENDING_KEY, false);
+	blob.set_netid(AIB_RECOVERY_PROBE_LADDER_KEY, 0);
 }
 
 bool AIB_CanPlaceRecoveryLadderAt(CBlob@ blob, Vec2f tile)

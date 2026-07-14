@@ -18,6 +18,7 @@ Vec2f[] AIBT_route_dirt_tiles;
 Vec2f[] AIBT_temporary_no_build_points;
 u16[] AIBT_temporary_no_build_owners;
 bool AIBT_temporary_no_build_cleanup_failed = false;
+u16[] AIBT_recovery_plug_tiles;
 u16[] AIBT_canonical_tiles;
 u16 AIBT_canonical_width = 0;
 u16 AIBT_canonical_height = 0;
@@ -488,6 +489,19 @@ CBlob@ AIBT_SpawnWood(const int tileX, const u16 quantity = 100)
 		wood.server_SetQuantity(quantity);
 	}
 	return wood;
+}
+
+CBlob@ AIBT_GetRecoveryLadderNear(Vec2f position, const f32 radius)
+{
+	CBlob@[] ladders;
+	getBlobsByName("ladder", @ladders);
+	for (uint i = 0; i < ladders.length; i++)
+	{
+		CBlob@ ladder = ladders[i];
+		if (ladder is null || ladder.hasTag("dead") || !ladder.hasTag("aibuilder recovery ladder")) continue;
+		if ((ladder.getPosition() - position).Length() <= radius) return ladder;
+	}
+	return null;
 }
 
 void AIBT_StartHarvest(CBlob@ bot)
@@ -2052,6 +2066,16 @@ void AIBT_SetupScenario(const int index)
 
 		case 15:
 		{
+			AIBT_recovery_plug_tiles.clear();
+			CMap@ map = getMap();
+			if (map !is null)
+			{
+				for (int x = 352; x <= 353; x++)
+				{
+					for (int y = AIBT_GROUND_Y - 4; y < AIBT_GROUND_Y; y++)
+						AIBT_recovery_plug_tiles.push_back(map.getTile(AIBT_Pos(x, y)).type);
+				}
+			}
 			AIBT_SpawnTent(338);
 			@bot = AIBT_SpawnBot(344);
 			CBlob@ tree = AIBT_SpawnTree(360, false);
@@ -3434,17 +3458,49 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 15:
 		{
 			CMap@ map = getMap();
-			const bool plugCleared = map !is null && !map.isTileSolid(map.getTile(AIBT_Pos(352, AIBT_GROUND_Y - 2)).type);
-			const bool ladderBuilt = AIBT_CountBlobsNear("ladder", AIBT_Pos(349, AIBT_GROUND_Y - 5), 96.0f) > 0;
+			CBlob@ ladder = AIBT_GetRecoveryLadderNear(AIBT_Pos(349, AIBT_GROUND_Y - 5), 96.0f);
+			const bool ladderBuilt = ladder !is null;
+			const bool supportPreparedBeforeSpawn = ladderBuilt &&
+				ladder.get_bool("aibuilder recovery support ready before spawn") &&
+				ladder.get_u8("aibuilder recovery support chain") > 0 &&
+				ladder.get_u32("aibuilder recovery support tick") > 0 &&
+				ladder.get_u32("aibuilder recovery support tick") < ladder.get_u32("aibuilder recovery ladder tick") &&
+				map !is null && map.hasSupportAtPos(ladder.getPosition());
+			const bool postPathAccepted = ladderBuilt && ladder.get_bool("aibuilder recovery post path probe") &&
+				ladder.get_bool("aibuilder recovery post path accepted") &&
+				ladder.get_u32("aibuilder recovery post probe tick") > ladder.get_u32("aibuilder recovery ladder tick");
 			const bool reachedTargetSide = bot.getPosition().x > 352 * 8;
-			if (plugCleared || ladderBuilt || reachedTargetSide)
+			bool plugPreserved = map !is null && AIBT_recovery_plug_tiles.length == 8;
+			uint plugIndex = 0;
+			if (map !is null)
 			{
-				details = "supported_recovery=" + (ladderBuilt ? "ladder" : (plugCleared ? "mined" : "reached_target_side")) + " " + AIBT_DescribeBuilder(bot);
+				for (int x = 352; x <= 353 && plugPreserved; x++)
+				{
+					for (int y = AIBT_GROUND_Y - 4; y < AIBT_GROUND_Y; y++)
+					{
+						if (map.getTile(AIBT_Pos(x, y)).type != AIBT_recovery_plug_tiles[plugIndex++])
+							{ plugPreserved = false; break; }
+					}
+				}
+			}
+			if (ladderBuilt && supportPreparedBeforeSpawn && postPathAccepted && reachedTargetSide && plugPreserved)
+			{
+				details = "support_chain_before_ladder=true post_path_accepted=true crossed_preserved_plug=true chain=" +
+					ladder.get_u8("aibuilder recovery support chain") + " low=" +
+					ladder.get_u16("aibuilder recovery post low nodes") + " waypoints=" +
+					ladder.get_u16("aibuilder recovery post waypoints") + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			if (elapsed > 300)
 			{
-				failure = "timeout_supported_ladder_chain " + AIBT_DescribeBuilder(bot);
+				failure = "timeout_supported_ladder_chain ladder=" + (ladderBuilt ? "true" : "false") +
+					" support_before_spawn=" + (supportPreparedBeforeSpawn ? "true" : "false") +
+					" post_path=" + (postPathAccepted ? "true" : "false") +
+					" crossed=" + (reachedTargetSide ? "true" : "false") +
+					" plug_preserved=" + (plugPreserved ? "true" : "false") +
+					(ladderBuilt ? " next=" + AIB_EventPos(ladder.get_Vec2f("aibuilder recovery post next")) +
+						" mineable=" + AIB_EventPos(ladder.get_Vec2f("aibuilder recovery post mineable")) : "") +
+					" " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;

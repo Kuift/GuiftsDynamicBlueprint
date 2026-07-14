@@ -59,6 +59,12 @@ void AIBM_ClearNavigationIntent(CBlob@ builder)
 	builder.set_u32("ai builder stone corner escape cooldown", 0);
 	builder.set_s32("ai builder stone corner escape direction", 0);
 	builder.set_netid("ai builder delivery home", 0);
+	builder.set_Vec2f("ai builder recovery support target", Vec2f_zero);
+	builder.set_u32("ai builder recovery support tick", 0);
+	builder.set_u8("ai builder recovery support chain", 0);
+	builder.set_bool("ai builder recovery path probe pending", false);
+	builder.set_netid("ai builder recovery path probe ladder", 0);
+	builder.set_u32("ai builder recovery ladder tick", 0);
 	builder.set_u16("ai builder navigation epoch", builder.get_u16("ai builder navigation epoch") + 1);
 	builder.setKeyPressed(key_left, false);
 	builder.setKeyPressed(key_right, false);

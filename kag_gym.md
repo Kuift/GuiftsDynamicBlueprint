@@ -272,7 +272,7 @@ Production weights and template metadata must have one source of truth consumed 
 
 ### Phase C — scenario depth
 
-- [ ] Resolve `kag_path_mines_dirt_plug` with supported-chain and post-placement walkability evidence.
+- [ ] PARTIAL — dirt-plug recovery now stages paid missing backwalls before ladder creation, emits one bounded post-placement BrainPath/mineable-node probe, and has a runtime-ready fixture requiring path acceptance plus actual crossing of the preserved plug. KAG compilation and a visible verdict remain.
 - [ ] PARTIAL — crate overflow, retrieval-source accounting, editor delta, and selection save/load coverage exist at different depths. The accessible-stock contract and overflow conservation are statically covered; the corrected physical overflow/retrieval paths still need live KAG verdicts.
 - [ ] PARTIAL — simultaneous mirrored left/right full completion, uneven blocked-primary full completion, asymmetric pressure, scarce-resource, damaged-front, full physical completion, mirrored sealed-bootstrap, blocked-site cooldown/round-reset provisioning, and exact no-build/occupied/barrier fallback fixtures are defined; live KAG verdicts remain.
 - [ ] Complete and reproduce the entire current suite with final `DONE` evidence.

@@ -538,6 +538,25 @@ void AIBS_LogCandidateRejectionDelta(const u8 team, AIBPlanCandidate@ candidate)
 		int(candidate.anchor.y) + " reason=" + candidate.rejection);
 }
 
+bool AIBS_ActivePlanHasDependencySupport(AIBWorldState@ world, array<u16>@ xs, array<u16>@ ys,
+	array<u16>@ blocks, array<u8>@ phases, array<u8>@ states)
+{
+	if (world is null || xs is null || ys is null || blocks is null || phases is null || states is null) return false;
+	CRules@ rules = getRules();
+	AIBPlanCandidate@ active = AIBPlanCandidate();
+	active.intent = rules is null ? AIBStrategyIntent::flag_gatehouse : rules.get_u8(AIBP_PlanKey(world.team, "intent"));
+	active.templateName = rules is null ? "active" : rules.get_string(AIBP_PlanKey(world.team, "template"));
+	active.anchor = rules is null ? Vec2f_zero : rules.get_Vec2f(AIBP_PlanKey(world.team, "anchor"));
+	for (uint i = 0; i < xs.length && i < ys.length && i < blocks.length && i < phases.length && i < states.length; i++)
+	{
+		if (states[i] == AIBP_TaskState::cancelled) continue;
+		BlueprintTask@ task = BlueprintTask(xs[i], ys[i], blocks[i], phases[i]);
+		task.state = states[i];
+		active.tasks.push_back(task);
+	}
+	return active.tasks.length > 0 && AIBS_CandidateHasDependencySupport(world, active);
+}
+
 bool AIBS_ActivePlanInvalid(AIBWorldState@ world)
 {
 	if (world is null) return true;
@@ -566,6 +585,11 @@ bool AIBS_ActivePlanInvalid(AIBWorldState@ world)
 		const TileType current = map.getTile(center).type;
 		if (map.isTileBedrock(current) || (map.isTileSolid(current) && !map.isTileGrass(current))) return true;
 	}
+	// Generated backwalls are executor-owned dependencies rather than explicit
+	// task-array entries. Re-evaluate them against the current world as well: a
+	// newly added no-build sector or protected blob in the support column
+	// otherwise leaves an active foreground task pending forever.
+	if (!AIBS_ActivePlanHasDependencySupport(world, xs, ys, blocks, phases, states)) return true;
 	return false;
 }
 

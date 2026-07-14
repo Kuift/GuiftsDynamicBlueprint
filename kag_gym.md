@@ -288,6 +288,7 @@ Production weights and template metadata must have one source of truth consumed 
 ### Phase E — public learning loop
 
 - [ ] Runtime-validate the implemented server notice, persistent moderator control, retention/rotation runbook, and privacy review.
+- [ ] PARTIAL — authoritative builder job/state/active changes publish immediately and receive a staggered five-second server heartbeat for bounded late-join HUD recovery; the source contract passes, but a real client must still join builders already in distinct roles.
 - [ ] PARTIAL — heuristic task segmentation and a three-episode matched-context comparator exist; authoritative task boundaries, richer world context, and real human/AI cohorts remain.
 - [ ] Evidence-driven weight/code proposals with regression reports.
 - [ ] Manual multiplayer CTF acceptance before public release.

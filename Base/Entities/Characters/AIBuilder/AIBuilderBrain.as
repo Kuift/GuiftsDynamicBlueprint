@@ -83,6 +83,7 @@ const u8 AIB_WOOD_BLOCK_COST = 10;
 const u8 AIB_WOODEN_DOOR_COST = 30;
 const bool AIB_DEBUG = false; // Set true while debugging. Uses print(), so keep false for deployed builds.
 const u32 AIB_DEBUG_SNAPSHOT_RATE = 150;
+const u32 AIB_PUBLIC_STATE_SYNC_RATE = 5 * 30;
 const u32 AIB_STATUS_BUBBLE_RATE = 10 * 30;
 const u32 AIB_RESOURCE_REJECT_LOG_REFRESH = 30 * 30;
 const u32 AIB_TREE_NO_PROGRESS_TICKS = 10 * 30;
@@ -130,6 +131,7 @@ void onInit(CBrain@ this)
 	blob.set_Vec2f("ai builder shaft top", Vec2f_zero);
 	blob.set_Vec2f("ai builder stone route corner", Vec2f_zero);
 	blob.set_u8("ai builder job", autoBuilder ? AIB_JOB_BLUEPRINT : AIB_JOB_WOOD);
+	AIB_SyncPublicState(blob, true);
 	blob.set_u32("ai builder log wait until", 0);
 	blob.set_u16("ai builder pending wood", 0);
 	blob.set_u8("ai builder obstruction threshold", 0);
@@ -187,6 +189,10 @@ void onTick(CBrain@ this)
 {
 	CBlob@ blob = this.getBlob();
 	if (blob is null || blob.hasTag("dead")) return;
+	// Immediate transition syncs are retained, while this low-rate staggered
+	// heartbeat bounds late-join or dropped-delta HUD staleness without turning
+	// public state into per-tick network traffic.
+	AIB_SyncPublicState(blob, false);
 	if (blob.isAttached())
 	{
 		blob.server_DetachFromAll();
@@ -6034,6 +6040,16 @@ void AIB_SetState(CBlob@ blob, const u8 next, const string &in reason)
 		blob.set_u8("ai builder state", next);
 		AIB_Debug(blob, "state stays " + AIB_StateName(next) + " reason=" + reason);
 	}
+}
+
+void AIB_SyncPublicState(CBlob@ blob, const bool force)
+{
+	if (blob is null) return;
+	const u32 now = getGameTime();
+	if (!force && (now + u32(blob.getNetworkID())) % AIB_PUBLIC_STATE_SYNC_RATE != 0) return;
+	blob.Sync("ai builder state", true);
+	blob.Sync("ai builder job", true);
+	blob.Sync("ai builder job active", true);
 }
 
 void AIB_Debug(CBlob@ blob, const string &in message)

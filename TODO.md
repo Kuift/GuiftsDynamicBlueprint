@@ -15,9 +15,10 @@ This file is the active backlog. Completed historical notes and old investigatio
   - Run `full_crate_creates_grounded_overflow_storage` and require the corrected lightweight full-crate fixture to create/use distinct grounded secondary storage without material loss.
   - Rerun `blueprint_collects_home_materials` after the storage-selector change and require actual wood/stone withdrawal, both production placements, and exact material conservation.
 
-- Tighten multiplayer sync for AI state used by HUD and overseer UI.
-  - Confirm `"ai builder job"` and `"ai builder state"` stay synced for late joiners.
-  - Consider syncing a small explicit `"ai builder resource role"` if future jobs reuse the same state ranges.
+- Runtime-validate multiplayer AI state used by HUD and overseer UI.
+  - Authoritative job/state/active mutations sync immediately, creation force-publishes the trio, and the server brain republishes it on a network-ID-staggered five-second heartbeat. `Tools/test_aib_public_state_sync.ps1` pins those paths without claiming a real late join occurred.
+  - Join an active multiplayer match after builders have entered different wood/stone/blueprint states and verify the resource counters converge within five seconds without requiring another job transition.
+  - Keep the canonical `"ai builder job"` enum as the resource role while its three values remain unambiguous; add a separate synced role only if future job semantics can no longer represent the HUD categories.
 
 ## Blueprint Making And Editor UI
 

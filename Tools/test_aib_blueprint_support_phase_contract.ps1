@@ -38,6 +38,7 @@ if ($support.Contains('lowestMissing')) {
 
 foreach ($needle in @(
     'if (!AIB_IsInsideMap(AIB_TileCenter(tile))) return false;',
+    'if (map.hasSupportAtPos(AIB_TileCenter(tile))) return true;',
     'Vec2f AIB_InvalidBlueprintSupportTile()',
     'return Vec2f(-8.0f, -8.0f);',
     'AIB_LogEvent("ai", "blueprint_target"'

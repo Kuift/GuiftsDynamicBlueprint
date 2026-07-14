@@ -54,7 +54,7 @@ AIBPlanCandidate@ AIBS_EmergencyBarrierTemplate(const int anchorX, const int gro
 	return c;
 }
 
-AIBPlanCandidate@ AIBS_FrontlineTowerTemplate(const int anchorX, const int groundY)
+AIBPlanCandidate@ AIBS_FrontlineTowerTemplate(const int anchorX, const int groundY, const s8 enemyDirection = 1)
 {
 	AIBPlanCandidate@ c = AIBPlanCandidate();
 	c.intent = AIBStrategyIntent::frontline_tower; c.templateName = "frontline_tower"; c.anchor = Vec2f(anchorX, groundY);
@@ -63,14 +63,27 @@ AIBPlanCandidate@ AIBS_FrontlineTowerTemplate(const int anchorX, const int groun
 		AIBS_AddTask(c, anchorX - 2, groundY - y, AIBP_STONE_BLOCK, AIBP_Phase::shell);
 		AIBS_AddTask(c, anchorX + 2, groundY - y, AIBP_STONE_BLOCK, AIBP_Phase::shell);
 	}
-	AIBS_AddTask(c, anchorX - 2, groundY - 1, AIBP_EncodeBlock(AIBP_STONE_DOOR, 1), AIBP_Phase::access);
-	AIBS_AddTask(c, anchorX + 2, groundY - 1, AIBP_EncodeBlock(AIBP_STONE_DOOR, 1), AIBP_Phase::access);
-	for (int x = -2; x <= 2; x++) AIBS_AddTask(c, anchorX + x, groundY - 7, AIBP_STONE_BLOCK, AIBP_Phase::shell);
-	for (int y = 2; y <= 6; y++) AIBS_AddTask(c, anchorX, groundY - y, AIBP_LADDER, AIBP_Phase::access);
-	AIBS_AddTask(c, anchorX - 1, groundY - 4, AIBP_PLATFORM, AIBP_Phase::access);
-	AIBS_AddTask(c, anchorX + 1, groundY - 4, AIBP_PLATFORM, AIBP_Phase::access);
-	// Keep foundation cells below the two platform anchors. The old full-height
-	// columns left backwalls above each phase-1 platform after AddTask deduped the
+	// Close the two entrances only after the adjacent shell is complete. KAG's
+	// CollapseMissingAdjacent accepts solid foreground, not backwall support, so
+	// access-phase doors fall before the later side walls can stabilize them.
+	AIBS_AddTask(c, anchorX - 2, groundY - 1, AIBP_EncodeBlock(AIBP_STONE_DOOR, 1), AIBP_Phase::closure);
+	AIBS_AddTask(c, anchorX + 2, groundY - 1, AIBP_EncodeBlock(AIBP_STONE_DOOR, 1), AIBP_Phase::closure);
+	// The two corner cells already belong to the side walls. Add frontal roof
+	// cover after both walls are complete, while retaining a two-tile hatch on
+	// the home side. A runner is wider than one KAG tile; the old center-only
+	// hatch kept DetectLadder disabled because adjacent roof blocks still made
+	// the worker grounded above the ladder.
+	AIBS_AddTask(c, anchorX + enemyDirection, groundY - 7, AIBP_STONE_BLOCK, AIBP_Phase::roof);
+	// Four stacked ladders remain within KAG's propagated blob-support depth and
+	// provide access through the two-tile openings. A fifth ladder is not stable,
+	// and placing it after a center roof cell seals the worker on the wrong side.
+	for (int y = 2; y <= 5; y++) AIBS_AddTask(c, anchorX, groundY - y, AIBP_LADDER, AIBP_Phase::access);
+	// Keep the firing platform on the enemy side and leave the center plus home
+	// side open. Two symmetric platforms made a one-tile gap and kept the runner
+	// grounded, which prevents DetectLadder from ever engaging during descent.
+	AIBS_AddTask(c, anchorX + enemyDirection, groundY - 4, AIBP_PLATFORM, AIBP_Phase::access);
+	// Keep the original grounded foundation footprint. The old full-height
+	// columns left backwalls above phase-1 platform cells after AddTask deduped the
 	// overlapping cell. Phase 0 then waited for support through a phase-1 task,
 	// so neither phase could advance. The lower seven cells provide the intended
 	// grounded interior backing without crossing an access-phase dependency.
@@ -140,7 +153,7 @@ void AIBS_GenerateCandidates(AIBWorldState@ world, array<AIBPlanCandidate@> &out
 	for (uint i = 0; i < tacticalAnchors.length; i++)
 	{
 		const int x = tacticalAnchors[i];
-		candidates.push_back(AIBS_FrontlineTowerTemplate(x, AIBS_SurfaceAt(x)));
+		candidates.push_back(AIBS_FrontlineTowerTemplate(x, AIBS_SurfaceAt(x), world.enemyDirection));
 	}
 	candidates.push_back(AIBS_ArcherPerchTemplate(highX, AIBS_SurfaceAt(highX), world.enemyDirection));
 	const int frontHighX = AIBS_FindHighGroundX(frontlineX - world.enemyDirection * 6, 8);

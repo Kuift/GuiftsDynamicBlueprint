@@ -799,6 +799,16 @@ bool AIBP_IsHumanTile(const u8 team, const u16 x, const u16 y)
 	return index < human.length && human[index] != 0;
 }
 
+bool AIBP_IsAIWorkTile(const u8 team, const u16 x, const u16 y)
+{
+	CMap@ map = getMap();
+	if (map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	array<u16>@ work = null;
+	if (!AIBP_GetLayerGrid(team, AIBP_Layer::ai_work, @work) || work is null) return false;
+	const uint index = y * map.tilemapwidth + x;
+	return index < work.length && work[index] != 0;
+}
+
 bool AIBP_TaskAvailableForBuilder(const u8 team, const u16 x, const u16 y, const u16 builderNetID)
 {
 	if (AIBP_IsHumanTile(team, x, y)) return AIBP_LooseTaskAvailable(team, x, y, builderNetID);

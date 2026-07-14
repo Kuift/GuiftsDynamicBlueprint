@@ -1328,6 +1328,27 @@ void AIB_BuildBlueprintBlock(CBrain@ brain, CBlob@ blob)
 	}
 	else if ((center - blob.getPosition()).Length() > 32.0f && (approach - blob.getPosition()).Length() > 18.0f)
 	{
+		const Vec2f delta = approach - blob.getPosition();
+		if (delta.y > 0.0f && Maths::Abs(delta.x) <= getMap().tilesize &&
+			(blob.isOnLadder() || AIB_HasBlueprintLadderNear(blob)))
+		{
+			// Suggested paths can repeatedly replan without issuing key_down on a
+			// vertical ladder inside a completed shell. isOnLadder() remains false
+			// until the runner leaves the firing platform, so the placed ladder is
+			// the stable signal while centering over the two-tile hatch and descending.
+			brain.EndPath();
+			AIB_EndBrainPath(blob);
+			blob.set_Vec2f("ai builder destination", approach);
+			if (Maths::Abs(delta.x) > 1.5f)
+			{
+				blob.setKeyPressed(delta.x < 0.0f ? key_left : key_right, true);
+			}
+			else
+			{
+				blob.setKeyPressed(key_down, true);
+			}
+			return;
+		}
 		AIB_GoTo(brain, blob, approach);
 		return;
 	}
@@ -1368,8 +1389,9 @@ bool AIB_ClearBlueprintPlacementPosition(CBrain@ brain, CBlob@ blob, Vec2f tile)
 
 	f32 direction = pos.x < center.x ? -1.0f : 1.0f;
 	const f32 sidestep = map.tilesize * 2.0f;
-	if (!AIB_HasBuilderClearance(pos + Vec2f(direction * sidestep, 0.0f), blob.getTeamNum()) &&
-		AIB_HasBuilderClearance(pos + Vec2f(-direction * sidestep, 0.0f), blob.getTeamNum()))
+	const bool primaryClear = AIB_HasBuilderClearance(pos + Vec2f(direction * sidestep, 0.0f), blob.getTeamNum());
+	const bool alternateClear = AIB_HasBuilderClearance(pos + Vec2f(-direction * sidestep, 0.0f), blob.getTeamNum());
+	if (!primaryClear && alternateClear)
 	{
 		direction = -direction;
 	}
@@ -1377,6 +1399,20 @@ bool AIB_ClearBlueprintPlacementPosition(CBrain@ brain, CBlob@ blob, Vec2f tile)
 	brain.EndPath();
 	AIB_EndBrainPath(blob);
 	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	if (!primaryClear && !alternateClear)
+	{
+		// A narrow tower can block both horizontal sidesteps while leaving its
+		// ladder/interior open. Move vertically away from the target so placing a
+		// roof or low wall cannot overlap the builder's collision shape forever.
+		f32 vertical = pos.y < center.y ? -1.0f : 1.0f;
+		if (!AIB_HasBuilderClearance(pos + Vec2f(0.0f, vertical * sidestep), blob.getTeamNum()) &&
+			AIB_HasBuilderClearance(pos + Vec2f(0.0f, -vertical * sidestep), blob.getTeamNum()))
+		{
+			vertical = -vertical;
+		}
+		blob.setKeyPressed(vertical < 0.0f ? key_up : key_down, true);
+		return true;
+	}
 	blob.setKeyPressed(direction < 0.0f ? key_left : key_right, true);
 	const u32 now = getGameTime();
 	if (blob.isOnGround() && now >= blob.get_u32("ai builder next blueprint clearance jump"))
@@ -5270,6 +5306,10 @@ bool AIB_HasBlueprintSupportAt(Vec2f tile)
 {
 	CMap@ map = getMap();
 	if (map is null) return false;
+	// Match the authoritative player placement check first. Engine support
+	// includes static blob structures such as the ladder immediately below a
+	// new ladder; tile-only inspection cannot see that support chain.
+	if (map.hasSupportAtPos(AIB_TileCenter(tile))) return true;
 
 	const f32 ts = map.tilesize;
 	return AIB_TileProvidesBlueprintSupport(tile) ||
@@ -5331,6 +5371,42 @@ Vec2f AIB_GetBlueprintBuildApproach(CBlob@ blob, Vec2f tile)
 	Vec2f best = center;
 	f32 bestScore = 999999.0f;
 	const f32 ts = map.tilesize;
+	CRules@ rules = getRules();
+	if (rules !is null && blob.getTeamNum() >= 0)
+	{
+		const u8 team = u8(blob.getTeamNum());
+		const Vec2f space = map.getTileSpacePosition(tile);
+		const u16 tileX = u16(Maths::Floor(space.x));
+		const u16 tileY = u16(Maths::Floor(space.y));
+		const Vec2f anchor = rules.get_Vec2f(AIBP_PlanKey(team, "anchor"));
+		const f32 anchorWorldX = anchor.x * ts + ts * 0.5f;
+		const f32 inward = anchorWorldX < center.x ? -1.0f : (anchorWorldX > center.x ? 1.0f : 0.0f);
+		if (rules.get_u16(AIBP_PlanKey(team, "id")) != 0 && inward != 0.0f && AIBP_IsAIWorkTile(team, tileX, tileY))
+		{
+			Vec2f interior = center + Vec2f(inward * ts, 0.0f);
+			if (blob.getPosition().y < center.y && AIBP_CurrentTaskPhase(team) == AIBP_Phase::closure)
+			{
+				CBlob@ home = AIB_GetTeamHome(blob);
+				const f32 homeward = home !is null && home.getPosition().x < anchorWorldX ? -1.0f : 1.0f;
+				Vec2f hatchApproach = Vec2f(anchorWorldX + homeward * ts * 0.5f, center.y - 2.0f * ts);
+				if ((hatchApproach - center).Length() <= 32.0f && AIB_HasBuilderClearance(hatchApproach, blob.getTeamNum()))
+					return hatchApproach;
+			}
+			// A builder already above a lower wall/door need not descend to the
+			// target's floor. This elevated interior stance remains within normal
+			// build reach and avoids unreliable downward ladder pathing.
+			Vec2f elevatedInterior = interior - Vec2f(0.0f, 2.0f * ts);
+			Vec2f elevatedAnchor = Vec2f(anchorWorldX, center.y - 2.0f * ts);
+			if (blob.getPosition().y < center.y && (elevatedAnchor - center).Length() <= 32.0f &&
+				AIB_HasBuilderClearance(elevatedAnchor, blob.getTeamNum()))
+			{
+				return elevatedAnchor;
+			}
+			if (blob.getPosition().y < center.y && AIB_HasBuilderClearance(elevatedInterior, blob.getTeamNum()))
+				return elevatedInterior;
+			if (AIB_HasBuilderClearance(interior, blob.getTeamNum())) return interior;
+		}
+	}
 	Vec2f[] candidates = {
 		center + Vec2f(-ts, 0.0f),
 		center + Vec2f(ts, 0.0f),
@@ -5470,6 +5546,24 @@ CBlob@ AIB_GetBlueprintBlobAt(Vec2f tile, const string &in name)
 CBlob@ AIB_GetBlueprintLadderAt(Vec2f tile)
 {
 	return AIB_GetBlueprintBlobAt(tile, "ladder");
+}
+
+bool AIB_HasBlueprintLadderNear(CBlob@ blob)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null) return false;
+
+	const f32 tilesize = map.tilesize;
+	const Vec2f space = map.getTileSpacePosition(blob.getPosition());
+	const s32 tileX = s32(Maths::Floor(space.x));
+	const s32 tileY = s32(Maths::Floor(space.y));
+	for (s32 yOffset = -1; yOffset <= 1; yOffset++)
+	{
+		const s32 y = tileY + yOffset;
+		if (tileX < 0 || y < 0 || tileX >= map.tilemapwidth || y >= map.tilemapheight) continue;
+		if (AIB_GetBlueprintLadderAt(Vec2f(tileX * tilesize, y * tilesize)) !is null) return true;
+	}
+	return false;
 }
 
 bool AIB_HasConflictingBlueprintBlob(Vec2f tile)

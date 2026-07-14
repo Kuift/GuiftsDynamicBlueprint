@@ -161,6 +161,22 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Do not conclude: a team mismatch means a platform disappeared or belongs to an opponent. Also do not generalize team-agnostic matching to doors, bridges, workshops, or other team-bearing blobs.
 - Workaround: declare `AIBP_PLATFORM` neutral by catalog identity and ignore its mutable engine team only when matching that exact block type. Store a separate originating-team property on director-created blobs so planner overlap checks can distinguish adjacent friendly blueprint work from other structures.
 
+### Doors need adjacent solid foreground before the delayed collapse check
+
+- Symptom: a newly placed door completes and remains visible, then the director reports the same task damaged roughly 300 ticks later and rebuilds it repeatedly.
+- Cause: base `CollapseMissingAdjacent.as` waits ten seconds before making a door non-static when it has no adjacent solid foreground. Backwall support is sufficient for initial placement but does not satisfy this durability rule.
+- Reproduced evidence: `../../Logs/console-26-07-14-05-46-02.txt` completed stone door `(175,39)` at tick 2444, then reported damage at ticks 2940 and 3660. In `../../Logs/console-26-07-14-07-03-51.txt`, both doors were deferred until the side-wall shell existed, completed at ticks 3133 and 3141, archived the plan as completed, and produced no damage through tick 3630.
+- Do not conclude: successful placement or short-term identity matching proves a door is structurally durable.
+- Workaround: put doors in a closure phase after their adjacent foreground shell. Verify for more than the ten-second/300-tick collapse delay before accepting the result.
+
+### A grounded runner cannot engage a ladder through a one-tile opening
+
+- Symptom: a builder standing above a valid ladder repeatedly replans a short downward route, or stops replanning after a direct controller takes over but remains motionless while holding `key_down`.
+- Cause: `DetectLadder.as` uses `Script::tick_not_onground`, and `RunnerMovement.as` applies ladder force only when `blob.isOnLadder()` is already true. A runner is wider than one eight-pixel tile, so solid/platform cells on both sides of a one-tile opening keep it grounded; pressing down crouches instead of entering the ladder.
+- Reproduced evidence: `../../Logs/console-26-07-14-06-46-11.txt` entered phase 4 at tick 2585 from `(1422,280)` and then repeated three-waypoint replans to `(1420,300)`. A placed-ladder-owned controller suppressed those replans in `../../Logs/console-26-07-14-06-53-30.txt`, but the task still made no progress through tick 3630. After the platform and roof openings were widened toward team home, `../../Logs/console-26-07-14-07-03-51.txt` crossed the former platform bottleneck and completed both closure tasks.
+- Do not conclude: a nearby ladder blob, a pressed down key, or a non-empty suggested path proves the character can enter the ladder state.
+- Workaround: keep a two-tile runner-width opening at the ladder, orient the open side toward home, approach the midpoint of that opening, and let the direct controller own centering/descent until normal build range resumes.
+
 ### Engine pathing and direct movement can fight each other
 
 - Symptom: builders jump in place, oscillate between surface and shaft nodes, or repeatedly replan near a valid destination.

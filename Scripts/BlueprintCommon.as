@@ -37,7 +37,9 @@ namespace AIBP_Phase
 	{
 		foundation = 0,
 		access = 1,
-		shell = 2
+		shell = 2,
+		roof = 3,
+		closure = 4
 	}
 }
 

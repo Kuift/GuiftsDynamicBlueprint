@@ -4,7 +4,7 @@
 >
 > Overall progress: **82%**. Treat `AI_BLUEPRINT_DIRECTOR_IMPLEMENTATION_STATUS.md` as the authoritative current checkpoint, evidence record, remaining acceptance gates, and future-agent resume guide. This document remains the design contract.
 
-Updated: 2026-07-13
+Updated: 2026-07-14
 
 ## 2026-07-10 Consolidated Resume Point
 
@@ -35,6 +35,8 @@ The next core-director slice corrects ordinary runner allocation. The former min
 The following replacement-policy audit fixes live safety invalidation for damaged fronts. `AIBS_ActivePlanInvalid` previously accepted a repairable same-team occupant before evaluating a newly active barrier, no-build sector, or protected-building overlap. Those pending repairs now pass all current safety gates before repairability can retain the plan; fully matching work still bypasses them because no action remains. `Tools/test_aib_active_plan_invalidation.ps1` pins this ordering while the existing damaged-front fixture protects safe no-replacement behavior. The offline batch is now 24/24; this source path is runtime-uncompiled.
 
 The user currently permits visible KAG windows, keyboard control, and screenshots. Prefer player-facing CTF on one repeatable official map; close KAG immediately after each completed or failed evidence run unless an active reload/TCPR iteration requires it to remain open. No KAG process is running at this handoff. Root startup is restored to `CTF`, blank `sv_mapcycle`, and shuffle enabled; all three AIBTest scenario selectors are blank; `Rules/CTF/gamemode.cfg` exists and no disabled rename remains.
+
+Latest visible checkpoint: `../../Logs/console-26-07-14-07-03-51.txt` completes the 27-task team-1 frontline tower on `Maps/Official/CTF/8x_Gloryhill2.png`. Doors complete at ticks 3133 and 3141, the plan archives as completed at tick 3141, and no damage occurs through tick 3630. The fix separates foundation/access/shell/roof/closure, defers doors until solid side-wall adjacency, and leaves two-tile home-facing openings at the platform and roof levels. The prior symmetric one-tile platform gap kept the runner grounded, so KAG's `DetectLadder.as` never engaged and `key_down` only crouched. All 42 offline contracts pass.
 
 The current source defines **65 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
 
@@ -99,8 +101,8 @@ When runtime windows are allowed, continue in this order and stop on the first c
 
 The user permits visible KAG windows and interactive keyboard/screenshot control. Prefer the actual player CTF gamemode, use the same official map for repeatability until it is stable, and close KAG immediately after each evidence run unless actively iterating through reload/TCPR.
 
-1. Continue player-facing CTF on `Maps/Official/CTF/8x_Gloryhill2.png` by diagnosing the remaining stone-door reactivation at `(175,39)`. `../../Logs/console-26-07-14-05-46-02.txt` reports that task damaged at ticks 2940 and 3660 after its tick-2444 completion, while both formerly failing platforms remain healthy through tick 3690. Inspect door orientation/team/health and distinguish genuine damage from identity drift before changing retry behavior.
-2. Preserve the verified phase progression: all seven grounded phase-0 cells complete at ticks 2335-2385, phase 1 starts at tick 2386, and access tasks advance normally. Neutral platform matching must remain catalog-scoped, and director blobs must retain their originating team separately for planner overlap checks. Generated dependencies must remain gated by their owning task, future phases cannot support earlier work, storage delivery must remain post-queue confirmed, and the former `(1404,396)` target must not return. Preserve the earlier economy and team-0 baselines as well.
+1. Continue player-facing CTF on `Maps/Official/CTF/8x_Gloryhill2.png` by obtaining equivalent team-0/mirrored-direction construction evidence while preserving the completed team-1 baseline in `../../Logs/console-26-07-14-07-03-51.txt`.
+2. Preserve the verified phase progression and geometry: seven grounded foundation cells; access before shell; shell before the single enemy-facing roof block; closure doors only after adjacent solid walls; and two-tile home-facing openings at the platform and roof levels. Neutral platform matching must remain catalog-scoped, and director blobs must retain their originating team separately for planner overlap checks. Generated dependencies must remain gated by their owning task, future phases cannot support earlier work, and storage delivery must remain post-queue confirmed.
 3. Keep AIBTest runs short and discriminating. Its fixtures can disappear, misspawn, freeze, or present the wrong camera; do not spend an hour stalled there and do not treat the harness display as authoritative.
 4. Preserve the corrected overflow fixture as a bounded follow-up, then runtime-validate schema v3 and the shared strategy loader before collecting paired-wave data.
 5. Expand to mirrored and uneven official maps only after the same-map economy and construction loop is reliable. Do not claim public readiness until the full current suite, representative both-side maps, and the 48-trial paired matrix are evidenced.

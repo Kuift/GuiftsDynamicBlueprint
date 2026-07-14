@@ -185,6 +185,10 @@ void onTick(CBrain@ this)
 	// Consume that deferred retirement here, before a target-free find state can
 	// select another tree, stone route, or blueprint task between heartbeats.
 	if (AIBM_TryRetireAtSafeBoundary(blob)) return;
+	// Apply the latest director-selected role at the same atomic boundary. This
+	// prevents the old find state from starting another resource episode during
+	// the gap before the next 30-tick strategic observation.
+	if (AIBM_TryApplyDeferredRoleAtSafeBoundary(blob)) return;
 	if (AIBU_IsAutoBuilder(blob))
 	{
 		AIB_TickAutoBuilder(this, blob);

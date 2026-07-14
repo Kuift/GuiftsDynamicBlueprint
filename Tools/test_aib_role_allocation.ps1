@@ -13,6 +13,7 @@ foreach ($needle in @(
     'void AIBS_AssignStableRoles',
     '!builder.get_bool("aib strategy assigned")',
     'if (roles[i] != 255) continue;',
+    'AIBM_ApplyStrategyRole(builder, job, state)',
     'AIBS_ComputeRoleDemand(teamBuilders.length, world.planPending, woodShort, stoneShort',
     'AIBS_AssignStableRoles(teamBuilders, woodCollectors, stoneCollectors, builders);'
 )) {
@@ -42,18 +43,23 @@ if (!$jobs.Contains('builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);') -or
     !$manualCommon.Contains('const string AIBM_RETIRE_PENDING_KEY = "aib strategy retire pending";') -or
     !$manualCommon.Contains('builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);') -or
     !$manualCommon.Contains('bool AIBM_IsAtStrategyHandoff(CBlob@ builder)') -or
-    !$manualCommon.Contains('bool AIBM_TryRetireAtSafeBoundary(CBlob@ builder)')) {
+    !$manualCommon.Contains('void AIBM_ClearNavigationIntent(CBlob@ builder)') -or
+    !$manualCommon.Contains('bool AIBM_IsValidStrategyRole(const u8 job, const u8 state)') -or
+    !$manualCommon.Contains('bool AIBM_ApplyStrategyRole(CBlob@ builder, const u8 job, const u8 state)') -or
+    !$manualCommon.Contains('bool AIBM_TryRetireAtSafeBoundary(CBlob@ builder)') -or
+    !$manualCommon.Contains('bool AIBM_TryApplyDeferredRoleAtSafeBoundary(CBlob@ builder)')) {
     throw 'New work and ownership cleanup must cancel a stale retirement latch'
 }
 $brainTickStart = $brain.IndexOf('void onTick(CBrain@ this)')
 $brainTickEnd = $brain.IndexOf('void AIB_TickAutoBuilder(', $brainTickStart)
 if ($brainTickStart -lt 0 -or $brainTickEnd -le $brainTickStart) { throw 'Could not isolate the AI builder brain tick' }
 $brainTick = $brain.Substring($brainTickStart, $brainTickEnd - $brainTickStart)
-$brainHook = $brainTick.IndexOf('if (AIBM_TryRetireAtSafeBoundary(blob)) return;')
+$retireHook = $brainTick.IndexOf('if (AIBM_TryRetireAtSafeBoundary(blob)) return;')
+$roleHook = $brainTick.IndexOf('if (AIBM_TryApplyDeferredRoleAtSafeBoundary(blob)) return;')
 $autoBuilderHook = $brainTick.IndexOf('if (AIBU_IsAutoBuilder(blob))')
-if (!$brain.Contains('#include "AIBManualOrderCommon.as";') -or $brainHook -lt 0 -or
-    $autoBuilderHook -lt 0 -or $brainHook -ge $autoBuilderHook) {
-    throw 'The brain must consume deferred retirement before a safe find state can select another target'
+if (!$brain.Contains('#include "AIBManualOrderCommon.as";') -or $retireHook -lt 0 -or $roleHook -le $retireHook -or
+    $autoBuilderHook -le $roleHook) {
+    throw 'The brain must consume retirement and then deferred roles before a safe find state can select another target'
 }
 foreach ($needle in @(
     'stockPlanPublished',
@@ -61,7 +67,9 @@ foreach ($needle in @(
     'no_work_idle_retired=true no_work_episode_deferred=true no_work_episode_retired=true',
     'episodeWorker.get_bool(AIBM_RETIRE_PENDING_KEY)',
     'episodeWorker.set_u8("ai builder state", AIBS_STATE_FIND_TREE);',
-    'AIBM_TryRetireAtSafeBoundary(episodeWorker)'
+    'AIBM_TryRetireAtSafeBoundary(episodeWorker)',
+    'deferred_role_held=true deferred_role_applied_at_boundary=true active_plan_role_restored=true',
+    'AIBM_TryApplyDeferredRoleAtSafeBoundary(stockRunner)'
 )) {
     if (!$scenarios.Contains($needle)) { throw "Runtime-ready no-work retirement guard is incomplete: $needle" }
 }
@@ -155,6 +163,18 @@ if ((Get-NoWorkRetirement $true $false 'find_blueprint' $false) -ne 'retired' -o
     (Get-NoWorkRetirement $true $false 'find_tree' $false) -ne 'retired' -or
     (Get-NoWorkRetirement $true $true 'place_blueprint' $true) -ne 'retired') {
     throw 'No-work retirement mirror violated immediate, deferred, or Autobuilder behavior'
+}
+
+function Get-DeferredRoleResult {
+    param([bool]$Assigned, [bool]$Pending, [bool]$Retiring, [bool]$AtBoundary)
+    if ($Assigned -and $Pending -and !$Retiring -and $AtBoundary) { return 'applied' }
+    return 'held'
+}
+if ((Get-DeferredRoleResult $true $true $false $false) -ne 'held' -or
+    (Get-DeferredRoleResult $true $true $false $true) -ne 'applied' -or
+    (Get-DeferredRoleResult $true $true $true $true) -ne 'held' -or
+    (Get-DeferredRoleResult $false $true $false $true) -ne 'held') {
+    throw 'Deferred role mirror violated episode atomicity, retirement priority, or assignment ownership'
 }
 
 Write-Output 'AIB demand-aware stable role allocation contract passed'

@@ -10,11 +10,19 @@ const u8 AIBM_JOB_BLUEPRINT = 2;
 const u8 AIBM_STATE_IDLE = 0;
 const u8 AIBM_STATE_FIND_TREE = 1;
 const u8 AIBM_STATE_FIND_STONE = 7;
+const u8 AIBM_STATE_COLLECT_BLUEPRINT = 12;
 const u8 AIBM_STATE_FIND_BLUEPRINT = 13;
 
 bool AIBM_IsUnderManualControl(CBlob@ builder)
 {
 	return builder !is null && builder.get_bool(AIBM_MANUAL_CONTROL_KEY);
+}
+
+bool AIBM_IsValidStrategyRole(const u8 job, const u8 state)
+{
+	return (job == AIBM_JOB_WOOD && state == AIBM_STATE_FIND_TREE) ||
+		(job == AIBM_JOB_STONE && state == AIBM_STATE_FIND_STONE) ||
+		(job == AIBM_JOB_BLUEPRINT && (state == AIBM_STATE_COLLECT_BLUEPRINT || state == AIBM_STATE_FIND_BLUEPRINT));
 }
 
 bool AIBM_IsAtStrategyHandoff(CBlob@ builder)
@@ -30,21 +38,13 @@ bool AIBM_IsAtStrategyHandoff(CBlob@ builder)
 	return false;
 }
 
-void AIBM_ClearStrategyControl(CBlob@ builder)
+void AIBM_ClearNavigationIntent(CBlob@ builder)
 {
 	if (builder is null) return;
-	const int team = builder.getTeamNum();
-	if (team >= 0 && team < 8) AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());
 	CBrain@ brain = builder.getBrain();
 	if (brain !is null) brain.EndPath();
 	BrainPath@ path;
 	if (builder.get("ai builder brain path", @path) && path !is null) path.EndPath();
-	builder.set_bool("aib strategy assigned", false);
-	builder.set_bool("aib strategy role pending", false);
-	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
-	builder.set_u8("aib strategy pending job", 0);
-	builder.set_u8("aib strategy pending state", 0);
-	builder.set_netid(AIBR_ASSIGNED_HOME_KEY, 0);
 	builder.set_netid("ai builder target", 0);
 	builder.set_Vec2f("ai builder destination", Vec2f_zero);
 	builder.set_Vec2f("ai builder tile target", Vec2f_zero);
@@ -67,6 +67,46 @@ void AIBM_ClearStrategyControl(CBlob@ builder)
 	builder.setKeyPressed(key_action1, false);
 	builder.setKeyPressed(key_action2, false);
 	builder.setKeyPressed(key_action3, false);
+}
+
+void AIBM_ClearDeferredStrategyRole(CBlob@ builder)
+{
+	if (builder is null) return;
+	builder.set_bool("aib strategy role pending", false);
+	builder.set_u8("aib strategy pending job", 0);
+	builder.set_u8("aib strategy pending state", 0);
+}
+
+bool AIBM_ApplyStrategyRole(CBlob@ builder, const u8 job, const u8 state)
+{
+	if (builder is null || builder.hasTag("dead") || !AIBM_IsValidStrategyRole(job, state)) return false;
+	const int team = builder.getTeamNum();
+	const u8 oldJob = builder.get_u8("ai builder job");
+	if (oldJob == AIBM_JOB_BLUEPRINT && job != AIBM_JOB_BLUEPRINT && team >= 0 && team < 8)
+		AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());
+	AIBM_ClearNavigationIntent(builder);
+	builder.set_u8("ai builder job", job);
+	builder.set_u8("ai builder state", state);
+	builder.set_bool("ai builder job active", true);
+	builder.set_bool("aib strategy assigned", true);
+	AIBM_ClearDeferredStrategyRole(builder);
+	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
+	builder.Sync("ai builder job", true);
+	builder.Sync("ai builder state", true);
+	builder.Sync("ai builder job active", true);
+	return true;
+}
+
+void AIBM_ClearStrategyControl(CBlob@ builder)
+{
+	if (builder is null) return;
+	const int team = builder.getTeamNum();
+	if (team >= 0 && team < 8) AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());
+	AIBM_ClearNavigationIntent(builder);
+	builder.set_bool("aib strategy assigned", false);
+	AIBM_ClearDeferredStrategyRole(builder);
+	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);
+	builder.set_netid(AIBR_ASSIGNED_HOME_KEY, 0);
 	builder.Sync(AIBR_ASSIGNED_HOME_KEY, true);
 }
 
@@ -95,6 +135,19 @@ bool AIBM_TryRetireAtSafeBoundary(CBlob@ builder)
 	if (builder is null || !builder.get_bool("aib strategy assigned") ||
 		!builder.get_bool(AIBM_RETIRE_PENDING_KEY) || !AIBM_IsAtStrategyHandoff(builder)) return false;
 	AIBM_StopDirectorControl(builder);
+	return true;
+}
+
+bool AIBM_TryApplyDeferredRoleAtSafeBoundary(CBlob@ builder)
+{
+	if (builder is null || !builder.get_bool("aib strategy assigned") ||
+		builder.get_bool(AIBM_RETIRE_PENDING_KEY) || !builder.get_bool("aib strategy role pending") ||
+		!AIBM_IsAtStrategyHandoff(builder)) return false;
+	const u8 job = builder.get_u8("aib strategy pending job");
+	const u8 state = builder.get_u8("aib strategy pending state");
+	if (!AIBM_ApplyStrategyRole(builder, job, state)) return false;
+	AIBS_Log("assign_handoff", u8(builder.getTeamNum()), "builder=" + builder.getNetworkID() +
+		" job=" + job + " state=" + state);
 	return true;
 }
 

@@ -9,7 +9,7 @@ const u8 AIBS_JOB_BLUEPRINT = AIBM_JOB_BLUEPRINT;
 const u8 AIBS_STATE_IDLE = AIBM_STATE_IDLE;
 const u8 AIBS_STATE_FIND_TREE = AIBM_STATE_FIND_TREE;
 const u8 AIBS_STATE_FIND_STONE = AIBM_STATE_FIND_STONE;
-const u8 AIBS_STATE_COLLECT_BLUEPRINT = 12;
+const u8 AIBS_STATE_COLLECT_BLUEPRINT = AIBM_STATE_COLLECT_BLUEPRINT;
 const u8 AIBS_STATE_FIND_BLUEPRINT = AIBM_STATE_FIND_BLUEPRINT;
 const u8 AIBS_BOOTSTRAP_MIN_HOME_DISTANCE = 6;
 const u8 AIBS_BOOTSTRAP_MAX_HOME_DISTANCE = 24;
@@ -104,22 +104,11 @@ void AIBS_SetBuilderJob(CBlob@ builder, const u8 job, const u8 state)
 	// never recognize it as director-controlled.
 	if (oldJob == job && oldState != AIBS_STATE_IDLE && assigned)
 	{
-		builder.set_bool("aib strategy role pending", false);
+		AIBM_ClearDeferredStrategyRole(builder);
 		return;
 	}
-	if (oldJob == AIBS_JOB_BLUEPRINT && job != AIBS_JOB_BLUEPRINT) AIBP_ReleaseBuilderReservation(u8(builder.getTeamNum()), builder.getNetworkID());
-	builder.set_u8("ai builder job", job);
-	builder.set_u8("ai builder state", state);
-	builder.set_bool("ai builder job active", true);
-	builder.set_netid("ai builder target", 0);
-	builder.set_Vec2f("ai builder destination", Vec2f_zero);
-	builder.set_Vec2f("ai builder tile target", Vec2f_zero);
-	builder.set_bool("aib strategy assigned", true);
-	builder.set_bool("aib strategy role pending", false);
-	builder.Sync("ai builder job", true);
-	builder.Sync("ai builder state", true);
-	builder.Sync("ai builder job active", true);
-	AIBS_Log("assign", u8(builder.getTeamNum()), "builder=" + builder.getNetworkID() + " job=" + job + " state=" + state);
+	if (AIBM_ApplyStrategyRole(builder, job, state))
+		AIBS_Log("assign", u8(builder.getTeamNum()), "builder=" + builder.getNetworkID() + " job=" + job + " state=" + state);
 }
 
 bool AIBS_BuilderAtRoleHandoff(CBlob@ builder, const u8 job, const u8 state)

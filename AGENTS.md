@@ -81,6 +81,8 @@ Resource delivery uses the same terrain-aware principle. Never restore a fixed o
 
 Director storage pressure must count only stock an ordinary production builder can retrieve: loose `mat_*` near the selected tent/hall resource home plus same-team unpacked crates near the shared grounded storage point. Do not restore a global scan of tent, hall, workshop, builder, or remote-crate inventories; that can suppress collectors and make an unfunded plan look paid. `Scripts/AIBHomeResourceCommon.as` owns the shared eligibility used by world observation and the executor, while the advanced UI reads the server-synced accessible totals. Run `Tools/test_aib_accessible_stock.ps1` after changing home material radii, storage-point search, crate eligibility, world resource accounting, or the displayed shortage summary.
 
+On maps with multiple tents/halls, director-owned ordinary runners are pinned to the exact resource home selected by world observation, even if another friendly home is closer to the runner. This keeps retrieval/delivery aligned with the stock that funded the plan. Manual orders retain nearest-home behavior; dead, enemy, or non-home pins are rejected, and stopping a director assignment clears the pin. Autobuilders never receive one. Run `Tools/test_aib_resource_home_identity.ps1` after changing world home selection, assignment, home fallback, or assignment cleanup.
+
 ### Blueprint support and role handoff
 
 Unsupported foreground blueprint blocks are not automatically invalid. If a matching wood or stone backwall chain can connect them to terrain, the planner and executor must agree that the generated backwall is a legal dependency and the builder must place it before the foreground block.

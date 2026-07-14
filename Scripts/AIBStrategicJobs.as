@@ -53,9 +53,34 @@ void AIBS_ResetBootstrapForRound(CRules@ rules, const u8 team)
 	rules.Sync(AIBS_BootstrapKey(team, "provisioned"), true);
 }
 
+void AIBS_SetBuilderResourceHome(CBlob@ builder, const u16 homeID)
+{
+	if (builder is null) return;
+	const u16 desired = AIBU_IsAutoBuilder(builder) ? 0 : homeID;
+	if (builder.get_netid(AIBR_ASSIGNED_HOME_KEY) == desired) return;
+	builder.set_netid(AIBR_ASSIGNED_HOME_KEY, desired);
+	builder.Sync(AIBR_ASSIGNED_HOME_KEY, true);
+}
+
+u16 AIBS_CurrentResourceHomeID(const u8 team)
+{
+	CBlob@ strategicHome = AIBS_TeamHomeBlob(team);
+	Vec2f strategicPosition = strategicHome is null ? Vec2f_zero : strategicHome.getPosition();
+	CBlob@ resourceHome = AIBS_TeamResourceHomeBlob(team, strategicPosition);
+	return resourceHome is null ? 0 : resourceHome.getNetworkID();
+}
+
+u16 AIBS_WorldResourceHomeID(AIBWorldState@ world)
+{
+	if (world is null || world.resourceHome == Vec2f_zero) return 0;
+	return world.resourceHomeID != 0 ? world.resourceHomeID : AIBS_CurrentResourceHomeID(world.team);
+}
+
 void AIBS_SetBuilderJob(CBlob@ builder, const u8 job, const u8 state)
 {
 	if (builder is null || builder.hasTag("dead")) return;
+	if (!AIBU_IsAutoBuilder(builder) && builder.get_netid(AIBR_ASSIGNED_HOME_KEY) == 0)
+		AIBS_SetBuilderResourceHome(builder, AIBS_CurrentResourceHomeID(u8(builder.getTeamNum())));
 	const u8 oldJob = builder.get_u8("ai builder job");
 	const u8 oldState = builder.get_u8("ai builder state");
 	const bool assigned = builder.get_bool("aib strategy assigned");
@@ -512,6 +537,7 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 	{
 		if (!AIBU_IsAutoBuilder(teamBuilders[i])) continue;
 		hasAutoBuilder = true;
+		AIBS_SetBuilderResourceHome(teamBuilders[i], 0);
 		AIBS_SetBuilderJob(teamBuilders[i], AIBS_JOB_BLUEPRINT, AIBS_STATE_FIND_BLUEPRINT);
 		teamBuilders.removeAt(i);
 	}
@@ -529,6 +555,7 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 		}
 		return;
 	}
+	const u16 resourceHomeID = AIBS_WorldResourceHomeID(world);
 	if (hasAutoBuilder)
 	{
 		// A normal bootstrap worker can already exist by the time a player buys
@@ -539,12 +566,14 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 		for (uint i = 0; i < teamBuilders.length; i++)
 		{
 			CBlob@ builder = teamBuilders[i];
+			AIBS_SetBuilderResourceHome(builder, builder.get_bool("aib strategy assigned") ? resourceHomeID : 0);
 			if (builder.get_bool("aib strategy assigned") && builder.get_u8("ai builder job") == AIBS_JOB_BLUEPRINT)
 				AIBS_SetBuilderJob(builder, AIBS_JOB_WOOD, AIBS_STATE_FIND_TREE);
 		}
 		return;
 	}
 	if (teamBuilders.length == 0) return;
+	for (uint i = 0; i < teamBuilders.length; i++) AIBS_SetBuilderResourceHome(teamBuilders[i], resourceHomeID);
 	const u16 woodCost = AIBP_RemainingMaterialCost(world.team, "mat_wood");
 	const u16 stoneCost = AIBP_RemainingMaterialCost(world.team, "mat_stone");
 	const u32 woodShort = woodCost > world.storedWood ? woodCost - world.storedWood : 0;
@@ -567,6 +596,7 @@ void AIBS_StopBuilderAssignment(const u8 team, CBlob@ builder)
 	builder.set_bool("ai builder job active", false);
 	builder.set_bool("aib strategy assigned", false);
 	builder.set_bool("aib strategy role pending", false);
+	AIBS_SetBuilderResourceHome(builder, 0);
 	builder.set_netid("ai builder target", 0);
 	builder.set_Vec2f("ai builder destination", Vec2f_zero);
 	builder.set_Vec2f("ai builder tile target", Vec2f_zero);

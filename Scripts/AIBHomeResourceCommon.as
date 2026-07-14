@@ -2,6 +2,22 @@
 
 const f32 AIBR_LOOSE_HOME_RADIUS = 88.0f;
 const f32 AIBR_CRATE_STORAGE_RADIUS = 128.0f;
+const string AIBR_ASSIGNED_HOME_KEY = "aib strategy resource home";
+
+bool AIBR_IsFriendlyResourceHome(CBlob@ builder, CBlob@ home)
+{
+	if (builder is null || home is null || home.hasTag("dead")) return false;
+	if (home.getTeamNum() != builder.getTeamNum()) return false;
+	const string name = home.getName();
+	return name == "tent" || name == "hall";
+}
+
+CBlob@ AIBR_GetAssignedResourceHome(CBlob@ builder)
+{
+	if (builder is null || !builder.get_bool("aib strategy assigned")) return null;
+	CBlob@ home = getBlobByNetworkID(builder.get_netid(AIBR_ASSIGNED_HOME_KEY));
+	return AIBR_IsFriendlyResourceHome(builder, home) ? home : null;
+}
 
 bool AIBR_IsLooseWorldResource(CBlob@ blob)
 {

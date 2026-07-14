@@ -210,6 +210,7 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 	world.home = home is null ? Vec2f_zero : home.getPosition();
 	CBlob@ resourceHome = AIBS_TeamResourceHomeBlob(team, world.home);
 	world.resourceHome = resourceHome is null ? Vec2f_zero : resourceHome.getPosition();
+	world.resourceHomeID = resourceHome is null ? 0 : resourceHome.getNetworkID();
 	CRules@ rules = getRules();
 	CBlob@ enemyHome = AIBS_EnemyHomeBlob(team, world.home);
 	world.enemyHome = enemyHome is null ? Vec2f_zero : enemyHome.getPosition();

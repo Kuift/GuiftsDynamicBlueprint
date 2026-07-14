@@ -2901,6 +2901,8 @@ CBlob@ AIB_GetNearestTeamHall(CBlob@ blob)
 CBlob@ AIB_GetTeamHome(CBlob@ blob)
 {
 	if (blob is null || blob.getTeamNum() >= 100) return null;
+	CBlob@ assignedHome = AIBR_GetAssignedResourceHome(blob);
+	if (assignedHome !is null) return assignedHome;
 
 	CBlob@ home = AIB_GetNearestTeamBlob(blob, "tent");
 	if (AIB_IsFriendlyHome(blob, home)) return home;
@@ -2911,11 +2913,7 @@ CBlob@ AIB_GetTeamHome(CBlob@ blob)
 
 bool AIB_IsFriendlyHome(CBlob@ blob, CBlob@ home)
 {
-	if (blob is null || home is null || home.hasTag("dead")) return false;
-	if (home.getTeamNum() != blob.getTeamNum()) return false;
-
-	const string name = home.getName();
-	return name == "tent" || name == "hall";
+	return AIBR_IsFriendlyResourceHome(blob, home);
 }
 
 Vec2f AIB_GetHomeDropPoint(CBlob@ home)

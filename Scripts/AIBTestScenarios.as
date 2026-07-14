@@ -664,6 +664,9 @@ void AIBT_ClearScenarioRefs()
 	rules.set_netid("aibt_expected", 0);
 	rules.set_netid("aibt_delayed_bot", 0);
 	rules.set_netid("aibt_enemy", 0);
+	rules.set_netid("aibt_stock_home", 0);
+	rules.set_netid("aibt_stock_secondary_home", 0);
+	rules.set_netid("aibt_stock_runner", 0);
 	rules.set_u8("aibt_ui_stage", 0);
 	rules.set_u8("aibt_pipeline_stage", 0);
 	rules.set_u8("aibt director stage", 0);
@@ -2761,7 +2764,14 @@ void AIBT_SetupScenario(const int index)
 			CBlob@ strategicWorker = AIBT_Spawn("aibuilder", 4, AIBT_Pos(146, AIBT_GROUND_Y - 2));
 			AIBT_DisableStarterMaterials(strategicWorker);
 			AIBT_SetBlob("aibt_strategic_home_loss_worker", strategicWorker);
+			CBlob@ stockFlag = AIBT_Spawn("flag", 5, AIBT_Pos(408, AIBT_GROUND_Y - 2));
 			CBlob@ stockHome = AIBT_SpawnTentTeam(410, 5);
+			CBlob@ secondaryHome = AIBT_SpawnTentTeam(300, 5);
+			CBlob@ stockRunner = AIBT_Spawn("aibuilder", 5, AIBT_Pos(302, AIBT_GROUND_Y - 2));
+			AIBT_DisableStarterMaterials(stockRunner);
+			AIBT_SetBlob("aibt_stock_home", stockHome);
+			AIBT_SetBlob("aibt_stock_secondary_home", secondaryHome);
+			AIBT_SetBlob("aibt_stock_runner", stockRunner);
 			Vec2f stockPoint = AIBR_FindBaseStoragePoint(stockHome);
 			CBlob@ nearCrate = stockPoint == Vec2f_zero ? null : AIBT_Spawn("crate", 5, stockPoint);
 			CBlob@ farCrate = AIBT_Spawn("crate", 5, AIBT_Pos(250, AIBT_GROUND_Y - 2));
@@ -2771,8 +2781,9 @@ void AIBT_SetupScenario(const int index)
 			CBlob@ farLoose = AIBT_Spawn("mat_wood", 5, AIBT_Pos(270, AIBT_GROUND_Y - 2));
 			if (nearLoose !is null) nearLoose.server_SetQuantity(30);
 			if (farLoose !is null) farLoose.server_SetQuantity(70);
-			getRules().set_bool("aibt accessible stock setup", stockHome !is null && stockPoint != Vec2f_zero &&
-				nearCrate !is null && farCrate !is null && nearLoose !is null && farLoose !is null);
+			getRules().set_bool("aibt accessible stock setup", stockFlag !is null && stockHome !is null &&
+				secondaryHome !is null && stockRunner !is null && stockPoint != Vec2f_zero && nearCrate !is null &&
+				farCrate !is null && nearLoose !is null && farLoose !is null);
 			AIBT_SetBlob("aibt_bot", bot);
 			CRules@ rules = getRules();
 			for (u8 team = 0; team < 5; team++)
@@ -3985,9 +3996,19 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				AIBT_CountLayerTiles(1, AIBP_Layer::ai_desired) > 0 && AIBT_LayerIsEmpty(1, AIBP_Layer::ai_work);
 			const bool noHomeTeam2Plan = rules.get_u16(AIBP_PlanKey(2, "id")) == 0;
 			AIBWorldState@ stockWorld = AIBS_ObserveWorld(5);
+			AIBS_AssignBuilders(stockWorld);
+			CBlob@ stockHome = AIBT_GetBlob("aibt_stock_home");
+			CBlob@ secondaryHome = AIBT_GetBlob("aibt_stock_secondary_home");
+			CBlob@ stockRunner = AIBT_GetBlob("aibt_stock_runner");
 			const bool accessibleStockExact = rules.get_bool("aibt accessible stock setup") && stockWorld !is null &&
 				stockWorld.storedWood == 130 && stockWorld.storedStone == 0 &&
 				rules.get_u16("aib strategy accessible wood team 5") == 130;
+			const bool assignedResourceHomePinned = stockWorld !is null && stockHome !is null && secondaryHome !is null &&
+				stockRunner !is null && stockWorld.resourceHomeID == stockHome.getNetworkID() &&
+				(stockRunner.getPosition() - secondaryHome.getPosition()).Length() <
+					(stockRunner.getPosition() - stockHome.getPosition()).Length() &&
+				stockRunner.get_bool("aib strategy assigned") &&
+				stockRunner.get_netid(AIBR_ASSIGNED_HOME_KEY) == stockHome.getNetworkID();
 			array<u8>@ resourceStates = null; array<u16>@ resourceReserved = null; array<u32>@ resourceUntils = null;
 			rules.get(AIBP_TaskKey(3, "state"), @resourceStates);
 			rules.get(AIBP_TaskKey(3, "reserved"), @resourceReserved);
@@ -4020,10 +4041,11 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				team1Builders == 0 && team2Builders == 0 &&
 				!rules.get_bool(AIBS_BootstrapKey(0, "provisioned")) &&
 				!rules.get_bool(AIBS_BootstrapKey(1, "provisioned")) &&
-				!rules.get_bool(AIBS_BootstrapKey(2, "provisioned")) && accessibleStockExact && resourceHomeSuspended && homeLossClosed;
+				!rules.get_bool(AIBS_BootstrapKey(2, "provisioned")) && accessibleStockExact && assignedResourceHomePinned &&
+				resourceHomeSuspended && homeLossClosed;
 			if (guardsHeld)
 			{
-				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true accessible_stock_exact=true remote_stock_excluded=true loose_home_stock_included=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
+				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true accessible_stock_exact=true remote_stock_excluded=true loose_home_stock_included=true assigned_resource_home_pinned=true nearer_secondary_ignored=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
 				return true;
 			}
 			if (elapsed > 100)
@@ -4031,6 +4053,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				failure = "bootstrap_guard_failed active_plan=" + (activeTeam0Plan ? "true" : "false") +
 					" suggest_plan=" + (suggestedTeam1Plan ? "true" : "false") + " no_home_plan=" + (noHomeTeam2Plan ? "true" : "false") +
 					" accessible_stock=" + (accessibleStockExact ? "true" : "false") +
+					" assigned_home=" + (assignedResourceHomePinned ? "true" : "false") +
 					" resource_home_suspended=" + (resourceHomeSuspended ? "true" : "false") + " home_loss_closed=" + (homeLossClosed ? "true" : "false") +
 					" team0=" + team0Builders + " team0_bootstrap=" + team0Bootstrap +
 					" team1=" + team1Builders + " team2=" + team2Builders +

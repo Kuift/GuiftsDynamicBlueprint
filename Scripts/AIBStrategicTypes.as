@@ -53,6 +53,7 @@ class AIBWorldState
 	u8 team;
 	Vec2f home;
 	Vec2f resourceHome;
+	u16 resourceHomeID;
 	Vec2f enemyHome;
 	Vec2f frontline;
 	s8 enemyDirection;

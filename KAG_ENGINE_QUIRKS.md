@@ -227,12 +227,12 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Do not conclude: detecting the correct escape direction proves recovery completed.
 - Workaround: the geometry-specific direct controller owns movement for 36 ticks to create a real run-up, followed by a 90-tick recovery cooldown. Judge success by displacement and eventual task progress, not by the escape event itself.
 
-### `CInventory.isFull()` can lag same-tick server insertions
+### `CInventory.isFull()` can lag or disagree with item-specific capacity
 
 - Symptom: a fixture loops on `!inventory.isFull()` while calling `server_PutInInventory`, queues more items than the configured slot count, then the visible localhost simulation freezes during replication.
-- Reproduced case: a 3x3 crate accepted/queued 18 material blobs in one setup tick before the loop observed fullness.
-- Do not conclude: `isFull()` is a synchronous postcondition for inventory mutations queued in the same tick.
-- Workaround: when constructing a deterministic fixture, use the configured slot count (nine for `Crate.cfg`) or spread inserts across ticks. Production code should judge the return value of each insertion and re-evaluate capacity on later ticks.
+- Reproduced cases: a 3x3 crate accepted/queued 18 material blobs in one setup tick before the loop observed fullness; later, a crate with nine settled 1x1 entries still reported `isFull() == false` in `console-26-07-14-10-04-11.txt`.
+- Do not conclude: `isFull()` is a synchronous postcondition for queued mutations, or a reliable answer to whether one particular blob can fit.
+- Workaround: when constructing a deterministic fixture, use the configured slot count (nine for `Crate.cfg`), verify every item's configured inventory footprint, wait for `getItemsCount()` to settle, then call `canPutItem(prospectiveBlob)`. A `boulder` is one blob but occupies the full 3x3 crate footprint, so it cannot stand in for a one-slot filler. Production code should use the same item-specific predicate, judge each insertion result, and re-evaluate on later ticks.
 
 ### Newly placed recovery structures may not immediately solve routing
 

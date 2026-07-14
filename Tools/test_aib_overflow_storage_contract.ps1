@@ -88,8 +88,11 @@ if ($crateFailure -notmatch 'crate\.server_Die\(\)') {
     throw 'An unpaid overflow crate is not removed after payment failure'
 }
 
-if ($brain -notmatch 'stored\.getQuantity\(\) < stored\.maxQuantity') {
-    throw 'Full-crate merge capacity does not reject already-full material stacks'
+if ($brain -notmatch 'crateInv\.canPutItem\(item\)') {
+    throw 'Crate capacity does not ask whether the prospective resource blob can fit'
+}
+if ($brain -match 'if \(!crateInv\.isFull\(\)\) return true;') {
+    throw 'Crate capacity still trusts the non-item-specific isFull predicate'
 }
 if ($brain -notmatch 'candidate - Vec2f\(0\.0f, map\.tilesize\).*"no build"') {
     throw 'Overflow placement does not protect the crate head cell from no-build sectors'
@@ -106,8 +109,45 @@ if ($fillers.Count -ne 8 -or ($fillers | Select-Object -Unique).Count -ne 8) {
 if ($scenarios -notmatch 'wood\.server_SetQuantity\(250\)') {
     throw 'Overflow fixture no longer funds the crate from one full wood stack'
 }
+if ($fillers -contains 'boulder' -or $fillers -notcontains 'satchel') {
+    throw 'Overflow fixture must use nine one-slot stacks; boulder occupies the crate''s full 3x3 footprint'
+}
+foreach ($needle in @(
+    'AIBT_SetBlob("aibt overflow full crate", fullCrate);',
+    'settledItems == 9 && fullInv.getCount("mat_wood") == 250',
+    'fullInv.getCount("mat_wood") == 250',
+    '"overflow_fixture_not_ready items="',
+    'AIBT_CountInventoryMaterial(bot, "mat_stone") == 100',
+    'fullInv.canPutItem(stone)',
+    '"overflow_fixture_accepts_stone items="',
+    'rules.set_u8("aibt overflow stage", 2);'
+)) {
+    if (!$scenarios.Contains($needle)) { throw "Overflow fixture readiness gate is incomplete: $needle" }
+}
 if ($scenarios -notmatch 'storedStone == 100' -or $scenarios -notmatch 'storedWood == initialWood - 150') {
     throw 'Overflow verdict does not prove exact stone delivery and retained stored wood'
+}
+
+$looseStoneStart = $brain.IndexOf('CBlob@ AIB_GetLooseBaseStoneSource(')
+$stoneUseStart = $brain.IndexOf('bool AIB_TryUseBaseStoneSource(', $looseStoneStart)
+if ($looseStoneStart -lt 0 -or $stoneUseStart -le $looseStoneStart) {
+    throw 'Loose base-stone source selector could not be isolated'
+}
+$looseStone = $brain.Substring($looseStoneStart, $stoneUseStart - $looseStoneStart)
+foreach ($needle in @(
+    'AIBR_IsLooseHomeMaterial(home, candidate)',
+    'AIB_IsBaseStoneSource(blob, candidate)'
+)) {
+    if (!$looseStone.Contains($needle)) { throw "Loose base-stone source filtering is incomplete: $needle" }
+}
+if ($looseStone.Contains('AIB_GetCratedHomeMaterialSource') -or $looseStone.Contains('getBlobsByName("crate"')) {
+    throw 'Stone runners can still select completed crated deliveries as fresh base supply'
+}
+$stoneUseEnd = $brain.IndexOf('Vec2f AIB_GetStoneSupplyWaitPoint(', $stoneUseStart)
+$stoneUse = $brain.Substring($stoneUseStart, $stoneUseEnd - $stoneUseStart)
+if (!$stoneUse.Contains('AIB_GetLooseBaseStoneSource(blob, home)') -or
+    $stoneUse.Contains('AIB_GetHomeMaterial(blob, home, "mat_stone")')) {
+    throw 'Stone fallback still withdraws generic home/crated stone'
 }
 if ($scenarios -notmatch 'liveWood == initialWood - 150' -or $scenarios -notmatch 'liveStone == 100') {
     throw 'Overflow verdict does not prove whole-world material conservation'

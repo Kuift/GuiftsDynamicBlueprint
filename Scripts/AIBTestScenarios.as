@@ -723,6 +723,9 @@ void AIBT_ClearScenarioRefs()
 	rules.set_bool("aibt blueprint crate stone withdrawn", false);
 	rules.set_string("aibt blueprint scene signature", "");
 	rules.set_string("aibt support scene signature", "");
+	rules.set_netid("aibt overflow full crate", 0);
+	rules.set_u8("aibt overflow stage", 0);
+	rules.set_u8("aibt overflow settled items", 0);
 	rules.set_f32("aibt left corner start x", 0.0f);
 	rules.set_f32("aibt right corner start x", 0.0f);
 	rules.set_bool("aibt fallback setup", false);
@@ -1831,7 +1834,7 @@ u16 AIBT_FillCrateWithWood(CBlob@ crate)
 	// real funding stack and fill the other eight 3x3 crate slots with distinct,
 	// non-stackable base items. The 150-wood purchase reduces the wood quantity
 	// but does not free its slot, forcing a genuine secondary crate.
-	string[] fillers = { "seed", "bomb", "waterbomb", "mine", "lantern", "bucket", "sponge", "boulder" };
+	string[] fillers = { "seed", "bomb", "waterbomb", "mine", "lantern", "bucket", "sponge", "satchel" };
 	u8 inserted = 0;
 	for (uint i = 0; i < fillers.length; i++)
 	{
@@ -2947,15 +2950,13 @@ void AIBT_SetupScenario(const int index)
 				fullCrate.Tag("aibuilder resource crate");
 				fullCrate.Tag("aibuilder full resource crate");
 			}
+			AIBT_SetBlob("aibt overflow full crate", fullCrate);
 			const u16 initialWood = AIBT_FillCrateWithWood(fullCrate);
 			getRules().set_u16("aibt overflow initial wood", initialWood);
 			CBlob@ shop = AIBT_Spawn("buildershop", 0, AIBT_Pos(homeX + 18, AIBT_GROUND_Y - 3));
 			if (shop !is null) shop.Tag("aibuilder built storage shop");
 			@bot = AIBT_SpawnBot(homeX);
 			AIBT_DisableStarterMaterials(bot);
-			AIBT_GiveMaterial(bot, "mat_stone", 100);
-			bot.set_u8("ai builder job", AIBT_JOB_STONE);
-			AIBT_ForceState(bot, AIBT_RETURN_WOOD);
 			break;
 		}
 
@@ -4366,6 +4367,57 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 52:
 		{
+			CRules@ rules = getRules();
+			CBlob@ fullCrate = AIBT_GetBlob("aibt overflow full crate");
+			CInventory@ fullInv = fullCrate is null ? null : fullCrate.getInventory();
+			const int settledItems = fullInv is null ? 0 : fullInv.getItemsCount();
+			if (rules !is null) rules.set_u8("aibt overflow settled items", u8(settledItems));
+			const u8 stage = rules is null ? 0 : rules.get_u8("aibt overflow stage");
+
+			if (stage == 0)
+			{
+				if (fullInv !is null && settledItems == 9 && fullInv.getCount("mat_wood") == 250)
+				{
+					AIBT_GiveMaterial(bot, "mat_stone", 100);
+					if (rules !is null) rules.set_u8("aibt overflow stage", 1);
+					AIB_LogEvent("test", "overflow_fixture_ready", AIBT_BlobRef(fullCrate),
+						"items=" + settledItems + " wood=250");
+					return false;
+				}
+				if (elapsed > 30)
+				{
+					failure = "overflow_fixture_not_ready items=" + settledItems +
+						" wood=" + (fullInv is null ? 0 : fullInv.getCount("mat_wood"));
+					return true;
+				}
+				return false;
+			}
+
+			if (stage == 1)
+			{
+				if (AIBT_CountInventoryMaterial(bot, "mat_stone") == 100)
+				{
+					CInventory@ botInv = bot is null ? null : bot.getInventory();
+					CBlob@ stone = botInv is null ? null : botInv.getItem("mat_stone");
+					if (stone is null || fullInv is null || fullInv.canPutItem(stone))
+					{
+						failure = "overflow_fixture_accepts_stone items=" + settledItems +
+							" stone=" + (stone is null ? 0 : stone.getQuantity());
+						return true;
+					}
+					bot.set_u8("ai builder job", AIBT_JOB_STONE);
+					AIBT_ForceState(bot, AIBT_RETURN_WOOD);
+					if (rules !is null) rules.set_u8("aibt overflow stage", 2);
+					return false;
+				}
+				if (elapsed > 45)
+				{
+					failure = "overflow_delivery_material_not_ready stone=" + AIBT_CountInventoryMaterial(bot, "mat_stone");
+					return true;
+				}
+				return false;
+			}
+
 			const u16 initialWood = getRules().get_u16("aibt overflow initial wood");
 			const u8 fillers = getRules().get_u8("aibt overflow fillers");
 			const u16 liveWood = AIBT_CountAllLiveMaterial("mat_wood");

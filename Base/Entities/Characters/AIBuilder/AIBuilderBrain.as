@@ -4126,6 +4126,30 @@ bool AIB_TryMaintainBaseQuarry(CBrain@ brain, CBlob@ blob, CBlob@ home)
 	return false;
 }
 
+CBlob@ AIB_GetLooseBaseStoneSource(CBlob@ blob, CBlob@ home)
+{
+	if (blob is null || home is null) return null;
+
+	CBlob@ best = null;
+	f32 bestDistance = 999999.0f;
+	CBlob@[] stone;
+	getBlobsByName("mat_stone", @stone);
+	for (uint i = 0; i < stone.length; i++)
+	{
+		CBlob@ candidate = stone[i];
+		if (!AIBR_IsLooseHomeMaterial(home, candidate)) continue;
+		if (!AIB_IsBaseStoneSource(blob, candidate)) continue;
+
+		const f32 distance = (candidate.getPosition() - blob.getPosition()).Length();
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			@best = candidate;
+		}
+	}
+	return best;
+}
+
 bool AIB_TryUseBaseStoneSource(CBrain@ brain, CBlob@ blob)
 {
 	if (brain is null || blob is null) return false;
@@ -4137,7 +4161,10 @@ bool AIB_TryUseBaseStoneSource(CBrain@ brain, CBlob@ blob)
 		return true;
 	}
 
-	CBlob@ storedStone = AIB_GetHomeMaterial(blob, home, "mat_stone");
+	// A stone runner may collect fresh loose quarry/fallback output, but must
+	// never withdraw crated stock. Crated stone is a completed delivery; taking
+	// it immediately starts a return/reclaim loop with no resource outcome.
+	CBlob@ storedStone = AIB_GetLooseBaseStoneSource(blob, home);
 	if (storedStone !is null)
 	{
 		const f32 pickupDistance = storedStone.getName() == "crate" ? 28.0f : 18.0f;
@@ -4452,7 +4479,8 @@ bool AIB_CrateCanTakeAnyResource(CBlob@ crate, CBlob@ blob)
 
 	CInventory@ crateInv = crate.getInventory();
 	if (crateInv is null) return false;
-	if (!crateInv.isFull()) return true;
+	CBlob@ carried = blob.getCarriedBlob();
+	if (AIB_IsResourceBlob(carried) && crateInv.canPutItem(carried)) return true;
 
 	CInventory@ blobInv = blob.getInventory();
 	if (blobInv is null) return false;
@@ -4460,19 +4488,10 @@ bool AIB_CrateCanTakeAnyResource(CBlob@ crate, CBlob@ blob)
 	{
 		CBlob@ item = blobInv.getItem(i);
 		if (!AIB_IsResourceBlob(item)) continue;
-
-		// A full inventory can only accept this resource by merging into a
-		// matching partial stack. getCount(name) alone is insufficient: a full
-		// 250-material stack still has a positive count but has no capacity.
-		for (uint j = 0; j < crateInv.getItemsCount(); j++)
-		{
-			CBlob@ stored = crateInv.getItem(j);
-			if (stored !is null && stored.getName() == item.getName() &&
-				stored.getQuantity() < stored.maxQuantity)
-			{
-				return true;
-			}
-		}
+		// isFull() is not an item-specific capacity predicate: it can stay false
+		// for a settled nine-slot crate. canPutItem accounts for the prospective
+		// blob's footprint, stack limit, and compatible partial stacks.
+		if (crateInv.canPutItem(item)) return true;
 	}
 	return false;
 }

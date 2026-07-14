@@ -9,6 +9,10 @@
 const u32 AIBW_ARCHER_FIRE_CYCLE = 52;
 const u32 AIBW_ARCHER_DRAW_TICKS = 40;
 const u16 AIBW_ARCHER_ARROWS = 60;
+const u32 AIBW_JUMP_HOLD_TICKS = 18;
+const u32 AIBW_JUMP_RETRY_TICKS = 30;
+const u32 AIBW_STALL_TICKS = 12;
+const f32 AIBW_PROGRESS_STEP = 4.0f;
 
 u32 AIBW_DesiredPlanCost(const u8 team)
 {
@@ -147,6 +151,11 @@ bool AIBW_Start(CRules@ rules)
 		AIBW_Abort(rules, "missing_initial_state", null);
 		return false;
 	}
+	if (!rules.isMatchRunning())
+	{
+		AIBW_Abort(rules, "match_not_running", null);
+		return false;
+	}
 	if (!AIBW_CaptureMeasurementState(rules, team))
 	{
 		AIBW_Abort(rules, "missing_measurement_state", null);
@@ -246,6 +255,8 @@ void AIBW_SpawnUnit(CRules@ rules)
 		unit.set_u8("aib wave target team", team);
 		unit.set_u8("aib wave spawn index", index);
 		unit.set_u32("aib wave spawn tick", getGameTime());
+		unit.set_f32("aib wave progress x", unit.getPosition().x);
+		unit.set_u32("aib wave progress tick", getGameTime());
 		AIBW_EquipArcher(unit);
 	}
 	rules.set_u8("aib wave spawned", index + 1);
@@ -278,9 +289,25 @@ void AIBW_DriveUnits(CRules@ rules)
 		CBlob@ unit = units[i];
 		if (unit is null || unit.hasTag("dead")) continue;
 		const f32 direction = home.getPosition().x >= unit.getPosition().x ? 1.0f : -1.0f;
-		unit.setKeyPressed(direction > 0 ? key_right : key_left, true);
+		unit.setKeyPressed(key_left, direction < 0);
+		unit.setKeyPressed(key_right, direction > 0);
+		unit.setKeyPressed(key_down, false);
 		const bool isArcher = unit.getName() == "archer";
-		const u32 age = getGameTime() - unit.get_u32("aib wave spawn tick");
+		const u32 now = getGameTime();
+		const u32 age = now - unit.get_u32("aib wave spawn tick");
+		const f32 progressX = unit.get_f32("aib wave progress x");
+		if ((unit.getPosition().x - progressX) * direction >= AIBW_PROGRESS_STEP)
+		{
+			unit.set_f32("aib wave progress x", unit.getPosition().x);
+			unit.set_u32("aib wave progress tick", now);
+		}
+		const bool obstructed = age > 10 && now - unit.get_u32("aib wave progress tick") >= AIBW_STALL_TICKS;
+		if (obstructed && now >= unit.get_u32("aib wave next jump tick"))
+		{
+			unit.set_u32("aib wave jump until", now + AIBW_JUMP_HOLD_TICKS);
+			unit.set_u32("aib wave next jump tick", now + AIBW_JUMP_RETRY_TICKS);
+		}
+		unit.setKeyPressed(key_up, now < unit.get_u32("aib wave jump until"));
 		const bool attackPressed = !isArcher || age % AIBW_ARCHER_FIRE_CYCLE < AIBW_ARCHER_DRAW_TICKS;
 		unit.setKeyPressed(key_action1, attackPressed);
 		unit.setAimPos(home.getPosition());
@@ -302,6 +329,23 @@ void AIBW_DriveUnits(CRules@ rules)
 				rules.set_u32("aib wave first breach", getGameTime() - rules.get_u32("aib wave start tick"));
 			}
 		}
+	}
+}
+
+void AIBW_ReleaseUnitControls()
+{
+	CBlob@[] units;
+	getBlobsByTag("aib strategy wave unit", @units);
+	for (uint i = 0; i < units.length; i++)
+	{
+		CBlob@ unit = units[i];
+		if (unit is null) continue;
+		unit.setKeyPressed(key_left, false);
+		unit.setKeyPressed(key_right, false);
+		unit.setKeyPressed(key_up, false);
+		unit.setKeyPressed(key_down, false);
+		unit.setKeyPressed(key_action1, false);
+		unit.setKeyPressed(key_action2, false);
 	}
 }
 
@@ -341,7 +385,15 @@ void AIBW_GetConstructionWorkers(array<CBlob@> &out builders)
 
 void AIBW_Finish(CRules@ rules)
 {
+	AIBW_ReleaseUnitControls();
 	const u8 team = rules.get_u8("aib wave team");
+	if (rules.get_u8("aib wave spawned") > 0 && rules.get_u8("aib wave crossings") == 0 &&
+		rules.get_u8("aib wave deaths") == 0 && rules.get_u8("aib wave flag approaches") == 0 &&
+		rules.get_u16("aib wave damage events") == 0)
+	{
+		AIBW_Abort(rules, "no_pressure_outcome", AIBW_CurrentCandidate(team));
+		return;
+	}
 	const u32 elapsed = getGameTime() - rules.get_u32("aib wave start tick");
 	const u32 absorbedCost = rules.get_u32("aib wave damage cost");
 	const u32 completionTick = rules.get_u32("aib wave completion tick");

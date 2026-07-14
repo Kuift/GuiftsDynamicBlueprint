@@ -55,6 +55,29 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Reliable check: compare game time and log length over time. `Tools/run_aib_tests.ps1` reports this as a distinct stale-simulation/log condition after 25 seconds.
 - Workaround: keep focused scenarios short, use exact/range runs, and preserve the last advancing heartbeat as partial evidence only. A PASS without the final `[AIBTEST] DONE` is not a completed run.
 
+### A CTF pressure wave in staging is not valid evidence
+
+- Symptom: the harness spawns all 12 enemy units and reaches its 1,200-tick result, but records zero crossings, deaths, flag approaches, or damage while the client still says there are not enough players to start.
+- Reproduced on build 4762: `console-26-07-14-08-34-31.txt` emitted a complete `wave_result`; a TCPR count confirmed 12 tagged knights, with the first still at enemy-side x=1447.69. The visible client remained in `Staging` and the pre-match barrier prevented a representative attack.
+- Do not conclude: a structurally complete result record is a trustworthy control trial.
+- Workaround: require `CRules.isMatchRunning()` before measurement capture. Abort with `match_not_running` while staging, then start the match with real players/bots and use a fresh canonical map before collecting the trial.
+
+### Directly driven runners retain buttons and do not scale terrain automatically
+
+- Symptom: a wave runner advances from its spawn and then remains motionless with its horizontal movement key still pressed; a completed trial can therefore report 12 living attackers and zero pressure outcomes.
+- Reproduced on build 4762: in `console-26-07-14-08-57-28.txt`, a directly spawned team-1 knight was dynamic, unattached, outside inventory, and had a brain, but was not bound to a player or bot. One leftward velocity/input advanced it from x=1580 to x=1447.69, where it remained with `left=true`. Giving its brain the opposing tent as a target did not move it. Holding jump for one second cleared the obstruction to x=1442.69, after which ordinary left input advanced it to x=1391.24 before the next obstruction.
+- Do not conclude: a pressed horizontal key, forced velocity, a non-null `CBrain`, or a path target proves that an unbound runner can traverse representative CTF terrain. Also do not assume buttons clear when the rules script stops driving them.
+- Additional evidence: the first speed-based recovery advanced all 12 runners from x=1580 to x=983 in `console-26-07-14-09-10-55.txt`, but they converged at the next blocker. The rules-side forced velocity was not a reliable stall signal because intent velocity could remain nonzero while collision prevented displacement.
+- The displacement-based retry compiled and ran in `console-26-07-14-09-20-52.txt`, but all 12 runners fell into Gloryhill's central pit and converged at approximately `(983,400)`. A later clear/grounded home-relative spawn experiment in `console-26-07-14-09-33-31.txt` selected another pit at `(340,380)` and stalled near `(280,368)`; it was reverted rather than promoted to production.
+- Workaround: the wave controller measures forward x displacement, holds jump for a bounded interval when that progress stalls, releases before a bounded retry, and explicitly clears synthetic controls when the trial finishes. It aborts `no_pressure_outcome` rather than emitting a comparable zero-pressure record. A future alternate spawn must prove route connectivity, not merely clear volume and solid ground. Keys and velocity are intent evidence, not motion evidence.
+
+### `const Vec2f` can lose ordinary vector operators in AngelScript
+
+- Symptom: code that reads a rules vector into `const Vec2f` fails compilation on equality with `Vec2f_zero` and addition with a temporary `Vec2f`, even though the same operators work on a mutable local.
+- Reproduced on build 4762: `console-26-07-14-09-30-43.txt` rejected `spawn == Vec2f_zero`, `spawn + Vec2f(0, yOffset)`, and a second `const Vec2f` zero comparison while compiling the wave harness/arm helper.
+- Do not conclude: C++-style const qualification is transparent to KAG's AngelScript operator overload resolution.
+- Workaround: keep local `Vec2f` values mutable when they need engine-defined equality or arithmetic operators. Const scalar components remain safe.
+
 ### Adjacent final-verdict `print()` calls are not an atomic completion boundary
 
 - Symptom: a focused run writes its final `PASS` and then stops before the immediately following event/DONE prints in the same rules tick.

@@ -19,6 +19,8 @@ foreach ($needle in @(
 
 foreach ($needle in @(
     'bool AIBW_CaptureMeasurementState',
+	'if (!rules.isMatchRunning())',
+	'AIBW_Abort(rules, "match_not_running", null);',
     'if (!AIBW_CaptureMeasurementState(rules, team))',
 	'AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,',
     '" fixture_id="',
@@ -26,9 +28,24 @@ foreach ($needle in @(
     '" team_side="',
     '" measurement_fingerprint="',
     'spawnInterval = 40 + (this.get_u32("aib wave seed") % 11)',
-    'formation = (seed *'
+    'formation = (seed *',
+	'unit.set_f32("aib wave progress x", unit.getPosition().x);',
+	'unit.set_u32("aib wave progress tick", getGameTime());',
+	'if ((unit.getPosition().x - progressX) * direction >= AIBW_PROGRESS_STEP)',
+	'const bool obstructed = age > 10 && now - unit.get_u32("aib wave progress tick") >= AIBW_STALL_TICKS;',
+	'unit.set_u32("aib wave jump until", now + AIBW_JUMP_HOLD_TICKS);',
+	'unit.set_u32("aib wave next jump tick", now + AIBW_JUMP_RETRY_TICKS);',
+	'unit.setKeyPressed(key_up, now < unit.get_u32("aib wave jump until"));',
+	'void AIBW_ReleaseUnitControls()',
+	'AIBW_ReleaseUnitControls();',
+	'AIBW_Abort(rules, "no_pressure_outcome", AIBW_CurrentCandidate(team));'
 )) {
     if (!$harness.Contains($needle)) { throw "Wave harness is missing contract source: $needle" }
+}
+$matchGateAt = $harness.IndexOf('if (!rules.isMatchRunning())')
+$measurementAt = $harness.IndexOf('if (!AIBW_CaptureMeasurementState(rules, team))')
+if ($matchGateAt -lt 0 -or $measurementAt -lt 0 -or $matchGateAt -gt $measurementAt) {
+    throw 'Wave match-running gate must reject staging before measurement evidence is captured'
 }
 
 foreach ($field in @('fixture_id', 'fixture_version', 'team', 'team_side', 'initial_fingerprint', 'measurement_fingerprint')) {

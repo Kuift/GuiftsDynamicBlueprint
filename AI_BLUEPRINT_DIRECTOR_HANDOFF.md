@@ -99,8 +99,8 @@ When runtime windows are allowed, continue in this order and stop on the first c
 
 The user permits visible KAG windows and interactive keyboard/screenshot control. Prefer the actual player CTF gamemode, use the same official map for repeatability until it is stable, and close KAG immediately after each evidence run unless actively iterating through reload/TCPR.
 
-1. Continue player-facing CTF on `Maps/Official/CTF/8x_Gloryhill2.png` and diagnose the team-1 post-workshop crate creation/gold deposit blocker.
-2. Continue the team-0 archer-perch from its proven 4/18 production checkpoint to completion or the first classified blocker.
+1. Continue player-facing CTF on `Maps/Official/CTF/8x_Gloryhill2.png` and follow both autonomous plans to completion or the first classified blocker. Team 0's strongest checkpoint remains 4/18 archer-perch tasks.
+2. Preserve the resolved team-1 first-delivery contract: `../../Logs/console-26-07-14-04-28-43.txt` records 50 wood, 50 stone, and 60 gold grounded at the accessible home point, safe exit from `return_wood`, no delivered-stone reclaim, and plan retention. Existing/full-crate overflow must remain crate-only.
 3. Keep AIBTest runs short and discriminating. Its fixtures can disappear, misspawn, freeze, or present the wrong camera; do not spend an hour stalled there and do not treat the harness display as authoritative.
 4. Preserve the corrected overflow fixture as a bounded follow-up, then runtime-validate schema v3 and the shared strategy loader before collecting paired-wave data.
 5. Expand to mirrored and uneven official maps only after the same-map economy and construction loop is reliable. Do not claim public readiness until the full current suite, representative both-side maps, and the 48-trial paired matrix are evidenced.

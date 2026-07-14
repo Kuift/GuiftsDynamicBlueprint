@@ -2870,6 +2870,10 @@ bool AIB_CollectNearbyGold(CBlob@ blob)
 bool AIB_IsBaseStoneSource(CBlob@ blob, CBlob@ stone)
 {
 	if (blob is null || !AIB_IsLooseWorldResource(stone)) return false;
+	// Grounded no-crate delivery is accessible team stock, not a quarry output.
+	// Without this guard a stone runner immediately reclaims its own deposit and
+	// can loop between the mine and home without increasing stored resources.
+	if (stone.hasTag("aibuilder delivered resource")) return false;
 	if (stone.hasTag("aibuilder stone supply")) return true;
 	if (stone.hasTag("aibuilder base stone source")) return true;
 
@@ -3361,6 +3365,22 @@ bool AIB_CanBuildBaseWorkshopAt(Vec2f pos, CBlob@ home, CBlob@[]@ siteBlobs)
 	return !AIB_HasBaseWorkshopBlockingBlob(pos, siteBlobs);
 }
 
+bool AIB_DropInitialResourcesAtHome(CBlob@ blob, CBlob@ home)
+{
+	if (blob is null || home is null) return false;
+	Vec2f storage = AIB_GetBaseStoragePoint(home);
+	if (storage == Vec2f_zero) return false;
+	const u16 wood = AIB_CountMaterial(blob, "mat_wood");
+	const u16 stone = AIB_CountMaterial(blob, "mat_stone");
+	const u16 gold = AIB_CountMaterial(blob, "mat_gold");
+	AIB_DropAllResourcesAtPosition(blob, storage);
+	if (AIB_HasAnyResource(blob)) return false;
+	AIB_LogEvent("ai", "store_resources_loose", AIB_EventBlobRef(blob),
+		"home=" + AIB_EventBlobRef(home) + " reason=no_initial_crate wood=" + wood +
+		" stone=" + stone + " gold=" + gold + " pos=" + AIB_EventPos(storage));
+	return true;
+}
+
 bool AIB_StoreResourcesInBaseCrates(CBlob@ blob, CBlob@ home)
 {
 	if (blob is null || home is null) return false;
@@ -3379,13 +3399,21 @@ bool AIB_StoreResourcesInBaseCrates(CBlob@ blob, CBlob@ home)
 		CBlob@ crate = AIB_GetBestBaseResourceCrate(blob, home);
 		if (crate is null)
 		{
+			const bool hasBaseCrate = AIB_CountBaseResourceCrates(home) > 0;
 			if (shop is null)
 			{
+				// A base with no storage must still be able to finish its first
+				// resource episode. The free runner can afford the workshop but not
+				// the 150-wood crate, and waiting here deadlocks a one-worker team.
+				// Existing/full-crate overflow remains crate-only so its capacity and
+				// conservation contract is not weakened by this bootstrap fallback.
+				if (!hasBaseCrate) return AIB_DropInitialResourcesAtHome(blob, home);
 				return false;
 			}
 			@crate = AIB_BuyBaseResourceCrate(blob, home, shop);
 			if (crate is null)
 			{
+				if (!hasBaseCrate) return AIB_DropInitialResourcesAtHome(blob, home);
 				return false;
 			}
 		}

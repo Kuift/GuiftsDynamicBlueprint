@@ -89,6 +89,9 @@ const u32 AIB_RESOURCE_REJECT_LOG_REFRESH = 30 * 30;
 const u32 AIB_TREE_NO_PROGRESS_TICKS = 10 * 30;
 const u32 AIB_TREE_RETRY_COOLDOWN = 30 * 30;
 const f32 AIB_TREE_DISTANCE_PROGRESS = 8.0f;
+const u32 AIB_LOG_NO_PROGRESS_TICKS = 10 * 30;
+const u32 AIB_LOG_RETRY_COOLDOWN = 30 * 30;
+const f32 AIB_LOG_DISTANCE_PROGRESS = 8.0f;
 
 namespace AIBuilderState
 {
@@ -161,6 +164,10 @@ void onInit(CBrain@ this)
 	blob.set_u32("ai builder tree progress tick", 0);
 	blob.set_f32("ai builder tree progress distance", 999999.0f);
 	blob.set_f32("ai builder tree progress health", 0.0f);
+	blob.set_netid("ai builder log progress target", 0);
+	blob.set_u32("ai builder log progress tick", 0);
+	blob.set_f32("ai builder log progress distance", 999999.0f);
+	blob.set_f32("ai builder log progress health", 0.0f);
 	AIBG_Init(blob);
 	if (autoBuilder)
 	{
@@ -534,6 +541,7 @@ void AIB_FindLog(CBrain@ brain, CBlob@ blob)
 	AIB_EndBrainPath(blob);
 	blob.set_Vec2f("ai builder destination", Vec2f_zero);
 	blob.set_netid("ai builder target", log.getNetworkID());
+	AIB_BeginLogProgress(blob, log);
 	AIB_LogEvent("ai", "target", AIB_EventBlobRef(blob), "target=" + AIB_EventBlobRef(log) + " state=chop_log pos=" + AIB_EventPos(blob.getPosition()));
 	AIB_SetState(blob, AIBuilderState::chop_log, "log target acquired");
 }
@@ -545,12 +553,14 @@ void AIB_ChopLog(CBrain@ brain, CBlob@ blob)
 	{
 		AIB_SetState(blob, AIBuilderState::find_log, "log gone");
 		blob.set_netid("ai builder target", 0);
+		blob.set_netid("ai builder log progress target", 0);
 		return;
 	}
 
 	Vec2f logPos = AIB_GetHitPosition(blob, log);
 	Vec2f blobPos = blob.getPosition();
 	const f32 distance = (logPos - blobPos).Length();
+	if (AIB_LogProgressExpired(brain, blob, log, distance)) return;
 
 	blob.setAimPos(logPos);
 	if (distance > 28.0f)
@@ -2983,7 +2993,25 @@ CBlob@ AIB_GetNearestLog(CBlob@ blob)
 {
 	CBlob@[] logs;
 	getBlobsByName("log", @logs);
-	return AIB_GetNearest(blob, @logs);
+
+	CBlob@ best = null;
+	f32 bestDistance = 999999.0f;
+	Vec2f pos = blob.getPosition();
+	for (uint i = 0; i < logs.length; i++)
+	{
+		CBlob@ candidate = logs[i];
+		if (candidate is null || candidate.hasTag("dead") || candidate.isInInventory()) continue;
+		if (AIB_IsLogRetryBlocked(blob, candidate)) continue;
+		if (!AIB_IsAccessibleResource(blob, candidate)) continue;
+
+		const f32 distance = (candidate.getPosition() - pos).Length();
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			@best = candidate;
+		}
+	}
+	return best;
 }
 
 CBlob@ AIB_GetNearestTeamHall(CBlob@ blob)
@@ -3218,6 +3246,43 @@ bool AIB_HasBaseWorkshopBlockingBlob(Vec2f pos, CBlob@[]@ blobs)
 	return false;
 }
 
+bool AIB_BaseWorkshopConflictsWithBlueprint(Vec2f pos, const u8 team)
+{
+	CMap@ map = getMap();
+	if (map is null) return true;
+
+	array<u16>@ human = null;
+	array<u16>@ desired = null;
+	AIBP_GetLayerGrid(team, AIBP_Layer::human, @human);
+	AIBP_GetLayerGrid(team, AIBP_Layer::ai_desired, @desired);
+	Vec2f siteMin, siteMax;
+	AIB_GetBaseWorkshopBounds(pos, siteMin, siteMax);
+	const f32 tileRadius = map.tilesize * 0.5f;
+	const int minX = Maths::Floor((siteMin.x - tileRadius) / map.tilesize);
+	const int maxX = Maths::Floor((siteMax.x + tileRadius) / map.tilesize);
+	const int minY = Maths::Floor((siteMin.y - tileRadius) / map.tilesize);
+	const int maxY = Maths::Floor((siteMax.y + tileRadius) / map.tilesize);
+	for (int y = minY; y <= maxY; y++)
+	{
+		if (y < 0 || y >= map.tilemapheight) continue;
+		for (int x = minX; x <= maxX; x++)
+		{
+			if (x < 0 || x >= map.tilemapwidth) continue;
+			const uint index = y * map.tilemapwidth + x;
+			const bool humanWork = human !is null && index < human.length && human[index] != 0;
+			const bool directorWork = desired !is null && index < desired.length && desired[index] != 0;
+			if (!humanWork && !directorWork) continue;
+			Vec2f center = Vec2f((x + 0.5f) * map.tilesize, (y + 0.5f) * map.tilesize);
+			// Tile edges may touch the 40x24 shop boundary, but their interiors may
+			// not overlap it. AIBS_OverlapsProtectedBlob applies this same exact
+			// exception to tagged same-team storage shops after they are spawned.
+			if (center.x > siteMin.x - tileRadius && center.x < siteMax.x + tileRadius &&
+				center.y > siteMin.y - tileRadius && center.y < siteMax.y + tileRadius) return true;
+		}
+	}
+	return false;
+}
+
 u8 AIB_CountBaseWorkshopApproaches(Vec2f pos)
 {
 	CMap@ map = getMap();
@@ -3266,6 +3331,7 @@ bool AIB_CanBuildBaseWorkshopAt(Vec2f pos, CBlob@ home, CBlob@[]@ siteBlobs)
 	CMap@ map = getMap();
 	if (map is null || home is null || pos == Vec2f_zero) return false;
 	if (!AIB_IsInsideCurrentBarrierZone(home, pos)) return false;
+	if (AIB_BaseWorkshopConflictsWithBlueprint(pos, u8(home.getTeamNum()))) return false;
 
 	const f32 ts = map.tilesize;
 	// The entire 5x3 volume must be empty.  Unlike a normal tile placement, the
@@ -3306,6 +3372,7 @@ bool AIB_StoreResourcesInBaseCrates(CBlob@ blob, CBlob@ home)
 	{
 		@shop = AIB_BuildBaseBuilderShop(blob, home);
 	}
+	blob.set_netid("ai builder base storage shop", shop is null ? 0 : shop.getNetworkID());
 
 	for (u8 i = 0; i < 8 && AIB_HasAnyResource(blob); i++)
 	{
@@ -5562,6 +5629,59 @@ bool AIB_IsTreeRetryBlocked(CBlob@ blob, CBlob@ tree)
 {
 	if (blob is null || tree is null) return true;
 	return getGameTime() < blob.get_u32("ai builder tree retry " + tree.getNetworkID());
+}
+
+bool AIB_IsLogRetryBlocked(CBlob@ blob, CBlob@ log)
+{
+	if (blob is null || log is null) return true;
+	return getGameTime() < blob.get_u32("ai builder log retry " + log.getNetworkID());
+}
+
+void AIB_BeginLogProgress(CBlob@ blob, CBlob@ log)
+{
+	if (blob is null || log is null) return;
+	Vec2f hit = AIB_GetHitPosition(blob, log);
+	blob.set_netid("ai builder log progress target", log.getNetworkID());
+	blob.set_u32("ai builder log progress tick", getGameTime());
+	blob.set_f32("ai builder log progress distance", (hit - blob.getPosition()).Length());
+	blob.set_f32("ai builder log progress health", log.getHealth());
+}
+
+bool AIB_LogProgressExpired(CBrain@ brain, CBlob@ blob, CBlob@ log, const f32 distance)
+{
+	if (brain is null || blob is null || log is null) return false;
+	if (blob.get_netid("ai builder log progress target") != log.getNetworkID())
+	{
+		AIB_BeginLogProgress(blob, log);
+		return false;
+	}
+
+	const f32 previousDistance = blob.get_f32("ai builder log progress distance");
+	const f32 previousHealth = blob.get_f32("ai builder log progress health");
+	const f32 health = log.getHealth();
+	const bool movedCloser = distance + AIB_LOG_DISTANCE_PROGRESS < previousDistance;
+	const bool damagedLog = health + 0.001f < previousHealth;
+	if (movedCloser || damagedLog)
+	{
+		blob.set_u32("ai builder log progress tick", getGameTime());
+		if (movedCloser) blob.set_f32("ai builder log progress distance", distance);
+		blob.set_f32("ai builder log progress health", health);
+		return false;
+	}
+
+	if (getGameTime() - blob.get_u32("ai builder log progress tick") <= AIB_LOG_NO_PROGRESS_TICKS) return false;
+
+	blob.set_u32("ai builder log retry " + log.getNetworkID(), getGameTime() + AIB_LOG_RETRY_COOLDOWN);
+	AIB_LogEvent("ai", "target_abandon", AIB_EventBlobRef(blob), "target=" + AIB_EventBlobRef(log) +
+		" reason=no_progress distance=" + distance + " health=" + health + " retry=" + AIB_LOG_RETRY_COOLDOWN);
+	brain.SetTarget(null);
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_netid("ai builder target", 0);
+	blob.set_netid("ai builder log progress target", 0);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	AIB_SetState(blob, AIBuilderState::find_log, "log target made no progress");
+	return true;
 }
 
 void AIB_BeginTreeProgress(CBlob@ blob, CBlob@ tree)

@@ -11,8 +11,11 @@ void Configure()
 	v_driver = 5;
 	sv_canpause = false;
 	sv_gamemode = "CTF";
+	// Keep manual acceptance evidence comparable by always starting at the
+	// first map in the real CTF rotation.  A custom one-map CTF cycle can enter
+	// the map-vote reload loop, so retain the player-facing rules-owned cycle.
 	sv_mapcycle = "";
-	sv_mapcycle_shuffle = true;
+	sv_mapcycle_shuffle = false;
 }
 
 void InitializeGame()

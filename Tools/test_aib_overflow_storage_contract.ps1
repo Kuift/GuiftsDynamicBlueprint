@@ -33,6 +33,9 @@ if (!$brain.Contains('CBlob@ shop = AIB_GetBestBaseBuilderShop(home, blob.getPos
     !$brain.Contains('CBlob@ best = AIB_GetBestBaseBuilderShop(home, storage);')) {
     throw 'Storage delivery and stone-supply waiting do not share bounded base-shop identity'
 }
+if (!$brain.Contains('blob.set_netid("ai builder base storage shop", shop is null ? 0 : shop.getNetworkID());')) {
+    throw 'Storage delivery does not expose the actually selected production shop for runtime verification'
+}
 
 $fundStart = $brain.IndexOf('bool AIB_CanFundBaseCrate(')
 $payStart = $brain.IndexOf('bool AIB_PayForBaseCrate(', $fundStart)
@@ -112,10 +115,14 @@ if ($scenarios -notmatch 'liveWood == initialWood - 150' -or $scenarios -notmatc
 foreach ($needle in @(
     'remoteShop.Tag("aibt remote storage shop")',
     'AIBT_SetBlob("aibt_remote_storage_shop", remoteShop);',
+    'CBlob@ selectedShop = getBlobByNetworkID(bot.get_netid("ai builder base storage shop"));',
     'const bool remoteRejected = remoteShop !is null && !remoteShop.hasTag("dead") && selectedShop is shop;',
     'remote_same_team_shop_rejected=true'
 )) {
     if (!$scenarios.Contains($needle)) { throw "Runtime-ready remote storage-shop rejection is missing: $needle" }
+}
+if ($scenarios.Contains('AIB_GetBestBaseBuilderShop(')) {
+    throw 'Rules-side scenarios still call the brain-private storage-shop selector'
 }
 
 Write-Output 'AIB overflow storage conservation contract passed'

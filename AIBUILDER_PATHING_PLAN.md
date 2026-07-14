@@ -22,11 +22,11 @@ The AIBTest suite now includes `8x_gloryhill_leftmost_tree_uses_hill_route`.
 
 Because the current headless KAG test process stops advancing around game tick 51, this is a short regression rather than a full live climb. It builds a Gloryhill-style hill in the large AIBTest arena, selects the elevated left tree, starts harvest, and asserts that the AI targets the tree without enabling the direct shortcut.
 
-The real `8x_Gloryhill.png` map is also copied into `Maps/AIBTest/8x_Gloryhill.png` so future map-specific tests can use the exact terrain once the headless runner can advance long enough for full traversal checks.
+The real `8x_Gloryhill.png` map is also copied into `Maps/AIBTest/aib_reference_8x_Gloryhill.png` so future map-specific tests can use the exact terrain once the headless runner can advance long enough for full traversal checks. The unique basename prevents KAG from substituting the test copy when normal CTF asks for the official map.
 
 ## Next Improvements
 
 - Add route-intent logging when the pathfinder suggests a first waypoint opposite the final target direction.
 - Track progress along path nodes, not just distance to final destination.
 - If the builder is stuck below an uphill target, force a repath before allowing another direct movement attempt.
-- Add a longer visible/manual scenario on the copied `8x_Gloryhill.png` map: spawn tent, spawn/select the leftmost tree, start harvest, and verify the builder reaches the upper hill approach.
+- Add a longer visible/manual scenario on the copied `aib_reference_8x_Gloryhill.png` map: spawn tent, spawn/select the leftmost tree, start harvest, and verify the builder reaches the upper hill approach.

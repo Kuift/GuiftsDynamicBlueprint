@@ -4657,7 +4657,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				const bool searchedPastBlockedBand = dxTiles >= 16.0f;
 				const bool blockersRemain = getMap().isTileSolid(getMap().getTile(AIBT_Pos(210 - 13, AIBT_GROUND_Y - 2)).type) &&
 					getMap().isTileSolid(getMap().getTile(AIBT_Pos(210 + 13, AIBT_GROUND_Y - 2)).type);
-				CBlob@ selectedShop = AIB_GetBestBaseBuilderShop(tent, bot.getPosition());
+				CBlob@ selectedShop = getBlobByNetworkID(bot.get_netid("ai builder base storage shop"));
 				const bool remoteRejected = remoteShop !is null && !remoteShop.hasTag("dead") && selectedShop is shop;
 				if (!valid || !searchedPastBlockedBand || !blockersRemain || !remoteRejected)
 				{

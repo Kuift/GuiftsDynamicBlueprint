@@ -1,4 +1,4 @@
-#include "AIBGymMonitor.as";
+#include "AIBGymCommon.as";
 
 const u8 AIBT_IDLE = 0;
 const u8 AIBT_FIND_TREE = 1;

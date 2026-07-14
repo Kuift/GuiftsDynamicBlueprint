@@ -67,6 +67,20 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Cause: CTF's map-vote path reloads `Rules/AIBTest/aibtest_mapcycle.cfg` when that temporary cycle is left in root startup settings.
 - Workaround: never leave CTF paired with the AIBTest cycle. A blank root cycle lets CTF load `Rules/CTF/mapcycle.cfg`.
 
+### A custom one-map CTF cycle can also restart recursively
+
+- Symptom: visible CTF repeatedly reloads the same ordinary CTF PNG at game time zero, emits `MAP WAS NEVER LOADED`, and never reaches gameplay.
+- Reproduced case: the developer launcher pointed CTF at a unique one-entry cycle containing `Maps/Official/CTF/HearthPlains.png`; the log repeatedly re-entered `PostGameMapVotes.as`/`LoadNextMap()` despite the map itself being valid in the normal rotation.
+- Do not conclude: a unique cycle filename alone makes one-map CTF startup safe; the recursion is not specific to the AIBTest cycle's basename.
+- Workaround: leave `sv_mapcycle` blank so CTF loads `Rules/CTF/mapcycle.cfg`. For repeatable fresh launches, disable shuffle and use the rotation's first map rather than replacing the rotation with a one-map file.
+
+### A test-map basename can override an official CTF map
+
+- Symptom: CTF requests `Maps/Official/CTF/8x_Gloryhill.png`, but the log reports that it loaded `../Mods/GuiftsDynamicBlueprint_vDev/Maps/AIBTest/8x_Gloryhill.png` and the visible terrain is the test copy.
+- Cause: KAG's mod resolver matches colliding asset basenames across folders; a copied reference PNG inside the mod overrides the official map even though its directory is different.
+- Reliable check: use the `LOADING PNG MAP` log record and visually confirm the terrain. The configured mapcycle path alone is not evidence of which asset won resolution.
+- Workaround: every mod-owned reference/test map must have a basename that cannot collide with a public map. The copied reference is named `aib_reference_8x_Gloryhill.png`.
+
 ## Camera And Observation
 
 ### Camera state/logs do not prove the displayed view

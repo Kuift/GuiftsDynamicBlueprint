@@ -197,6 +197,20 @@ bool AIBS_OverlapsProtectedBlob(const u8 team, Vec2f center)
 		if (blob.hasTag("aibuilder blueprint structure") && blob.getTeamNum() == team) continue;
 		const string name = blob.getName();
 		const f32 distance = (blob.getPosition() - center).Length();
+		if (name == "buildershop" && blob.getTeamNum() == team && blob.hasTag("aibuilder built storage shop"))
+		{
+			CShape@ shape = blob.getShape();
+			if (shape is null) return true;
+			Vec2f boundsMin, boundsMax;
+			shape.getBoundingRect(boundsMin, boundsMax);
+			const f32 tileRadius = map.tilesize * 0.5f;
+			// Essential storage may sit directly beside a director structure. Keep
+			// the broad protected radius for ordinary/human buildings, but only an
+			// actual tile-vs-shop overlap invalidates this tagged same-team shop.
+			if (center.x > boundsMin.x - tileRadius && center.x < boundsMax.x + tileRadius &&
+				center.y > boundsMin.y - tileRadius && center.y < boundsMax.y + tileRadius) return true;
+			continue;
+		}
 		if (name == "flag" || name == "tent" || name == "hall" || name == "buildershop" || name == "crate" || blob.hasTag("building")) return true;
 		if (distance <= 8.0f && (blob.hasTag("vehicle") || blob.hasTag("door") || name == "wooden_platform" || name == "ladder")) return true;
 	}

@@ -551,9 +551,21 @@ void AIBS_StopAssignedBuilders(const u8 team)
 		CBlob@ builder = builders[i];
 		if (builder is null || !builder.get_bool("aib strategy assigned")) continue;
 		AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());
+		CBrain@ brain = builder.getBrain();
+		if (brain !is null) brain.EndPath();
 		builder.set_u8("ai builder state", AIBS_STATE_IDLE);
 		builder.set_bool("ai builder job active", false);
 		builder.set_bool("aib strategy assigned", false);
+		builder.set_bool("aib strategy role pending", false);
+		builder.set_netid("ai builder target", 0);
+		builder.set_Vec2f("ai builder destination", Vec2f_zero);
+		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
+		builder.setKeyPressed(key_left, false);
+		builder.setKeyPressed(key_right, false);
+		builder.setKeyPressed(key_up, false);
+		builder.setKeyPressed(key_down, false);
+		builder.setKeyPressed(key_action1, false);
+		builder.setKeyPressed(key_action2, false);
 		builder.Sync("ai builder state", true);
 		builder.Sync("ai builder job active", true);
 	}

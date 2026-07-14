@@ -77,20 +77,35 @@ void AIBS_UpdateTeam(CRules@ rules, const u8 team)
 	const u32 lastPlan = rules.get_u32("aib strategy last replan team " + int(team));
 	const u32 important = rules.get_u32("aib strategy important event team " + int(team));
 	const bool shouldPlan = rules.get_u16(AIBP_PlanKey(team, "id")) == 0 || now >= lastPlan + AIBS_REPLAN_RATE || important > lastPlan;
+	bool cancelledUnsafePlan = false;
 	if (shouldPlan)
 	{
+		const bool activeInvalid = rules.get_u8(AIBP_PlanKey(team, "status")) == 1 && AIBS_ActivePlanInvalid(world);
 		AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);
+		bool attemptedPublish = false;
+		bool published = false;
 		if (candidate !is null && AIBS_ShouldReplacePlan(world, candidate))
 		{
+			attemptedPublish = true;
 			BlueprintPlan@ plan = AIBS_MakePlan(world, candidate);
-			if (AIBP_PublishAIPlan(plan, mode == AIBP_StrategyMode::auto_mode))
+			published = AIBP_PublishAIPlan(plan, mode == AIBP_StrategyMode::auto_mode);
+			if (published) rules.set_u32("aib strategy last replan team " + int(team), now);
+		}
+		if (!published && activeInvalid)
+		{
+			cancelledUnsafePlan = AIBP_CancelCurrentPlan(team, "invalidated");
+			if (cancelledUnsafePlan)
 			{
+				// Do not leave director-owned workers carrying stale targets from an
+				// unsafe plan merely because no replacement was available or publish
+				// failed. Manual player orders are not strategy-assigned and survive.
+				AIBS_StopAssignedBuilders(team);
 				rules.set_u32("aib strategy last replan team " + int(team), now);
 			}
 		}
-		else rules.set_u32("aib strategy last replan team " + int(team), now);
+		if (!attemptedPublish && !activeInvalid) rules.set_u32("aib strategy last replan team " + int(team), now);
 	}
-	if (mode == AIBP_StrategyMode::auto_mode)
+	if (mode == AIBP_StrategyMode::auto_mode && !cancelledUnsafePlan)
 	{
 		AIBS_TryBootstrapBuilder(rules, world);
 		AIBS_AssignBuilders(world);

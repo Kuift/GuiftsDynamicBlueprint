@@ -1,6 +1,9 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $planner = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBPlacementPlanner.as') -Raw
+$director = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicDirector.as') -Raw
+$blueprintData = Get-Content -LiteralPath (Join-Path $root 'Scripts\BlueprintData.as') -Raw
+$jobs = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicJobs.as') -Raw
 $scenarios = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBTestScenarios.as') -Raw
 
 $function = [regex]::Match($planner, 'bool AIBS_ActivePlanInvalid[\s\S]*?\n\}').Value
@@ -89,5 +92,61 @@ foreach ($field in @('NoBuild', 'Protected')) {
 $acrossBarrier = @($open | ForEach-Object { $_.psobject.Copy() })
 $acrossBarrier[0].BarrierSafe = $false
 if (Test-GeneratedSupport $acrossBarrier) { throw 'Generated support across the active barrier should invalidate the active plan' }
+
+$updateTeam = [regex]::Match($director, 'void AIBS_UpdateTeam[\s\S]*?\n\}').Value
+if (!$updateTeam) { throw 'Production director team update is missing' }
+foreach ($needle in @(
+    'const bool activeInvalid = rules.get_u8(AIBP_PlanKey(team, "status")) == 1 && AIBS_ActivePlanInvalid(world);',
+    'cancelledUnsafePlan = AIBP_CancelCurrentPlan(team, "invalidated");',
+    'AIBS_StopAssignedBuilders(team);',
+    'if (mode == AIBP_StrategyMode::auto_mode && !cancelledUnsafePlan)'
+)) {
+    if (!$updateTeam.Contains($needle)) { throw "Director does not cancel unsafe unreplaced work: $needle" }
+}
+$invalidAt = $updateTeam.IndexOf('const bool activeInvalid')
+$selectAt = $updateTeam.IndexOf('AIBPlanCandidate@ candidate = AIBS_SelectCandidate')
+$cancelAt = $updateTeam.IndexOf('AIBP_CancelCurrentPlan')
+if ($invalidAt -lt 0 -or $selectAt -le $invalidAt -or $cancelAt -le $selectAt) {
+    throw 'Active-plan safety must be evaluated independently before replacement selection and cancellation'
+}
+
+$cancelFunction = [regex]::Match($blueprintData, 'bool AIBP_CancelCurrentPlan[\s\S]*?\n\}').Value
+if (!$cancelFunction) { throw 'Authoritative plan cancellation helper is missing' }
+foreach ($needle in @(
+    'else states[i] = AIBP_TaskState::cancelled;',
+    'reserved[i] = 0;',
+    'untils[i] = 0;',
+    'rules.set_u16(AIBP_PlanKey(team, "pending"), 0);',
+    'rules.set_u8(AIBP_PlanKey(team, "status"), 3);',
+    'AIBP_ArchiveCurrentPlan(team, archiveReason);',
+    'rules.set_string("aib strategy replacement reason team " + int(team), "");',
+    'AIBP_LayerDataKey(team, AIBP_Layer::ai_desired)',
+    'AIBP_LayerDataKey(team, AIBP_Layer::ai_work)'
+)) {
+    if (!$cancelFunction.Contains($needle)) { throw "Authoritative cancellation is incomplete: $needle" }
+}
+
+$stopFunction = [regex]::Match($jobs, 'void AIBS_StopAssignedBuilders[\s\S]*?\n\}').Value
+if (!$stopFunction) { throw 'Director worker-stop helper is missing' }
+foreach ($needle in @(
+    'AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());',
+    'if (brain !is null) brain.EndPath();',
+    'builder.set_netid("ai builder target", 0);',
+    'builder.set_Vec2f("ai builder destination", Vec2f_zero);',
+    'builder.set_Vec2f("ai builder tile target", Vec2f_zero);',
+    'builder.setKeyPressed(key_action1, false);',
+    'builder.setKeyPressed(key_action2, false);'
+)) {
+    if (!$stopFunction.Contains($needle)) { throw "Stopped director worker retains unsafe execution intent: $needle" }
+}
+
+function Test-CancelDecision {
+    param([bool]$ActiveInvalid, [bool]$Candidate, [bool]$Published)
+    return $ActiveInvalid -and !$Published
+}
+if (!(Test-CancelDecision $true $false $false)) { throw 'Unsafe plan without a replacement candidate must be cancelled' }
+if (!(Test-CancelDecision $true $true $false)) { throw 'Unsafe plan must be cancelled when replacement publication fails' }
+if (Test-CancelDecision $true $true $true) { throw 'Successfully replaced plan must not be cancelled afterward' }
+if (Test-CancelDecision $false $false $false) { throw 'Valid committed plan must survive a no-candidate cycle' }
 
 Write-Output 'AIB active-plan safety invalidation contract passed'

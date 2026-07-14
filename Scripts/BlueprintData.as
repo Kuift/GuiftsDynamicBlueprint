@@ -384,6 +384,54 @@ void AIBP_SetAIWorkEnabled(const u8 team, const bool enabled)
 	AIBP_SendDisplaySnapshot(0, team);
 }
 
+bool AIBP_CancelCurrentPlan(const u8 team, const string &in reason)
+{
+	if (!isServer()) return false;
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null || rules.get_u16(AIBP_PlanKey(team, "id")) == 0 ||
+		rules.get_u8(AIBP_PlanKey(team, "status")) != 1) return false;
+
+	array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
+	array<u8>@ phases = null; array<u8>@ states = null; array<u32>@ untils = null;
+	if (!AIBP_LoadTaskArrays(team, @xs, @ys, @blocks, @phases, @states, @reserved, @untils)) return false;
+	u16 completed = 0;
+	for (uint i = 0; i < states.length; i++)
+	{
+		if (states[i] == AIBP_TaskState::completed) completed++;
+		else states[i] = AIBP_TaskState::cancelled;
+		if (i < reserved.length) reserved[i] = 0;
+		if (i < untils.length) untils[i] = 0;
+	}
+	rules.set(AIBP_TaskKey(team, "state"), states);
+	rules.set(AIBP_TaskKey(team, "reserved"), reserved);
+	rules.set(AIBP_TaskKey(team, "until"), untils);
+	rules.set_u16(AIBP_PlanKey(team, "pending"), 0);
+	rules.set_u16(AIBP_PlanKey(team, "completed"), completed);
+	rules.set_u16(AIBP_PlanKey(team, "damaged"), 0);
+	rules.set_u8(AIBP_PlanKey(team, "status"), 3);
+	rules.set_u32(AIBP_PlanKey(team, "updated"), getGameTime());
+	rules.Sync(AIBP_PlanKey(team, "pending"), true);
+	rules.Sync(AIBP_PlanKey(team, "completed"), true);
+	rules.Sync(AIBP_PlanKey(team, "damaged"), true);
+	rules.Sync(AIBP_PlanKey(team, "status"), true);
+	const string archiveReason = reason == "" ? "cancelled" : reason;
+	AIBP_ArchiveCurrentPlan(team, archiveReason);
+	rules.set_string("aib strategy replacement reason team " + int(team), "");
+
+	// The archived desired layer remains immutable evidence, while the live
+	// desired/work layers must disappear so auto and suggestion modes cannot
+	// render or execute unsafe work after cancellation.
+	array<u16> emptyDesired; array<u16> emptyWork;
+	AIBP_NewEmptyGrid(emptyDesired); AIBP_NewEmptyGrid(emptyWork);
+	rules.set(AIBP_LayerDataKey(team, AIBP_Layer::ai_desired), emptyDesired);
+	rules.set(AIBP_LayerDataKey(team, AIBP_Layer::ai_work), emptyWork);
+	AIBP_RebuildCompatibility(team, false);
+	AIBP_SendDisplaySnapshot(0, team);
+	AIBS_Log("cancel", team, "plan=" + rules.get_u16(AIBP_PlanKey(team, "id")) + " reason=" + archiveReason);
+	return true;
+}
+
 bool AIBP_LayerHasWork(const u8 team, const u8 layer)
 {
 	array<u16>@ grid = null;

@@ -432,6 +432,62 @@ bool AIBP_CancelCurrentPlan(const u8 team, const string &in reason)
 	return true;
 }
 
+void AIBP_ResetTeamPlanForRound(const u8 team)
+{
+	if (!isServer()) return;
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null) return;
+	const u16 mapWidth = map is null ? 0 : map.tilemapwidth;
+	const u16 mapHeight = map is null ? 0 : map.tilemapheight;
+	const u16 previousPlan = rules.get_u16(AIBP_PlanKey(team, "id"));
+	if (previousPlan != 0 && rules.get_u8(AIBP_PlanKey(team, "status")) == 1)
+	{
+		// Preserve the unfinished plan as evidence before clearing live state.
+		rules.set_u8(AIBP_PlanKey(team, "status"), 3);
+		AIBP_ArchiveCurrentPlan(team, "round_reset");
+	}
+
+	AIBP_ClearTeamLooseReservations(team);
+	for (u8 layer = AIBP_Layer::human; layer <= AIBP_Layer::ai_desired; layer++)
+	{
+		array<u16> emptyGrid;
+		AIBP_NewEmptyGrid(emptyGrid);
+		rules.set(AIBP_LayerDataKey(team, layer), emptyGrid);
+		rules.set_u16(AIBP_LayerWidthKey(team, layer), mapWidth);
+		rules.set_u16(AIBP_LayerHeightKey(team, layer), mapHeight);
+	}
+	array<u16> emptyX; array<u16> emptyY; array<u16> emptyBlocks; array<u16> emptyReserved;
+	array<u8> emptyPhases; array<u8> emptyStates; array<u32> emptyUntils;
+	rules.set(AIBP_TaskKey(team, "x"), emptyX);
+	rules.set(AIBP_TaskKey(team, "y"), emptyY);
+	rules.set(AIBP_TaskKey(team, "block"), emptyBlocks);
+	rules.set(AIBP_TaskKey(team, "reserved"), emptyReserved);
+	rules.set(AIBP_TaskKey(team, "phase"), emptyPhases);
+	rules.set(AIBP_TaskKey(team, "state"), emptyStates);
+	rules.set(AIBP_TaskKey(team, "until"), emptyUntils);
+	rules.set_u16(AIBP_PlanKey(team, "id"), 0);
+	rules.set_u8(AIBP_PlanKey(team, "owner"), 255);
+	rules.set_u8(AIBP_PlanKey(team, "intent"), AIBStrategyIntent::flag_gatehouse);
+	rules.set_u8(AIBP_PlanKey(team, "status"), 0);
+	rules.set_string(AIBP_PlanKey(team, "template"), "");
+	rules.set_Vec2f(AIBP_PlanKey(team, "anchor"), Vec2f_zero);
+	rules.set_f32(AIBP_PlanKey(team, "score"), 0.0f);
+	rules.set_string(AIBP_PlanKey(team, "reasons"), "");
+	rules.set_u32(AIBP_PlanKey(team, "created"), 0);
+	rules.set_u32(AIBP_PlanKey(team, "updated"), 0);
+	rules.set_u16(AIBP_PlanKey(team, "pending"), 0);
+	rules.set_u16(AIBP_PlanKey(team, "completed"), 0);
+	rules.set_u16(AIBP_PlanKey(team, "damaged"), 0);
+	rules.set_u16(AIBP_PlanKey(team, "human version"), rules.get_u16(AIBP_PlanKey(team, "human version")) + 1);
+	rules.set_string("aib strategy replacement reason team " + int(team), "");
+	string[] syncFields = { "id", "owner", "intent", "status", "template", "anchor", "score", "reasons",
+		"pending", "completed", "damaged", "human version" };
+	for (uint i = 0; i < syncFields.length; i++) rules.Sync(AIBP_PlanKey(team, syncFields[i]), true);
+	AIBP_RebuildCompatibility(team, false);
+	AIBS_Log("round_reset", team, "previous_plan=" + previousPlan + " live_layers_cleared=true");
+}
+
 bool AIBP_LayerHasWork(const u8 team, const u8 layer)
 {
 	array<u16>@ grid = null;
@@ -484,6 +540,60 @@ string AIBP_BuilderLooseReservationKey(const u8 team, const u16 builderNetID, co
 	return "aib blueprint builder loose reservation " + field + " team " + int(team) + " builder " + builderNetID;
 }
 
+void AIBP_TrackLooseReservation(const u8 team, const u16 x, const u16 y)
+{
+	CRules@ rules = getRules();
+	if (rules is null) return;
+	array<u16>@ xs = null; array<u16>@ ys = null;
+	const string xKey = "aib blueprint loose reservation registry x team " + int(team);
+	const string yKey = "aib blueprint loose reservation registry y team " + int(team);
+	if (!rules.get(xKey, @xs) || xs is null || !rules.get(yKey, @ys) || ys is null)
+	{
+		array<u16> freshX; array<u16> freshY;
+		rules.set(xKey, freshX); rules.set(yKey, freshY);
+		rules.get(xKey, @xs); rules.get(yKey, @ys);
+	}
+	if (xs is null || ys is null) return;
+	if (xs.length != ys.length)
+	{
+		array<u16> freshX; array<u16> freshY;
+		rules.set(xKey, freshX); rules.set(yKey, freshY);
+		rules.get(xKey, @xs); rules.get(yKey, @ys);
+		if (xs is null || ys is null) return;
+	}
+	for (uint i = 0; i < xs.length && i < ys.length; i++) if (xs[i] == x && ys[i] == y) return;
+	xs.push_back(x); ys.push_back(y);
+	rules.set(xKey, xs); rules.set(yKey, ys);
+}
+
+void AIBP_ClearTeamLooseReservations(const u8 team)
+{
+	CRules@ rules = getRules();
+	if (rules is null) return;
+	const string xKey = "aib blueprint loose reservation registry x team " + int(team);
+	const string yKey = "aib blueprint loose reservation registry y team " + int(team);
+	array<u16>@ xs = null; array<u16>@ ys = null;
+	rules.get(xKey, @xs); rules.get(yKey, @ys);
+	if (xs !is null && ys !is null)
+	{
+		for (uint i = 0; i < xs.length && i < ys.length; i++) AIBP_ClearLooseReservationAt(team, xs[i], ys[i]);
+	}
+	array<u16> emptyX; array<u16> emptyY;
+	rules.set(xKey, emptyX); rules.set(yKey, emptyY);
+	string[] names = { "aibuilder", "autobuilder" };
+	for (uint n = 0; n < names.length; n++)
+	{
+		CBlob@[] builders;
+		getBlobsByName(names[n], @builders);
+		for (uint i = 0; i < builders.length; i++)
+		{
+			CBlob@ builder = builders[i];
+			if (builder is null || builder.getTeamNum() != team) continue;
+			rules.set_bool(AIBP_BuilderLooseReservationKey(team, builder.getNetworkID(), "active"), false);
+		}
+	}
+}
+
 void AIBP_ReleaseLooseBuilderReservation(const u8 team, const u16 builderNetID)
 {
 	CRules@ rules = getRules();
@@ -491,8 +601,11 @@ void AIBP_ReleaseLooseBuilderReservation(const u8 team, const u16 builderNetID)
 	const u16 x = rules.get_u16(AIBP_BuilderLooseReservationKey(team, builderNetID, "x"));
 	const u16 y = rules.get_u16(AIBP_BuilderLooseReservationKey(team, builderNetID, "y"));
 	const string ownerKey = AIBP_LooseReservationKey(team, x, y, "owner");
-	if (rules.get_netid(ownerKey) == builderNetID) rules.set_netid(ownerKey, 0);
-	rules.set_u32(AIBP_LooseReservationKey(team, x, y, "until"), 0);
+	if (rules.get_netid(ownerKey) == builderNetID)
+	{
+		rules.set_netid(ownerKey, 0);
+		rules.set_u32(AIBP_LooseReservationKey(team, x, y, "until"), 0);
+	}
 	rules.set_bool(AIBP_BuilderLooseReservationKey(team, builderNetID, "active"), false);
 }
 
@@ -517,6 +630,7 @@ bool AIBP_ReserveLooseTask(const u8 team, const u16 x, const u16 y, const u16 bu
 	CRules@ rules = getRules();
 	if (rules is null) return false;
 	AIBP_ReleaseLooseBuilderReservation(team, builderNetID);
+	AIBP_TrackLooseReservation(team, x, y);
 	rules.set_netid(AIBP_LooseReservationKey(team, x, y, "owner"), builderNetID);
 	rules.set_u32(AIBP_LooseReservationKey(team, x, y, "until"), getGameTime() + AIBP_RESERVATION_TICKS);
 	rules.set_u16(AIBP_BuilderLooseReservationKey(team, builderNetID, "x"), x);

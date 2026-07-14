@@ -25,6 +25,8 @@ void onRestart(CRules@ this)
 	AIBS_BuildStaticTerrain();
 	for (u8 team = 0; team < 8; team++)
 	{
+		AIBS_StopAssignedBuilders(team);
+		AIBP_ResetTeamPlanForRound(team);
 		AIBS_ResetBootstrapForRound(this, team);
 		AIBU_ResetSpeedLevel(this, team);
 		this.set_u32("aib strategy last replan team " + int(team), 0);

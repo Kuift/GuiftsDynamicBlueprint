@@ -116,5 +116,6 @@ u16 AIB_ActionArchiveReasonCode(const string &in reason)
 	if (reason == "frontline_collapse" || reason == "emergency_after_completion") return 3;
 	if (reason == "invalidated") return 4;
 	if (reason == "cancelled") return 5;
+	if (reason == "round_reset") return 6;
 	return 255;
 }

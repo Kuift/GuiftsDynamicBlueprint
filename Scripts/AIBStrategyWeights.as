@@ -42,7 +42,7 @@ AIBStrategyWeights@ AIBS_GetStrategyWeights()
 	AIBS_strategy_weights_loaded = true;
 	ConfigFile cfg = ConfigFile();
 	const string filename = CFileMatcher("AIBStrategyWeights.cfg").getFirst();
-	if (filename != "") cfg.loadFile(filename);
+	const bool loaded = filename != "" && cfg.loadFile(filename);
 	AIBS_strategy_weights.version = u16(cfg.read_s32("config_version", 1));
 	AIBS_strategy_weights.baseDefense = cfg.read_f32("base_defense", 20.0f);
 	AIBS_strategy_weights.enemyKnightPressure = cfg.read_f32("enemy_knight_pressure", 9.0f);
@@ -74,5 +74,10 @@ AIBStrategyWeights@ AIBS_GetStrategyWeights()
 	AIBS_strategy_weights.exposurePressure = cfg.read_f32("exposure_pressure", 2.0f);
 	AIBS_strategy_weights.friendlyRoutePenalty = cfg.read_f32("friendly_route_penalty", 60.0f);
 	AIBS_strategy_weights.nearBestFraction = cfg.read_f32("near_best_fraction", 0.07f);
+	if (isServer())
+	{
+		print("[AIBWEIGHTS] loaded=" + (loaded ? "true" : "false") +
+			" version=" + AIBS_strategy_weights.version + " file=" + filename);
+	}
 	return @AIBS_strategy_weights;
 }

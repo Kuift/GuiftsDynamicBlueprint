@@ -27,6 +27,13 @@ $planner = Get-Content -LiteralPath $plannerPath -Raw
 if ($planner -notmatch '#include "AIBStrategyWeights\.as"' -or $planner -notmatch 'AIBS_GetStrategyWeights\(\)') {
     throw 'Production planner does not consume shared strategy weights'
 }
+foreach ($needle in @(
+    'const bool loaded = filename != "" && cfg.loadFile(filename);',
+    'print("[AIBWEIGHTS] loaded=" + (loaded ? "true" : "false") +',
+    '" version=" + AIBS_strategy_weights.version + " file=" + filename)'
+)) {
+    if (!$loader.Contains($needle)) { throw "Production weight loader lacks one-shot runtime evidence: $needle" }
+}
 $sim = Get-Content -LiteralPath $simPath -Raw
 if ($sim -notmatch 'AIBStrategyWeights\.cfg' -or $sim -notmatch 'Get-W') {
     throw 'Offline simulator does not consume shared strategy weights'

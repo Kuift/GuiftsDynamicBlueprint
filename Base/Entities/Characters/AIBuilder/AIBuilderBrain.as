@@ -52,6 +52,7 @@ const u16 AIB_BUILDER_SHOP_WOOD_COST = 50;
 const u8 AIB_BASE_WORKSHOP_MIN_SEARCH_TILES = 7;
 const u8 AIB_BASE_WORKSHOP_MAX_SEARCH_TILES = 26;
 const u8 AIB_BASE_WORKSHOP_VERTICAL_SEARCH_TILES = 8;
+const u8 AIB_BASE_WORKSHOP_EXISTING_RADIUS_TILES = 28;
 const u8 AIB_BASE_WORKSHOP_HOME_CLEARANCE_TILES = 6;
 const u8 AIB_BASE_WORKSHOP_BUILDING_CLEARANCE_TILES = 2;
 const u8 AIB_BASE_WORKSHOP_RETRY_TICKS = 60;
@@ -3294,7 +3295,7 @@ bool AIB_StoreResourcesInBaseCrates(CBlob@ blob, CBlob@ home)
 
 	AIB_StashCarriedResource(blob);
 
-	CBlob@ shop = AIB_GetNearestTeamBlob(blob, "buildershop");
+	CBlob@ shop = AIB_GetBestBaseBuilderShop(home, blob.getPosition());
 	if (shop is null)
 	{
 		@shop = AIB_BuildBaseBuilderShop(blob, home);
@@ -3325,6 +3326,42 @@ bool AIB_StoreResourcesInBaseCrates(CBlob@ blob, CBlob@ home)
 	}
 
 	return !AIB_HasAnyResource(blob);
+}
+
+CBlob@ AIB_GetBestBaseBuilderShop(CBlob@ home, Vec2f reference)
+{
+	CMap@ map = getMap();
+	if (home is null || map is null) return null;
+
+	Vec2f homePosition = home.getPosition();
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
+	if (storage == Vec2f_zero) storage = homePosition;
+	if (reference == Vec2f_zero) reference = homePosition;
+	const f32 maxHomeDistance = AIB_BASE_WORKSHOP_EXISTING_RADIUS_TILES * map.tilesize;
+	CBlob@ best = null;
+	f32 bestScore = 999999.0f;
+	u16 bestID = 65535;
+	CBlob@[] shops;
+	getBlobsByName("buildershop", @shops);
+	for (uint i = 0; i < shops.length; i++)
+	{
+		CBlob@ shop = shops[i];
+		if (shop is null || shop.hasTag("dead") || shop.isAttached() || shop.isInInventory()) continue;
+		if (shop.getTeamNum() != home.getTeamNum() || shop.exists("packed")) continue;
+		Vec2f shopPosition = shop.getPosition();
+		if (!AIBR_IsOnSameBarrierSide(home, shopPosition)) continue;
+		if ((shopPosition - homePosition).Length() > maxHomeDistance) continue;
+
+		const f32 score = (shopPosition - storage).Length() + (shopPosition - reference).Length() * 0.05f;
+		const u16 id = shop.getNetworkID();
+		if (score + 0.001f < bestScore || (Maths::Abs(score - bestScore) <= 0.001f && id < bestID))
+		{
+			bestScore = score;
+			bestID = id;
+			@best = shop;
+		}
+	}
+	return best;
 }
 
 CBlob@ AIB_BuildBaseBuilderShop(CBlob@ blob, CBlob@ home)
@@ -3938,23 +3975,8 @@ bool AIB_TryUseBaseStoneSource(CBrain@ brain, CBlob@ blob)
 Vec2f AIB_GetStoneSupplyWaitPoint(CBlob@ home)
 {
 	if (home is null) return Vec2f_zero;
-
-	CBlob@[] shops;
-	getBlobsByName("buildershop", @shops);
-	CBlob@ best = null;
-	f32 bestDistance = 999999.0f;
 	Vec2f storage = AIB_GetBaseStoragePoint(home);
-	for (uint i = 0; i < shops.length; i++)
-	{
-		CBlob@ shop = shops[i];
-		if (shop is null || shop.hasTag("dead") || shop.getTeamNum() != home.getTeamNum()) continue;
-		const f32 distance = (shop.getPosition() - storage).Length();
-		if (distance < bestDistance)
-		{
-			bestDistance = distance;
-			@best = shop;
-		}
-	}
+	CBlob@ best = AIB_GetBestBaseBuilderShop(home, storage);
 	return best !is null ? best.getPosition() : AIB_GetHomeDropPoint(home);
 }
 
@@ -4097,7 +4119,9 @@ bool AIB_IsValidBaseCratePoint(CBlob@ home, Vec2f candidate)
 bool AIB_CanFundBaseCrate(CBlob@ blob, CBlob@ home)
 {
 	if (blob is null || home is null) return false;
-	return AIB_CountWood(blob) + AIB_CountHomeMaterial(home, "mat_wood") >= AIB_CRATE_WOOD_COST;
+	CInventory@ inventory = blob.getInventory();
+	const u16 spendableBuilderWood = inventory is null ? 0 : inventory.getCount("mat_wood");
+	return u32(spendableBuilderWood) + u32(AIB_CountHomeMaterial(home, "mat_wood")) >= AIB_CRATE_WOOD_COST;
 }
 
 bool AIB_PayForBaseCrate(CBlob@ blob, CBlob@ home)
@@ -4106,8 +4130,22 @@ bool AIB_PayForBaseCrate(CBlob@ blob, CBlob@ home)
 	const u16 atHome = AIB_CountHomeMaterial(home, "mat_wood");
 	const u16 fromHome = Maths::Min(u16(AIB_CRATE_WOOD_COST), atHome);
 	const u16 fromBuilder = AIB_CRATE_WOOD_COST - fromHome;
-	if (fromHome > 0 && !AIB_TakeHomeMaterial(home, "mat_wood", fromHome)) return false;
+	// Confirm the less reliable builder-inventory leg first. AIB_CountWood also
+	// includes a carried stack, while AIB_TakeMaterial spends inventory only;
+	// taking home wood first could therefore consume a partial payment and then
+	// fail the builder leg. Refund the builder if the home leg unexpectedly
+	// becomes unavailable so the combined payment remains conservative.
 	if (fromBuilder > 0 && !AIB_TakeMaterial(blob, "mat_wood", fromBuilder)) return false;
+	if (fromHome > 0 && !AIB_TakeHomeMaterial(home, "mat_wood", fromHome))
+	{
+		if (fromBuilder > 0)
+		{
+			u16 refund = fromBuilder;
+			string refundName = "mat_wood";
+			Material::createFor(blob, refundName, refund);
+		}
+		return false;
+	}
 	return true;
 }
 
@@ -4301,6 +4339,10 @@ u16 AIB_CountHomeMaterial(CBlob@ home, const string &in name)
 bool AIB_TakeHomeMaterial(CBlob@ home, const string &in name, const u16 amount)
 {
 	if (home is null || amount == 0) return false;
+	// All callers treat false as "nothing was paid". Preflight the exact same
+	// accessible-stock contract before mutating loose stacks or crate inventory
+	// so a short source cannot be partially consumed.
+	if (AIB_CountHomeMaterial(home, name) < amount) return false;
 
 	u16 remaining = amount;
 	CBlob@[] mats;

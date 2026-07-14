@@ -2635,6 +2635,12 @@ void AIBT_SetupScenario(const int index)
 		{
 			const int homeX = 210;
 			AIBT_SpawnTent(homeX);
+			// A same-team workshop well outside the production base envelope is
+			// intentionally the only existing shop. The runner-global lookup used
+			// to accept it and suppress construction of a usable local workshop.
+			CBlob@ remoteShop = AIBT_Spawn("buildershop", 0, AIBT_Pos(homeX - 40));
+			if (remoteShop !is null) remoteShop.Tag("aibt remote storage shop");
+			AIBT_SetBlob("aibt_remote_storage_shop", remoteShop);
 			// Base storage starts nine tiles left of the home.  Begin there so
 			// this scenario measures siting, not return-path travel.
 			@bot = AIBT_SpawnBot(homeX - 9);
@@ -4626,7 +4632,9 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 44:
 		{
 			CRules@ rules = getRules();
+			CBlob@ remoteShop = AIBT_GetBlob("aibt_remote_storage_shop");
 			CBlob@ shop = AIBT_GetNearestTeamBuilderShop(tent);
+			if (shop is remoteShop) @shop = null;
 			if (shop !is null)
 			{
 				rules.set_bool("aibt workshop observed", true);
@@ -4649,14 +4657,17 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				const bool searchedPastBlockedBand = dxTiles >= 16.0f;
 				const bool blockersRemain = getMap().isTileSolid(getMap().getTile(AIBT_Pos(210 - 13, AIBT_GROUND_Y - 2)).type) &&
 					getMap().isTileSolid(getMap().getTile(AIBT_Pos(210 + 13, AIBT_GROUND_Y - 2)).type);
-				if (!valid || !searchedPastBlockedBand || !blockersRemain)
+				CBlob@ selectedShop = AIB_GetBestBaseBuilderShop(tent, bot.getPosition());
+				const bool remoteRejected = remoteShop !is null && !remoteShop.hasTag("dead") && selectedShop is shop;
+				if (!valid || !searchedPastBlockedBand || !blockersRemain || !remoteRejected)
 				{
 					failure = "tent_workshop_bad_site searched_past_blocked=" + (searchedPastBlockedBand ? "true" : "false") +
-						" blockers_remain=" + (blockersRemain ? "true" : "false") + " " + placement;
+						" blockers_remain=" + (blockersRemain ? "true" : "false") +
+						" remote_rejected=" + (remoteRejected ? "true" : "false") + " " + placement;
 					return true;
 				}
 				details = "home=tent nearest_obstructed=true farther_site=true blocked_through=15 lifecycle_age=" + shopAge +
-					" alive=true production_tag=true " + placement;
+					" alive=true production_tag=true remote_same_team_shop_rejected=true " + placement;
 				return true;
 			}
 			if (rules.get_bool("aibt workshop observed"))

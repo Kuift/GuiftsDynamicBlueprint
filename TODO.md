@@ -9,11 +9,11 @@ This file is the active backlog. Completed historical notes and old investigatio
   - A bounded one-shot probe records the post-ladder low-level node, hypothetical `AIB_GetMineablePathBlock` result, ray obstruction, and pathfinder acceptance.
   - The focused scenario now requires the connected support tick to precede ladder creation, then requires a post-placement path and actual crossing while every dirt-plug tile remains intact. `Tools/test_aib_recovery_ladder_contract.ps1` pins the source ordering, but visible KAG evidence remains required.
 
-- Make crate storage more production-quality.
-  - Avoid hard-coded storage/shop offsets when the team home is near map edges, terrain, or enemy-controlled space.
-  - Prefer existing same-team builder shops near the base, but do not pick a shop far away from the home storage area.
-  - Add a test for full crate overflow: fill one crate, verify the AI buys or uses another crate and stores remaining resources there.
-  - Add a test for retrieving blueprint materials from crates after resources have been stored.
+- Runtime-validate the production crate-storage lifecycle.
+  - Grounded two-sided storage/workshop search, no-build/barrier/building rejection, and bounded same-base existing-workshop selection are implemented. The workshop fixture now keeps an unrelated remote same-team shop alive and requires the production selector to reject it in favor of a local shop.
+  - Overflow funding now counts only spendable builder inventory, confirms the builder payment leg before home storage, and refunds it if the home leg unexpectedly fails. `Tools/test_aib_overflow_storage_contract.ps1` pins this ordering and the exact conservation verdict.
+  - Run `full_crate_creates_grounded_overflow_storage` and require the corrected lightweight full-crate fixture to create/use distinct grounded secondary storage without material loss.
+  - Rerun `blueprint_collects_home_materials` after the storage-selector change and require actual wood/stone withdrawal, both production placements, and exact material conservation.
 
 - Tighten multiplayer sync for AI state used by HUD and overseer UI.
   - Confirm `"ai builder job"` and `"ai builder state"` stay synced for late joiners.
@@ -98,14 +98,12 @@ The current blueprint/editor code works, but it is too coupled and fragile. Most
 
 ## Automated Coverage
 
-- Update the AIB suite target count and expected final result after crate-storage and blueprint-editor tests are added.
+- Keep the 65-scenario registry and expected final result synchronized when blueprint-editor scenarios are added.
 - Keep `Tools/run_aib_tests.ps1` as the main regression path, but split long pathing scenarios into a separate slower suite if they keep masking unrelated regressions.
 - Add focused tests for:
-  - supported recovery backwall chain before ladder placement
-  - crate overflow and second-crate purchase
-  - blueprint material retrieval from crates
   - live editor delta publication to AI-visible blueprint data
   - selection rectangle save/load dimensions
+- Runtime-run the existing focused contracts for supported recovery, crate overflow/second-crate purchase, and blueprint material retrieval; their source/static coverage is not a substitute for a visible KAG verdict.
 
 ## Manual Coverage
 

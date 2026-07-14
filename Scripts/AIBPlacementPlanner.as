@@ -196,7 +196,7 @@ bool AIBS_OverlapsProtectedBlob(const u8 team, Vec2f center)
 	{
 		CBlob@ blob = nearby[i];
 		if (blob is null || blob.hasTag("dead")) continue;
-		if (blob.hasTag("aibuilder blueprint structure") && blob.getTeamNum() == team) continue;
+		if (AIBP_IsDirectorBlobForTeam(blob, team)) continue;
 		const string name = blob.getName();
 		const f32 distance = (blob.getPosition() - center).Length();
 		if (name == "buildershop" && blob.getTeamNum() == team && blob.hasTag("aibuilder built storage shop"))

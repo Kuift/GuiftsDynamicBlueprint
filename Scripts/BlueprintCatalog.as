@@ -27,6 +27,7 @@ const u16 AIBP_NURSERY = 87;
 const u16 AIBP_STORAGE = 89;
 const u16 AIBP_TUNNEL = 90;
 const u16 AIBP_QUARRY = 91;
+const string AIBP_BLUEPRINT_OWNER_TEAM_KEY = "aibuilder blueprint owner team";
 
 bool AIBP_IsWorkshopBlock(const u16 encoded)
 {
@@ -116,6 +117,33 @@ bool AIBP_IsBlobBlock(const u16 encoded)
 	const u16 id = AIBP_BlockId(encoded);
 	return id == AIBP_STONE_DOOR || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_SPIKES ||
 		id == AIBP_LADDER || AIBP_IsWorkshopBlock(encoded);
+}
+
+// Base WoodenPlatform.as deliberately normalizes wooden platforms to team -1
+// so every player may damage them.  Team-aware blueprint verification must
+// therefore use the catalog identity rather than treating that engine-owned
+// normalization as destruction or foreign ownership.
+bool AIBP_UsesNeutralBlobTeam(const u16 encoded)
+{
+	return AIBP_BlockId(encoded) == AIBP_PLATFORM;
+}
+
+bool AIBP_BlobTeamMatchesBlock(const u16 encoded, const s16 actualTeam, const s16 expectedTeam)
+{
+	if (expectedTeam < 0) return true;
+	// Do not compare the numeric neutral-team sentinel here. Depending on the
+	// AngelScript API boundary, KAG exposes team -1 as either -1 or 255. The
+	// platform type itself is the stable contract: WoodenPlatform.as always
+	// neutralizes it during initialization.
+	if (AIBP_UsesNeutralBlobTeam(encoded)) return true;
+	return actualTeam == expectedTeam;
+}
+
+bool AIBP_IsDirectorBlobForTeam(CBlob@ blob, const u8 team)
+{
+	if (blob is null || !blob.hasTag("aibuilder blueprint structure")) return false;
+	if (blob.getTeamNum() == team) return true;
+	return blob.exists(AIBP_BLUEPRINT_OWNER_TEAM_KEY) && blob.get_u8(AIBP_BLUEPRINT_OWNER_TEAM_KEY) == team;
 }
 
 string AIBP_BlockBlobName(const u16 encoded)

@@ -992,7 +992,7 @@ CBlob@ AIBP_GetMatchingPlanBlob(const u16 x, const u16 y, const u16 block, const
 	{
 		CBlob@ placed = nearby[i];
 		if (placed is null || placed.hasTag("dead") || placed.getName() != expected) continue;
-		if (expectedTeam >= 0 && placed.getTeamNum() != expectedTeam) continue;
+		if (!AIBP_BlobTeamMatchesBlock(block, placed.getTeamNum(), expectedTeam)) continue;
 		if (!AIBP_BlobAnchoredAtTile(placed, x, y)) continue;
 		const u8 actual = AIBP_NormalizeRotationForId(AIBP_BlockId(block),
 			u8((Maths::Round(placed.getAngleDegrees() / 90.0f) + 4) % 4));

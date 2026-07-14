@@ -153,12 +153,13 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Rule: empty tiles and ground background do not provide support; solid terrain, built foreground, and valid wood/stone backwalls do.
 - Evidence requirement: inspect state acquisition separately from movement. In the live CTF trace, the worker entered `find_blueprint_block` at tick 300 but never emitted a target/state transition afterward, proving selection/support classification—not path following—was the first failure.
 
-### Directly created blueprint platforms may disappear after an apparent completion
+### Wooden platforms normalize to an unstable numeric neutral-team sentinel
 
-- Symptom: a director-built `wooden_platform` matches long enough for the task to be marked complete, then the blob disappears and the next plan refresh reactivates the task as damage.
-- Reproduced evidence: `../../Logs/console-26-07-14-05-21-18.txt` completed the team-1 platform at `(178,36)` on tick 2410, reported it damaged on tick 2430, rebuilt it on tick 2442, and reported it damaged again on tick 2460. The neighbouring `(176,36)` platform completed on tick 2434 and was also damaged on tick 2460.
-- Do not conclude: a successful `server_CreateBlob`, a same-tick catalog match, or one task-complete event proves a blob-backed blueprint task is durable.
-- Workaround: keep blob-backed placement and durable completion as separate evidence boundaries. Recheck the exact blob name/team/rotation/anchor after its normal attachment/lifecycle scripts have advanced before allowing the plan to rely on it; if it disappears, diagnose the entity's player-build initialization/attachment contract rather than repeatedly consuming materials or cancelling the whole plan.
+- Symptom: a healthy director-built `wooden_platform` matches in its creation tick, then a team-aware verifier reports task damage even though the platform remains present.
+- Cause: base `WoodenPlatform.as` deliberately calls `server_setTeamNum(-1)` so anyone can break the platform. Across AngelScript API boundaries that neutral team can be observed as signed `-1` or unsigned `255`; comparing either numeric value is not a stable identity contract.
+- Reproduced evidence: `../../Logs/console-26-07-14-05-21-18.txt` completed team-1 platform `(178,36)` at tick 2410, reported damage at 2430, rebuilt it at 2442, and reported damage again at 2460. A first attempted signed-`-1` exception reproduced the exact failures in `../../Logs/console-26-07-14-05-42-21.txt`. After matching neutral ownership by catalog block type, `../../Logs/console-26-07-14-05-46-02.txt` completed `(178,36)` at tick 2410 and `(176,36)` at tick 2434 with no platform damage through tick 3690.
+- Do not conclude: a team mismatch means a platform disappeared or belongs to an opponent. Also do not generalize team-agnostic matching to doors, bridges, workshops, or other team-bearing blobs.
+- Workaround: declare `AIBP_PLATFORM` neutral by catalog identity and ignore its mutable engine team only when matching that exact block type. Store a separate originating-team property on director-created blobs so planner overlap checks can distinguish adjacent friendly blueprint work from other structures.
 
 ### Engine pathing and direct movement can fight each other
 

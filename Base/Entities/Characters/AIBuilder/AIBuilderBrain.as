@@ -5098,6 +5098,8 @@ bool AIB_PlaceBlueprintBlob(CBlob@ blob, Vec2f tile, const u16 target)
 
 	const u16 rotation = AIB_BlueprintRotation(target);
 	placed.setAngleDegrees(rotation * 90.0f);
+	placed.set_u8(AIBP_BLUEPRINT_OWNER_TEAM_KEY, u8(blob.getTeamNum()));
+	placed.Sync(AIBP_BLUEPRINT_OWNER_TEAM_KEY, true);
 	placed.Tag("aibuilder blueprint structure");
 	if (blobName == "ladder") placed.Tag("aibuilder blueprint ladder");
 	placed.getShape().SetStatic(true);

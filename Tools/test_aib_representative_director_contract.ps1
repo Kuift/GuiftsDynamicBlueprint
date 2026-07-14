@@ -4,7 +4,7 @@ $path = Join-Path $root 'Scripts\AIBTestScenarios.as'
 $source = Get-Content -LiteralPath $path -Raw
 
 foreach ($needle in @(
-    'strategic_mirrored_sides_select_safe_inward_candidates',
+    'strategic_mirrored_sides_physically_complete_safe_inward_plans',
     'strategic_uneven_right_edge_fallback_physically_completes',
     'strategic_scarcity_penalizes_unfunded_large_plan',
     'strategic_collapse_pressure_prefers_emergency_barrier',
@@ -13,13 +13,16 @@ foreach ($needle in @(
     'strategic_no_build_primary_falls_back_and_physically_completes',
     'strategic_occupied_primary_falls_back_and_physically_completes',
     'strategic_barrier_primary_falls_back_and_physically_completes',
-    'bool AIBT_RepresentativeDirectorCandidate',
-    'AIBWorldState@ world = AIBS_ObserveWorld(team);',
-    'AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);',
+    'bool AIBT_PrepareMirroredPlan',
+    'void AIBT_SetupMirroredCompletion()',
+    'bool AIBT_MirroredPlanComplete',
+    'bool AIBT_EvaluateMirroredCompletion',
+    'AIBT_PrepareMirroredPlan(0, 1)',
+    'AIBT_PrepareMirroredPlan(1, -1)',
+    'world.enemyDirection == expectedDirection && world.autoBuilders == 0',
+    'AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);',
     'AIBS_ValidateCandidate(world, candidate)',
-    'representative_not_inward',
-    'representative_task_out_of_bounds',
-    'representative_fixture_not_uneven',
+    'mirrored_plans_physically_complete=true',
     'void AIBT_SetupUnevenEdgeCompletion()',
     'bool AIBT_EvaluateUnevenEdgeCompletion',
     'primaryReason == "occupied_terrain"',
@@ -90,6 +93,17 @@ if ($unevenStart -lt 0 -or $initialValid -lt $unevenStart -or $obstacleAdded -le
     $fallbackSelected -le $obstacleAdded -or $planPublished -le $fallbackSelected -or
     $executorSpawned -le $planPublished -or $executorAssigned -le $executorSpawned) {
     throw 'Uneven-edge fixture must validate the original primary, add terrain, select/publish without an Autobuilder, then spawn and assign the executor'
+}
+
+$mirroredStart = $source.IndexOf('void AIBT_SetupMirroredCompletion()')
+$leftPrepared = $source.IndexOf('AIBT_PrepareMirroredPlan(0, 1)', $mirroredStart)
+$rightPrepared = $source.IndexOf('AIBT_PrepareMirroredPlan(1, -1)', $mirroredStart)
+$leftSpawned = $source.IndexOf('@leftExecutor = AIBT_Spawn("autobuilder"', $mirroredStart)
+$leftAssigned = $source.IndexOf('AIBS_AssignBuilders(leftWorld);', $mirroredStart)
+$rightAssigned = $source.IndexOf('AIBS_AssignBuilders(rightWorld);', $mirroredStart)
+if ($mirroredStart -lt 0 -or $leftPrepared -lt $mirroredStart -or $rightPrepared -le $leftPrepared -or
+    $leftSpawned -le $rightPrepared -or $leftAssigned -le $leftSpawned -or $rightAssigned -le $leftAssigned) {
+    throw 'Mirrored fixture must prepare and publish both ordinary-reachability plans before spawning and assigning either Autobuilder'
 }
 
 Write-Output 'AIB representative director fixture contract passed'

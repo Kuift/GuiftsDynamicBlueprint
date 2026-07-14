@@ -79,7 +79,7 @@ string[] AIBT_SCENARIOS =
 	"blueprint_builds_generated_backwall_support",
 	"full_crate_creates_grounded_overflow_storage",
 	"damaged_owned_tile_is_repaired_without_replacing_neighbors",
-	"strategic_mirrored_sides_select_safe_inward_candidates",
+	"strategic_mirrored_sides_physically_complete_safe_inward_plans",
 	"strategic_uneven_right_edge_fallback_physically_completes",
 	"strategic_scarcity_penalizes_unfunded_large_plan",
 	"strategic_collapse_pressure_prefers_emergency_barrier",
@@ -727,6 +727,23 @@ void AIBT_ClearScenarioRefs()
 	rules.set_string("aibt fallback template", "");
 	rules.set_string("aibt fallback reasons", "");
 	rules.set_string("aibt fallback setup failure", "");
+	rules.set_bool("aibt mirrored completion setup", false);
+	for (u8 mirroredTeam = 0; mirroredTeam < 2; mirroredTeam++)
+	{
+		const string prefix = "aibt mirrored completion team " + mirroredTeam + " ";
+		rules.set_bool(prefix + "prepared", false);
+		rules.set_bool(prefix + "route safe", false);
+		rules.set_bool(prefix + "inward", false);
+		rules.set_bool(prefix + "progress observed", false);
+		rules.set_u16(prefix + "plan id", 0);
+		rules.set_u16(prefix + "plan version", 0);
+		rules.set_u16(prefix + "tasks", 0);
+		rules.set_u16(prefix + "initial completed", 0);
+		rules.set_netid(prefix + "executor", 0);
+		rules.set_string(prefix + "template", "");
+		rules.set_string(prefix + "reasons", "");
+		rules.set_string(prefix + "details", "");
+	}
 	rules.set_bool("aibt uneven edge setup", false);
 	rules.set_bool("aibt uneven edge route safe", false);
 	rules.set_bool("aibt uneven edge progress observed", false);
@@ -891,69 +908,6 @@ bool AIBT_AllPlanTasksPhysicallyComplete(const u8 team, u16 &out taskCount, u16 
 		if (mismatch == "") mismatch = "physical_mismatch index=" + i + " tile=" + xs[i] + "," + ys[i] + " block=" + blocks[i];
 	}
 	return taskCount > 0 && stateCompleted == taskCount && reservedCount == 0 && mismatch == "";
-}
-
-bool AIBT_RepresentativeDirectorCandidate(const u8 team, const s8 expectedDirection, const bool requireTerrainVariance,
-	string &out failure, string &out details)
-{
-	CMap@ map = getMap();
-	AIBWorldState@ world = AIBS_ObserveWorld(team);
-	if (map is null || world is null || world.home == Vec2f_zero || world.enemyHome == Vec2f_zero)
-	{
-		failure = "representative_world_missing team=" + team;
-		return false;
-	}
-	if (world.enemyDirection != expectedDirection)
-	{
-		failure = "representative_wrong_direction team=" + team + " expected=" + expectedDirection + " actual=" + world.enemyDirection;
-		return false;
-	}
-	AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);
-	if (candidate is null)
-	{
-		failure = "representative_no_candidate team=" + team;
-		return false;
-	}
-	if (!AIBS_ValidateCandidate(world, candidate) || candidate.tasks.length == 0)
-	{
-		failure = "representative_invalid_candidate team=" + team + " template=" + candidate.templateName + " rejection=" + candidate.rejection;
-		return false;
-	}
-	const int homeX = int(world.home.x / map.tilesize);
-	const int anchorX = int(candidate.anchor.x);
-	if ((anchorX - homeX) * expectedDirection <= 0)
-	{
-		failure = "representative_not_inward team=" + team + " home_x=" + homeX + " anchor_x=" + anchorX;
-		return false;
-	}
-	for (uint i = 0; i < candidate.tasks.length; i++)
-	{
-		BlueprintTask@ task = candidate.tasks[i];
-		if (task is null || task.x >= map.tilemapwidth || task.y == 0 || task.y >= map.tilemapheight)
-		{
-			failure = "representative_task_out_of_bounds team=" + team + " index=" + i;
-			return false;
-		}
-	}
-	const int minX = Maths::Max(0, Maths::Min(homeX, anchorX) - 8);
-	const int maxX = Maths::Min(int(map.tilemapwidth) - 1, Maths::Max(homeX, anchorX) + 8);
-	u16 minSurface = 65535; u16 maxSurface = 0;
-	for (int x = minX; x <= maxX; x++)
-	{
-		const u16 surface = AIBS_SurfaceAt(x);
-		minSurface = Maths::Min(minSurface, surface);
-		maxSurface = Maths::Max(maxSurface, surface);
-	}
-	const u16 terrainVariance = maxSurface - minSurface;
-	if (requireTerrainVariance && terrainVariance < 2)
-	{
-		failure = "representative_fixture_not_uneven team=" + team + " variance=" + terrainVariance;
-		return false;
-	}
-	details = "team=" + team + " direction=" + expectedDirection + " template=" + candidate.templateName +
-		" anchor=" + anchorX + "," + int(candidate.anchor.y) + " tasks=" + candidate.tasks.length +
-		" score=" + candidate.score + " terrain_variance=" + terrainVariance + " reasons=" + candidate.reasons;
-	return true;
 }
 
 AIBPlanCandidate@ AIBT_FindGeneratedCandidate(array<AIBPlanCandidate@> &in candidates, const string &in templateName, const int anchorX)
@@ -1211,6 +1165,164 @@ bool AIBT_EvaluateRepresentativeFallback(const u32 elapsed, string &out failure,
 			" exercised=" + (exercised ? "true" : "false") + " obstacle_safe=" + (obstacleSafe ? "true" : "false") +
 			" obstacle_details=" + obstacleDetails + " mismatch=" + mismatch + " reasons=" + rules.get_string("aibt fallback reasons") +
 			" " + AIBT_DescribeBuilder(executor);
+		return true;
+	}
+	return false;
+}
+
+string AIBT_MirroredCompletionKey(const u8 team, const string &in field)
+{
+	return "aibt mirrored completion team " + team + " " + field;
+}
+
+bool AIBT_PrepareMirroredPlan(const u8 team, const s8 expectedDirection)
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null) return false;
+	AIBWorldState@ world = AIBS_ObserveWorld(team);
+	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);
+	const bool worldReady = world !is null && world.home != Vec2f_zero && world.enemyHome != Vec2f_zero &&
+		world.enemyDirection == expectedDirection && world.autoBuilders == 0;
+	const bool selectedValid = worldReady && selected !is null && selected.tasks.length > 0 && AIBS_ValidateCandidate(world, selected);
+	const int homeX = world is null ? 0 : int(world.home.x / map.tilesize);
+	const int anchorX = selected is null ? 0 : int(selected.anchor.x);
+	const bool inward = selectedValid && (anchorX - homeX) * expectedDirection > 0;
+	bool tasksInBounds = selectedValid;
+	if (selected !is null)
+	{
+		for (uint i = 0; i < selected.tasks.length; i++)
+		{
+			BlueprintTask@ task = selected.tasks[i];
+			if (task !is null && task.x < map.tilemapwidth && task.y > 0 && task.y < map.tilemapheight) continue;
+			tasksInBounds = false;
+			break;
+		}
+	}
+	const bool routeSafe = selectedValid && AIBS_PreservesFriendlyRoute(selected);
+	BlueprintPlan@ plan = selectedValid && inward && tasksInBounds && routeSafe ? AIBS_MakePlan(world, selected) : null;
+	const bool published = plan !is null && AIBP_PublishAIPlan(plan, true);
+	u16 initialCompleted = 0;
+	if (plan !is null)
+	{
+		for (uint i = 0; i < plan.tasks.length; i++)
+		{
+			BlueprintTask@ task = plan.tasks[i];
+			if (task !is null && task.state == AIBP_TaskState::completed) initialCompleted++;
+		}
+	}
+	rules.set_bool(AIBT_MirroredCompletionKey(team, "prepared"), published);
+	rules.set_bool(AIBT_MirroredCompletionKey(team, "route safe"), routeSafe);
+	rules.set_bool(AIBT_MirroredCompletionKey(team, "inward"), inward);
+	rules.set_bool(AIBT_MirroredCompletionKey(team, "progress observed"), false);
+	rules.set_u16(AIBT_MirroredCompletionKey(team, "plan id"), plan is null ? 0 : plan.id);
+	rules.set_u16(AIBT_MirroredCompletionKey(team, "plan version"), plan is null ? 0 : plan.version);
+	rules.set_u16(AIBT_MirroredCompletionKey(team, "tasks"), plan is null ? 0 : u16(plan.tasks.length));
+	rules.set_u16(AIBT_MirroredCompletionKey(team, "initial completed"), initialCompleted);
+	rules.set_string(AIBT_MirroredCompletionKey(team, "template"), selected is null ? "none" : selected.templateName);
+	rules.set_string(AIBT_MirroredCompletionKey(team, "reasons"), selected is null ? "none" : selected.reasons);
+	rules.set_string(AIBT_MirroredCompletionKey(team, "details"), "world=" + (worldReady ? "true" : "false") +
+		" direction=" + (world is null ? 0 : world.enemyDirection) + " selected=" + (selected is null ? "none" : selected.templateName) +
+		" valid=" + (selectedValid ? "true" : "false") + " home=" + homeX + " anchor=" + anchorX +
+		" inward=" + (inward ? "true" : "false") + " bounds=" + (tasksInBounds ? "true" : "false") +
+		" route_safe=" + (routeSafe ? "true" : "false") + " published=" + (published ? "true" : "false"));
+	return published;
+}
+
+void AIBT_SetupMirroredCompletion()
+{
+	CRules@ rules = getRules();
+	if (rules is null) return;
+	AIBT_SpawnTentTeam(54, 0);
+	AIBT_SpawnTentTeam(366, 1);
+	const bool leftPrepared = AIBT_PrepareMirroredPlan(0, 1);
+	const bool rightPrepared = AIBT_PrepareMirroredPlan(1, -1);
+	CBlob@ leftExecutor = null;
+	CBlob@ rightExecutor = null;
+	if (leftPrepared && rightPrepared)
+	{
+		@leftExecutor = AIBT_Spawn("autobuilder", 0, AIBT_Pos(46, AIBT_GROUND_Y - 3));
+		@rightExecutor = AIBT_Spawn("autobuilder", 1, AIBT_Pos(374, AIBT_GROUND_Y - 3));
+	}
+	AIBT_SetBlob("aibt_bot", leftExecutor);
+	AIBT_SetBlob("aibt_expected", rightExecutor);
+	rules.set_netid(AIBT_MirroredCompletionKey(0, "executor"), leftExecutor is null ? 0 : leftExecutor.getNetworkID());
+	rules.set_netid(AIBT_MirroredCompletionKey(1, "executor"), rightExecutor is null ? 0 : rightExecutor.getNetworkID());
+	const bool setup = leftPrepared && rightPrepared && leftExecutor !is null && rightExecutor !is null;
+	rules.set_bool("aibt mirrored completion setup", setup);
+	if (setup)
+	{
+		AIBWorldState@ leftWorld = AIBS_ObserveWorld(0);
+		AIBWorldState@ rightWorld = AIBS_ObserveWorld(1);
+		AIBS_AssignBuilders(leftWorld);
+		AIBS_AssignBuilders(rightWorld);
+	}
+}
+
+bool AIBT_MirroredPlanComplete(const u8 team, CBlob@ executor, string &out diagnostic)
+{
+	CRules@ rules = getRules();
+	if (rules is null) { diagnostic = "rules_missing"; return false; }
+	AIBP_RefreshPlanState(team, true);
+	const u16 expectedTasks = rules.get_u16(AIBT_MirroredCompletionKey(team, "tasks"));
+	const u16 initialCompleted = rules.get_u16(AIBT_MirroredCompletionKey(team, "initial completed"));
+	const u16 countedCompleted = rules.get_u16(AIBP_PlanKey(team, "completed"));
+	if (countedCompleted > initialCompleted) rules.set_bool(AIBT_MirroredCompletionKey(team, "progress observed"), true);
+	u16 taskCount = 0; u16 stateCompleted = 0; u16 reservedCount = 0; string mismatch;
+	const bool physical = AIBT_AllPlanTasksPhysicallyComplete(team, taskCount, stateCompleted, reservedCount, mismatch);
+	const bool identityStable = rules.get_u16(AIBP_PlanKey(team, "id")) == rules.get_u16(AIBT_MirroredCompletionKey(team, "plan id")) &&
+		rules.get_u16(AIBP_PlanKey(team, "version")) == rules.get_u16(AIBT_MirroredCompletionKey(team, "plan version"));
+	const bool countersComplete = rules.get_u16(AIBP_PlanKey(team, "pending")) == 0 && countedCompleted == expectedTasks &&
+		rules.get_u8(AIBP_PlanKey(team, "status")) == 2;
+	const bool layersComplete = AIBT_CountLayerTiles(team, AIBP_Layer::ai_desired) == expectedTasks &&
+		AIBT_LayerIsEmpty(team, AIBP_Layer::ai_work) && AIBT_LayerIsEmpty(team, AIBP_Layer::human);
+	const bool assignedExecutor = executor !is null && !executor.hasTag("dead") && executor.hasTag("autobuilder") &&
+		executor.getNetworkID() == rules.get_netid(AIBT_MirroredCompletionKey(team, "executor")) &&
+		executor.get_bool("aib strategy assigned") && executor.get_u8("ai builder job") == AIBS_JOB_BLUEPRINT;
+	const string archivePrefix = "aib strategy history plan " + rules.get_u16(AIBT_MirroredCompletionKey(team, "plan id")) +
+		" team " + team + " ";
+	const bool archivedComplete = rules.get_string(archivePrefix + "archive reason") == "completed";
+	const bool exercised = expectedTasks >= 6 && initialCompleted < expectedTasks &&
+		rules.get_bool(AIBT_MirroredCompletionKey(team, "progress observed"));
+	const bool prepared = rules.get_bool(AIBT_MirroredCompletionKey(team, "prepared")) &&
+		rules.get_bool(AIBT_MirroredCompletionKey(team, "route safe")) && rules.get_bool(AIBT_MirroredCompletionKey(team, "inward"));
+	diagnostic = "team=" + team + " template=" + rules.get_string(AIBT_MirroredCompletionKey(team, "template")) +
+		" expected=" + expectedTasks + " tasks=" + taskCount + " states=" + stateCompleted + " counted=" + countedCompleted +
+		" reserved=" + reservedCount + " prepared=" + (prepared ? "true" : "false") +
+		" physical=" + (physical ? "true" : "false") + " identity=" + (identityStable ? "true" : "false") +
+		" counters=" + (countersComplete ? "true" : "false") + " layers=" + (layersComplete ? "true" : "false") +
+		" assigned=" + (assignedExecutor ? "true" : "false") + " archived=" + (archivedComplete ? "true" : "false") +
+		" exercised=" + (exercised ? "true" : "false") + " mismatch=" + mismatch;
+	return prepared && physical && identityStable && countersComplete && layersComplete && assignedExecutor && archivedComplete && exercised;
+}
+
+bool AIBT_EvaluateMirroredCompletion(const u32 elapsed, string &out failure, string &out details)
+{
+	CRules@ rules = getRules();
+	if (rules is null || !rules.get_bool("aibt mirrored completion setup"))
+	{
+		failure = "mirrored_completion_setup_failed left={" + (rules is null ? "rules_missing" : rules.get_string(AIBT_MirroredCompletionKey(0, "details"))) +
+			"} right={" + (rules is null ? "rules_missing" : rules.get_string(AIBT_MirroredCompletionKey(1, "details"))) + "}";
+		return true;
+	}
+	CBlob@ leftExecutor = getBlobByNetworkID(rules.get_netid(AIBT_MirroredCompletionKey(0, "executor")));
+	CBlob@ rightExecutor = getBlobByNetworkID(rules.get_netid(AIBT_MirroredCompletionKey(1, "executor")));
+	string leftDiagnostic; string rightDiagnostic;
+	const bool leftComplete = AIBT_MirroredPlanComplete(0, leftExecutor, leftDiagnostic);
+	const bool rightComplete = AIBT_MirroredPlanComplete(1, rightExecutor, rightDiagnostic);
+	if (leftComplete && rightComplete)
+	{
+		details = "mirrored_plans_physically_complete=true left={" + leftDiagnostic + "} right={" + rightDiagnostic + "}";
+		return true;
+	}
+	const u32 maxTasks = Maths::Max(rules.get_u16(AIBT_MirroredCompletionKey(0, "tasks")),
+		rules.get_u16(AIBT_MirroredCompletionKey(1, "tasks")));
+	const u32 timeout = maxTasks * 45 + 450;
+	if (elapsed > timeout)
+	{
+		failure = "mirrored_completion_timeout elapsed=" + elapsed + " timeout=" + timeout +
+			" left={" + leftDiagnostic + " " + AIBT_DescribeBuilder(leftExecutor) + "} right={" +
+			rightDiagnostic + " " + AIBT_DescribeBuilder(rightExecutor) + "}";
 		return true;
 	}
 	return false;
@@ -2755,8 +2867,7 @@ void AIBT_SetupScenario(const int index)
 
 		case 54:
 		{
-			AIBT_SpawnTentTeam(54, 0);
-			AIBT_SpawnTentTeam(366, 1);
+			AIBT_SetupMirroredCompletion();
 			break;
 		}
 
@@ -4039,17 +4150,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 54:
 		{
-			string leftFailure; string leftDetails;
-			string rightFailure; string rightDetails;
-			const bool leftSafe = AIBT_RepresentativeDirectorCandidate(0, 1, false, leftFailure, leftDetails);
-			const bool rightSafe = AIBT_RepresentativeDirectorCandidate(1, -1, false, rightFailure, rightDetails);
-			if (!leftSafe || !rightSafe)
-			{
-				failure = "mirrored_director_candidate_failed left=" + leftFailure + " right=" + rightFailure;
-				return true;
-			}
-			details = "mirrored_safe=true " + leftDetails + " | " + rightDetails;
-			return true;
+			return AIBT_EvaluateMirroredCompletion(elapsed, failure, details);
 		}
 
 		case 55:

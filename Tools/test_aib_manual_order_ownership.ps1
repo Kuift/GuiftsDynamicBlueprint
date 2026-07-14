@@ -6,6 +6,7 @@ $jobs = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicJobs.as')
 $renderer = Get-Content -LiteralPath (Join-Path $root 'Scripts\CustomRenderer.as') -Raw
 $chat = Get-Content -LiteralPath (Join-Path $root 'Rules\CommonScripts\ChatCommands.as') -Raw
 $scenarios = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBTestScenarios.as') -Raw
+$help = Get-Content -LiteralPath (Join-Path $root 'Scripts\DynamicBlueprintHelp.as') -Raw
 
 foreach ($needle in @(
     'const string AIBM_MANUAL_CONTROL_KEY = "aib player manual order";',
@@ -75,6 +76,9 @@ foreach ($needle in @(
 }
 if (($blob | Select-String -Pattern 'addCommandID\(' -AllMatches).Matches.Count -ne 4) {
     throw 'Manual ownership must not consume another limited blob command ID'
+}
+if (!$help.Contains('Overseer: use workshop chair, drag-select AI, choose job')) {
+    throw 'Player help must explain that the workshop chair enters overseer view before AI selection'
 }
 
 Write-Output 'AIB manual-order ownership transfer contract passed'

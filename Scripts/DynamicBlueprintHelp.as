@@ -28,7 +28,7 @@ void onRender(CRules@ this)
 		getTranslatedString("$KEY_X$ menu at cursor    $KEY_L$ toggle menu"),
 		getTranslatedString("Paint / Erase / Select    Save / Load"),
 		getTranslatedString("Rotate / Flip / Preview    select trees or stone"),
-		getTranslatedString("Overseer: drag-select AI, then choose a job"),
+		getTranslatedString("Overseer: use workshop chair, drag-select AI, choose job"),
 		getTranslatedString("Assign: !bp_overseer_set username")
 	};
 

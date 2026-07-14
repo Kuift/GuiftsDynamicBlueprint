@@ -42,6 +42,8 @@ Same-map team-0 siting checkpoint: candidate generation now samples one homeward
 
 Public-control/config checkpoint: `../../Logs/console-26-07-14-07-27-34.txt` records the rendered Director AI button's client and server OFF events at tick 2015, director stop/mode application at tick 2040, ON events at tick 2923, and auto-mode application at tick 2940. Two later external keyboard attempts never reached KAG chat, so suggestion mode is not runtime-accepted. `../../Logs/console-26-07-14-07-36-38.txt` records `[AIBWEIGHTS] loaded=true version=1 file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBStrategyWeights.cfg`; the loader now emits that single server line per process.
 
+Player-facing manual-ownership checkpoint: `../../Logs/console-26-07-14-08-04-46.txt` uses a temporary same-team worker/workshop placed through local TCPR, then the real workshop chair, overseer drag-selection, `Harvest wood` button, and Director OFF/ON UI. The accepted order at tick 28620 remained `manual=true assigned=false pending=false job=0 active=true` through tick 30380 while auto mode stayed enabled. OFF at tick 33467 preserved that player-owned active job; ON at tick 35407 cleared the manual latch without aborting the safe wood-return episode. KAG was closed immediately after the verdict.
+
 The current source defines **65 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
 
 ### Final no-popup checkpoint for the next agent
@@ -81,6 +83,7 @@ When runtime windows are allowed, continue in this order and stop on the first c
 - `../../Logs/console-26-07-10-17-07-43.txt`: developer force-worker scoping live-compiled and produced exactly one team-0 developer provision plus a generated-support PASS.
 - `../../Logs/console-26-07-10-17-13-46.txt`: successful hits did not trigger the no-progress watchdog; the worker felled the tree, processed all five logs, stored wood, and accepted blueprint work before the localhost simulation stopped advancing.
 - `../../Logs/console-26-07-10-17-32-06.txt`: complete `[AIBTEST] DONE` for `damaged_owned_tile_is_repaired_without_replacing_neighbors`; owned wood was repaired, the adjacent stone tile was preserved, the task completed, and exactly 10 wood was spent.
+- `../../Logs/console-26-07-14-08-04-46.txt`: real workshop-chair overseer selection and `Harvest wood` order retained manual ownership across 1,760 ticks of automatic director heartbeats; visible OFF preserved the player job and visible ON explicitly released its latch.
 - `Artifacts/aib_ctf_generated_backwall_pass.png`: verified real KAG screenshot. The visible suggestion bubble is stale; server tile/resource/state deltas are the authoritative completion evidence.
 
 ### Latest code that is not yet behavior-verified

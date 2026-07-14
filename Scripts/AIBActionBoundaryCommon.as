@@ -117,5 +117,6 @@ u16 AIB_ActionArchiveReasonCode(const string &in reason)
 	if (reason == "invalidated") return 4;
 	if (reason == "cancelled") return 5;
 	if (reason == "round_reset") return 6;
+	if (reason == "human_override") return 7;
 	return 255;
 }

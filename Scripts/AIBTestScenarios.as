@@ -2200,10 +2200,13 @@ void AIBT_SetupScenario(const int index)
 		{
 			AIBT_SpawnTent(382); @bot = AIBT_SpawnBot(384);
 			const u16 y = AIBT_GROUND_Y - 1;
-			const bool humanSet = AIBP_SetHumanTile(0, 386, y, AIBP_WOOD_BLOCK);
 			BlueprintPlan@ plan = AIBT_NewStrategicPlan(0, "layer_test");
+			plan.tasks.push_back(BlueprintTask(386, y, AIBP_STONE_BLOCK, AIBP_Phase::shell));
 			plan.tasks.push_back(BlueprintTask(387, y, AIBP_STONE_BLOCK, AIBP_Phase::shell));
 			const bool published = AIBP_PublishAIPlan(plan, true);
+			// A player claim made after publication must permanently retire the
+			// overlapping AI task rather than merely hiding it in the merged view.
+			const bool humanSet = AIBP_SetHumanTile(0, 386, y, AIBP_WOOD_BLOCK);
 			BlueprintPlan@ otherPlan = AIBT_NewStrategicPlan(1, "layer_test_other_team");
 			otherPlan.tasks.push_back(BlueprintTask(388, y, AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
 			const bool otherPublished = AIBP_PublishAIPlan(otherPlan, true);
@@ -2222,8 +2225,19 @@ void AIBT_SetupScenario(const int index)
 				otherMerged[aiIndex] == 0 && otherMerged[otherIndex] == AIBP_WOOD_BACKWALL;
 			const bool metadata = getRules().get_u16(AIBP_PlanKey(0, "id")) == plan.id &&
 				getRules().get_u16(AIBP_PlanKey(0, "version")) == plan.version && getRules().get_u8(AIBP_PlanKey(0, "owner")) == 255;
-			AIBT_SetStrategicResult(humanSet && published && otherPublished && suggestionAccepted && preserved && metadata,
-				"human_priority=true ai_published=true suggestion_manual_accept=true team_isolation=true metadata=true", "layer_merge_team_or_metadata_failed");
+			array<u16>@ desired = null; array<u8>@ states = null; array<u16>@ reserved = null; array<u32>@ untils = null;
+			AIBP_GetLayerGrid(0, AIBP_Layer::ai_desired, @desired);
+			getRules().get(AIBP_TaskKey(0, "state"), @states);
+			getRules().get(AIBP_TaskKey(0, "reserved"), @reserved);
+			getRules().get(AIBP_TaskKey(0, "until"), @untils);
+			const bool overrideDurable = desired !is null && desired[humanIndex] == 0 && desired[aiIndex] == AIBP_STONE_BLOCK &&
+				states !is null && reserved !is null && untils !is null &&
+				states.length == 2 && reserved.length == 2 && untils.length == 2 &&
+				states[0] == AIBP_TaskState::cancelled && states[1] == AIBP_TaskState::pending &&
+				reserved[0] == 0 && untils[0] == 0 && getRules().get_u16(AIBP_PlanKey(0, "pending")) == 1;
+			AIBT_SetStrategicResult(humanSet && published && otherPublished && suggestionAccepted && preserved && metadata && overrideDurable,
+				"human_priority=true human_override_durable=true ai_published=true suggestion_manual_accept=true team_isolation=true metadata=true",
+				"layer_merge_team_or_metadata_failed");
 			break;
 		}
 

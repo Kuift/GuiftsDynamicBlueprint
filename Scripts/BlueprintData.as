@@ -180,6 +180,7 @@ bool AIBP_SetHumanTile(const u8 team, const u16 x, const u16 y, const u16 value,
 	rules.set(AIBP_LayerDataKey(team, AIBP_Layer::human), human);
 	rules.set_u16(versionKey, currentVersion + 1);
 	rules.Sync(versionKey, true);
+	if (value != 0) AIBP_ApplyHumanPriorityAt(team, x, y);
 	AIBP_RebuildCompatibility(team, false);
 	AIBP_NotifyDisplayTile(team, x, y);
 	AIBS_Log("human_delta", team, "x=" + x + " y=" + y + " block=" + value + " version=" + (currentVersion + 1));
@@ -207,6 +208,7 @@ bool AIBP_ApplyHumanPlacement(const u8 team, const u16 centerX, const u16 center
 	array<u16>@ human = null;
 	if (!AIBP_GetLayerGrid(team, AIBP_Layer::human, @human) || human is null) return false;
 	bool changed = false;
+	array<u16> overrideXs; array<u16> overrideYs;
 	for (int y = 0; y < height; y++)
 	{
 		for (int x = 0; x < width; x++)
@@ -219,6 +221,7 @@ bool AIBP_ApplyHumanPlacement(const u8 team, const u16 centerX, const u16 center
 			if (index >= human.length || human[index] == value) continue;
 			human[index] = value;
 			changed = true;
+			if (value != 0) { overrideXs.push_back(u16(tx)); overrideYs.push_back(u16(ty)); }
 		}
 	}
 	if (changed)
@@ -228,6 +231,8 @@ bool AIBP_ApplyHumanPlacement(const u8 team, const u16 centerX, const u16 center
 		rules.set(AIBP_LayerDataKey(team, AIBP_Layer::human), human);
 		rules.set_u16(versionKey, version);
 		rules.Sync(versionKey, true);
+		for (uint i = 0; i < overrideXs.length && i < overrideYs.length; i++)
+			AIBP_ApplyHumanPriorityAt(team, overrideXs[i], overrideYs[i]);
 		AIBP_RebuildCompatibility(team, false);
 		AIBP_SendDisplaySnapshot(0, team);
 		AIBS_Log("human_prefab", team, "center=" + centerX + "," + centerY + " size=" + width + "x" + height + " version=" + version);
@@ -281,6 +286,73 @@ bool AIBP_LoadTaskArrays(const u8 team, array<u16>@ &out xs, array<u16>@ &out ys
 		rules.get(AIBP_TaskKey(team, "state"), @states) && states !is null &&
 		rules.get(AIBP_TaskKey(team, "reserved"), @reserved) && reserved !is null &&
 		rules.get(AIBP_TaskKey(team, "until"), @untils) && untils !is null;
+}
+
+bool AIBP_ApplyHumanPriorityAt(const u8 team, const u16 x, const u16 y)
+{
+	if (!isServer()) return false;
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	AIBP_ClearLooseReservationAt(team, x, y);
+	const uint index = y * map.tilemapwidth + x;
+	bool changed = false;
+	array<u16>@ desired = null;
+	if (AIBP_GetLayerGrid(team, AIBP_Layer::ai_desired, @desired) && desired !is null && index < desired.length && desired[index] != 0)
+	{
+		desired[index] = 0;
+		rules.set(AIBP_LayerDataKey(team, AIBP_Layer::ai_desired), desired);
+		changed = true;
+	}
+	array<u16>@ work = null;
+	if (AIBP_GetLayerGrid(team, AIBP_Layer::ai_work, @work) && work !is null && index < work.length && work[index] != 0)
+	{
+		work[index] = 0;
+		rules.set(AIBP_LayerDataKey(team, AIBP_Layer::ai_work), work);
+		changed = true;
+	}
+
+	array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
+	array<u8>@ phases = null; array<u8>@ states = null; array<u32>@ untils = null;
+	if (!AIBP_LoadTaskArrays(team, @xs, @ys, @blocks, @phases, @states, @reserved, @untils)) return changed;
+	bool taskChanged = false;
+	for (uint i = 0; i < xs.length && i < ys.length && i < states.length; i++)
+	{
+		if (xs[i] != x || ys[i] != y || states[i] == AIBP_TaskState::cancelled) continue;
+		states[i] = AIBP_TaskState::cancelled;
+		if (i < reserved.length) reserved[i] = 0;
+		if (i < untils.length) untils[i] = 0;
+		taskChanged = true;
+	}
+	if (!taskChanged) return changed;
+	rules.set(AIBP_TaskKey(team, "state"), states);
+	rules.set(AIBP_TaskKey(team, "reserved"), reserved);
+	rules.set(AIBP_TaskKey(team, "until"), untils);
+	u16 pending = 0; u16 completed = 0; u16 damaged = 0;
+	for (uint i = 0; i < states.length; i++)
+	{
+		if (states[i] == AIBP_TaskState::completed)
+		{
+			completed++;
+			if (i < xs.length && i < ys.length && i < blocks.length &&
+				!AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i], team)) damaged++;
+		}
+		else if (states[i] != AIBP_TaskState::cancelled) pending++;
+	}
+	rules.set_u16(AIBP_PlanKey(team, "pending"), pending);
+	rules.set_u16(AIBP_PlanKey(team, "completed"), completed);
+	rules.set_u16(AIBP_PlanKey(team, "damaged"), damaged);
+	rules.set_u32(AIBP_PlanKey(team, "updated"), getGameTime());
+	rules.set_u32("aib strategy important event team " + int(team), getGameTime());
+	rules.Sync(AIBP_PlanKey(team, "pending"), true);
+	rules.Sync(AIBP_PlanKey(team, "completed"), true);
+	rules.Sync(AIBP_PlanKey(team, "damaged"), true);
+	AIBS_Log("human_override", team, "plan=" + rules.get_u16(AIBP_PlanKey(team, "id")) + " x=" + x + " y=" + y);
+	if (pending == 0 && rules.get_u8(AIBP_PlanKey(team, "status")) == 1)
+	{
+		AIBP_CancelCurrentPlan(team, "human_override");
+	}
+	return true;
 }
 
 bool AIBP_PublishAIPlan(BlueprintPlan@ plan, const bool activate)

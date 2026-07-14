@@ -18,9 +18,11 @@ The latest no-popup slice advances public telemetry to schema v3. A bounded nume
 
 The next source-only slice closes the known bootstrap siting hole. Provisioning now builds one bounded terrain reachability map from the nearest two-tile standing cell at team home and accepts only locally safe spawn envelopes in that set. This rejects mirrored locally clear but sealed pockets without restoring the old per-candidate world scans. `strategic_bootstrap_rejects_sealed_cave_spawn` advances the registry to 61 scenarios, and `Tools/test_aib_bootstrap_connectivity.ps1` mirrors the production flood-fill offline. The complete offline batch passes 20/20 checks; this AngelScript path and scenario have not been KAG-runtime compiled.
 
+The latest source-only slice adds full representative fallback completion for the two remaining planner environments. `strategic_no_build_primary_falls_back_and_physically_completes` and `strategic_occupied_primary_falls_back_and_physically_completes` first prove the production primary is valid, introduce one exact no-build sector or protected static crate, require the primary to reject for `no_build` or `building_overlap`, publish a distinct valid fallback, and drive every task through the real Autobuilder executor. Completion requires physical matches, empty work/reservation state, stable plan identity, a completed archive, and an intact obstacle. Temporary no-build sectors are owner-tracked and removed before canonical reset. The registry now contains 63 scenarios and the offline batch remains 20/20; neither new scenario is runtime-compiled.
+
 The user currently needs the computer and does **not** want disruptive KAG windows. Do not launch KAG again until the user explicitly says visible runtime testing is acceptable. No KAG process is running. Root startup is restored to `CTF`, blank `sv_mapcycle`, and shuffle enabled; all three AIBTest scenario selectors are blank; `Rules/CTF/gamemode.cfg` exists and no disabled rename remains.
 
-The current source defines **61 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
+The current source defines **63 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
 
 ### Final no-popup checkpoint for the next agent
 
@@ -28,7 +30,7 @@ This is the deliberate stopping point from the 2026-07-10 session. No KAG proces
 
 Do not mistake that checkpoint for KAG runtime acceptance. The most recent AngelScript additions still needing one focused visible compile are telemetry schema v3 callbacks/boundary queue, the shared strategy-weight loader, canonical reset/representative planner scenarios, and the expanded gym monitor plus `[AIBGYM]`/`[AIBGYMW]` emission. The compact diagnostic window and action boundaries use numeric arrays plus binary/base64 packing; source contracts pass, but KAG dialect/runtime behavior is unproven.
 
-When runtime windows are allowed, continue in this order and stop on the first compile failure: (1) one short focused AIBTest compile that exercises the gym monitor/window path, (2) the corrected overflow scenario, (3) the known overhang return-route reproduction, (4) the mirrored/uneven/shortage/pressure/damaged-front representative range, (5) the full selected-plan completion scenario, (6) the sealed-bootstrap scenario, and (7) only then the full 61-scenario suite and the generated 48-trial paired wave matrix. Keep timeouts proportional to observed scenario duration and use the 25-second stale detector; never spend 120 seconds waiting for a three-second check.
+When runtime windows are allowed, continue in this order and stop on the first compile failure: (1) one short focused AIBTest compile that exercises the gym monitor/window path, (2) the corrected overflow scenario, (3) the known overhang return-route reproduction, (4) the mirrored/uneven/shortage/pressure/damaged-front representative range, (5) the full selected-plan completion scenario, (6) the sealed-bootstrap scenario, (7) the no-build/occupied fallback pair, and (8) only then the full 63-scenario suite and the generated 48-trial paired wave matrix. Keep timeouts proportional to observed scenario duration and use the 25-second stale detector; never spend 120 seconds waiting for a three-second check.
 
 ### What this work session focused on
 
@@ -102,7 +104,7 @@ Add a strategic AI that decides what structures the team needs, chooses suitable
 - KAG documentation is sparse; inspect existing working scripts when an API is uncertain.
 - KAG must be launched visibly and left running for gameplay testing unless the user explicitly requests a compile-only check.
 - `AIB_DEBUG` in `AIBuilderBrain.as` must remain `false` outside focused testing.
-- The current source defines 60 automated AIB scenarios. The live KAG process may stall before every scenario runs in one process, so retain per-scenario evidence and do not infer a full-suite pass from a focused or partial log.
+- The current source defines 63 automated AIB scenarios. The live KAG process may stall before every scenario runs in one process, so retain per-scenario evidence and do not infer a full-suite pass from a focused or partial log.
 
 ## Relevant Existing Code
 
@@ -139,7 +141,7 @@ Add a strategic AI that decides what structures the team needs, chooses suitable
   - mirrored upper-left/upper-right corner escape with real displacement;
   - line-of-sight gold-cluster mining and immediate return, while occluded/no-build controls remain protected;
   - a reusable low-dirt stone route, one planned dirt tile destroyed, direct shaft movement, and preserved off-route dirt/bedrock/castle.
-- This is not a recorded full pass of the current 61-scenario suite. Keep full-44, focused-five, focused-heartbeat, focused-guard, focused-repair, and focused-gym evidence distinct.
+- This is not a recorded full pass of the current 63-scenario suite. Keep full-44, focused-five, focused-heartbeat, focused-guard, focused-repair, and focused-gym evidence distinct.
 - `Tools/run_aib_tests.ps1` supports `-Scenario`, `-StartScenario`/`-EndScenario`, configurable stale detection, and optional `-StopAfterRun`. It requires `[AIBTEST] DONE` for completion. `RunLocalhost()` supplies a visible client and verdict fixtures remain for a 15-tick hold. `AIBTestCamera.as` is the intended camera owner, but displayed follow/manual control are unresolved; never treat `CAMERA_TARGET`/`CAMERA_VIEW` logs as proof of the actual screen.
 
 ## Main Architectural Decision
@@ -296,7 +298,7 @@ Long live simulations can stop advancing, so they should not be the only accepta
 Milestones 1-5 are implemented as a deterministic prototype. The next work is acceptance and tuning, not another planner rewrite:
 
 1. Run `strategic_bootstrap_is_one_time_and_releases_reservation` alone. No KAG process is currently running. It is the only new bootstrap case without executed assertions; the previous range stalled before its director heartbeat.
-2. Runtime-compile the new damaged-front retention and full selected-plan completion fixtures, then extend representative end-to-end coverage for barriers, occupied/no-build bases, blocked bootstrap sites, and round reset.
+2. Runtime-compile the new damaged-front retention, full selected-plan completion, sealed-bootstrap, and occupied/no-build fallback fixtures, then extend representative end-to-end coverage for barriers, blocked bootstrap sites, and round reset.
 3. Preserve the production bootstrap contract: CTF-only default, active non-empty auto plan, team home, zero existing builders, safe grounded both-side search, one free worker per round, cooldown on failure, and immediate reservation release on death.
 4. Runtime-validate bootstrap spawn safety. Blocker bounds and the bounded home-surface reachability map are each computed once per attempt, and the new mirrored fixture rejects clear sealed pockets; verify compilation, both team directions, uneven homes, blocked sites, and round reset in visible KAG.
 5. Build pristine automatically reset paired wave fixtures around the implemented canonical/measurement fingerprints, fixture/version/team-side identity, seed variation, and three-seed cohort gate. Collect 2 sides × 4 waves × 3 seeds × 2 variants = 48 trials / 24 pairs.

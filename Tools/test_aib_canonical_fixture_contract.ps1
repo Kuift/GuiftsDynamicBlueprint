@@ -12,7 +12,11 @@ foreach ($needle in @(
     'AIBT_CaptureOrValidateCanonicalMap();',
     'const u32 restoredCanonicalTiles = AIBT_RestoreCanonicalMap();',
     'canonical_fixture_reset_failed',
-    'blob_leak fixtures=',
+    'fixture_leak blobs=',
+    'AIBT_temporary_no_build_points',
+    'AIBT_temporary_no_build_cleanup_failed',
+    'remaining.ownerID == AIBT_temporary_no_build_owners[i]',
+    'RemoveSectorsAtPosition(AIBT_temporary_no_build_points[i], "no build"',
     'strategy_leak team='
 )) {
     if (!$source.Contains($needle)) { throw "Canonical fixture reset contract is missing: $needle" }

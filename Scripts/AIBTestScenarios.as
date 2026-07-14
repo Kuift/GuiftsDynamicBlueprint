@@ -8,10 +8,15 @@
 const int AIBT_ORIGIN_X = 12;
 const int AIBT_WIDTH = 150;
 const int AIBT_GROUND_Y = 72;
+const u8 AIBT_FALLBACK_NO_BUILD = 1;
+const u8 AIBT_FALLBACK_OCCUPIED = 2;
 u16[] AIBT_spawned_ids;
 Vec2f[] AIBT_changed_tiles;
 u16[] AIBT_original_tiles;
 Vec2f[] AIBT_route_dirt_tiles;
+Vec2f[] AIBT_temporary_no_build_points;
+u16[] AIBT_temporary_no_build_owners;
+bool AIBT_temporary_no_build_cleanup_failed = false;
 u16[] AIBT_canonical_tiles;
 u16 AIBT_canonical_width = 0;
 u16 AIBT_canonical_height = 0;
@@ -79,7 +84,9 @@ string[] AIBT_SCENARIOS =
 	"strategic_collapse_pressure_prefers_emergency_barrier",
 	"strategic_damaged_front_reactivates_without_plan_replacement",
 	"strategic_autobuilder_physically_completes_selected_plan",
-	"strategic_bootstrap_rejects_sealed_cave_spawn"
+	"strategic_bootstrap_rejects_sealed_cave_spawn",
+	"strategic_no_build_primary_falls_back_and_physically_completes",
+	"strategic_occupied_primary_falls_back_and_physically_completes"
 };
 
 string AIBT_ScenarioName(const int index)
@@ -114,9 +121,12 @@ void AIBT_CaptureOrValidateCanonicalMap()
 	rules.set_string("aibt canonical reset failure", "");
 	const u16 fixtureLeaks = AIBT_CountLiveTagged("aibt test fixture");
 	const u16 bootstrapLeaks = AIBT_CountLiveTagged("aib strategy bootstrap worker");
-	if (fixtureLeaks > 0 || bootstrapLeaks > 0)
+	if (fixtureLeaks > 0 || bootstrapLeaks > 0 || AIBT_temporary_no_build_points.length > 0 ||
+		AIBT_temporary_no_build_owners.length > 0 || AIBT_temporary_no_build_cleanup_failed)
 	{
-		rules.set_string("aibt canonical reset failure", "blob_leak fixtures=" + fixtureLeaks + " bootstrap=" + bootstrapLeaks);
+		rules.set_string("aibt canonical reset failure", "fixture_leak blobs=" + fixtureLeaks + " bootstrap=" + bootstrapLeaks +
+			" sectors=" + AIBT_temporary_no_build_points.length + "/" + AIBT_temporary_no_build_owners.length +
+			" sector_cleanup_failed=" + (AIBT_temporary_no_build_cleanup_failed ? "true" : "false"));
 		return;
 	}
 	for (u8 team = 0; team < 8; team++)
@@ -192,11 +202,25 @@ void AIBT_KillNamed(const string &in name)
 
 void AIBT_CleanupScenario()
 {
+	AIBT_temporary_no_build_cleanup_failed = false;
+	CMap@ cleanupMap = getMap();
+	if (cleanupMap !is null)
+	{
+		for (uint i = 0; i < AIBT_temporary_no_build_points.length && i < AIBT_temporary_no_build_owners.length; i++)
+		{
+			cleanupMap.RemoveSectorsAtPosition(AIBT_temporary_no_build_points[i], "no build", AIBT_temporary_no_build_owners[i]);
+			CMap::Sector@ remaining = cleanupMap.getSectorAtPosition(AIBT_temporary_no_build_points[i], "no build");
+			if (remaining !is null && remaining.ownerID == AIBT_temporary_no_build_owners[i])
+				AIBT_temporary_no_build_cleanup_failed = true;
+		}
+	}
+	AIBT_temporary_no_build_points.clear();
+	AIBT_temporary_no_build_owners.clear();
+
 	// DefaultNoBuild paints persistent wood backwall behind a buildershop.
 	// Restore only tracked workshop footprint cells before resetting fixtures.
 	AIBT_RestoreWorkshopBackgrounds(AIBT_GROUND_Y);
 
-	CMap@ cleanupMap = getMap();
 	if (cleanupMap !is null)
 	{
 		for (uint i = 0; i < AIBT_changed_tiles.length && i < AIBT_original_tiles.length; i++)
@@ -343,6 +367,19 @@ void AIBT_SetTemporaryTile(const int tileX, const int tileY, const u16 type)
 	AIBT_changed_tiles.push_back(tile);
 	AIBT_original_tiles.push_back(map.getTile(tile).type);
 	map.server_SetTile(tile, type);
+}
+
+bool AIBT_AddTemporaryNoBuildTile(const u16 tileX, const u16 tileY, const u16 ownerID)
+{
+	CMap@ map = getMap();
+	if (map is null || ownerID == 0 || tileX >= map.tilemapwidth || tileY >= map.tilemapheight) return false;
+	Vec2f upperLeft = Vec2f(tileX * map.tilesize, tileY * map.tilesize);
+	Vec2f lowerRight = Vec2f((tileX + 1) * map.tilesize, (tileY + 1) * map.tilesize);
+	Vec2f center = Vec2f((tileX + 0.5f) * map.tilesize, (tileY + 0.5f) * map.tilesize);
+	map.server_AddSector(upperLeft, lowerRight, "no build", "", ownerID);
+	AIBT_temporary_no_build_points.push_back(center);
+	AIBT_temporary_no_build_owners.push_back(ownerID);
+	return map.getSectorAtPosition(center, "no build") !is null;
 }
 
 CBlob@ AIBT_Spawn(const string &in name, const u8 team, Vec2f pos)
@@ -668,6 +705,25 @@ void AIBT_ClearScenarioRefs()
 	rules.set_string("aibt support scene signature", "");
 	rules.set_f32("aibt left corner start x", 0.0f);
 	rules.set_f32("aibt right corner start x", 0.0f);
+	rules.set_bool("aibt fallback setup", false);
+	rules.set_bool("aibt fallback route safe", false);
+	rules.set_bool("aibt fallback primary rejected", false);
+	rules.set_bool("aibt fallback progress observed", false);
+	rules.set_u8("aibt fallback obstacle kind", 0);
+	rules.set_u16("aibt fallback plan id", 0);
+	rules.set_u16("aibt fallback plan version", 0);
+	rules.set_u16("aibt fallback tasks", 0);
+	rules.set_u16("aibt fallback initial completed", 0);
+	rules.set_u16("aibt fallback primary anchor x", 0);
+	rules.set_u16("aibt fallback selected anchor x", 0);
+	rules.set_u16("aibt fallback obstacle x", 0);
+	rules.set_u16("aibt fallback obstacle y", 0);
+	rules.set_u16("aibt fallback obstacle tile", 0);
+	rules.set_netid("aibt fallback blocker", 0);
+	rules.set_string("aibt fallback primary reason", "");
+	rules.set_string("aibt fallback template", "");
+	rules.set_string("aibt fallback reasons", "");
+	rules.set_string("aibt fallback setup failure", "");
 	array<u16> empty;
 	array<Vec2f> emptyVec;
 	rules.set("aibuilder selected stone tiles", emptyVec);
@@ -872,6 +928,226 @@ bool AIBT_RepresentativeDirectorCandidate(const u8 team, const s8 expectedDirect
 		" anchor=" + anchorX + "," + int(candidate.anchor.y) + " tasks=" + candidate.tasks.length +
 		" score=" + candidate.score + " terrain_variance=" + terrainVariance + " reasons=" + candidate.reasons;
 	return true;
+}
+
+AIBPlanCandidate@ AIBT_FindGeneratedCandidate(array<AIBPlanCandidate@> &in candidates, const string &in templateName, const int anchorX)
+{
+	for (uint i = 0; i < candidates.length; i++)
+	{
+		AIBPlanCandidate@ candidate = candidates[i];
+		if (candidate !is null && candidate.templateName == templateName && int(candidate.anchor.x) == anchorX) return candidate;
+	}
+	return null;
+}
+
+BlueprintTask@ AIBT_FirstNonLadderTask(AIBPlanCandidate@ candidate)
+{
+	if (candidate is null) return null;
+	for (uint i = 0; i < candidate.tasks.length; i++)
+	{
+		BlueprintTask@ task = candidate.tasks[i];
+		if (task !is null && AIBP_BlockId(task.block) != AIBP_LADDER) return task;
+	}
+	return null;
+}
+
+void AIBT_SetupRepresentativeFallback(const u8 obstacleKind)
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null) return;
+	CBlob@ home = AIBT_SpawnTentTeam(54, 0);
+	AIBT_SpawnTentTeam(366, 1);
+	CBlob@ executor = AIBT_Spawn("autobuilder", 0, AIBT_Pos(58, AIBT_GROUND_Y - 3));
+	AIBT_SetBlob("aibt_bot", executor);
+	rules.set_u8("aibt fallback obstacle kind", obstacleKind);
+
+	AIBWorldState@ initialWorld = AIBS_ObserveWorld(0);
+	array<AIBPlanCandidate@> initialCandidates;
+	AIBS_GenerateCandidates(initialWorld, initialCandidates);
+	const int primaryAnchorX = initialWorld is null ? 0 : int(initialWorld.home.x / map.tilesize) + initialWorld.enemyDirection * 10;
+	AIBPlanCandidate@ initialPrimary = AIBT_FindGeneratedCandidate(initialCandidates, "flag_gatehouse", primaryAnchorX);
+	const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);
+	BlueprintTask@ obstacleTask = AIBT_FirstNonLadderTask(initialPrimary);
+	bool obstacleReady = home !is null && executor !is null && initialWorld !is null && initialPrimaryValid && obstacleTask !is null;
+	if (obstacleTask !is null)
+	{
+		rules.set_u16("aibt fallback obstacle x", obstacleTask.x);
+		rules.set_u16("aibt fallback obstacle y", obstacleTask.y);
+		rules.set_u16("aibt fallback obstacle tile", map.getTile(AIBT_Pos(obstacleTask.x, obstacleTask.y)).type);
+		if (obstacleKind == AIBT_FALLBACK_NO_BUILD)
+		{
+			obstacleReady = obstacleReady && AIBT_AddTemporaryNoBuildTile(obstacleTask.x, obstacleTask.y, home.getNetworkID());
+		}
+		else if (obstacleKind == AIBT_FALLBACK_OCCUPIED)
+		{
+			CBlob@ blocker = AIBT_Spawn("crate", 0, AIBT_Pos(obstacleTask.x, obstacleTask.y));
+			if (blocker !is null && blocker.getShape() !is null) blocker.getShape().SetStatic(true);
+			rules.set_netid("aibt fallback blocker", blocker is null ? 0 : blocker.getNetworkID());
+			obstacleReady = obstacleReady && blocker !is null;
+		}
+		else obstacleReady = false;
+	}
+
+	AIBWorldState@ world = AIBS_ObserveWorld(0);
+	array<AIBPlanCandidate@> generated;
+	AIBS_GenerateCandidates(world, generated);
+	AIBPlanCandidate@ primary = AIBT_FindGeneratedCandidate(generated, "flag_gatehouse", primaryAnchorX);
+	const bool primaryRejected = primary !is null && !AIBS_ValidateCandidate(world, primary);
+	const string primaryReason = primary is null ? "missing" : primary.rejection;
+	const string expectedReason = obstacleKind == AIBT_FALLBACK_NO_BUILD ? "no_build" : "building_overlap";
+	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);
+	const bool selectedValid = selected !is null && AIBS_ValidateCandidate(world, selected);
+	const bool selectedDistinct = selected !is null && primary !is null &&
+		(selected.templateName != primary.templateName || int(selected.anchor.x) != int(primary.anchor.x));
+	const bool routeSafe = selectedValid && AIBS_PreservesFriendlyRoute(selected);
+	BlueprintPlan@ plan = selectedValid && selectedDistinct ? AIBS_MakePlan(world, selected) : null;
+	const bool published = obstacleReady && primaryRejected && primaryReason == expectedReason && routeSafe && plan !is null &&
+		AIBP_PublishAIPlan(plan, true);
+	u16 initialCompleted = 0;
+	if (plan !is null)
+	{
+		for (uint i = 0; i < plan.tasks.length; i++)
+		{
+			BlueprintTask@ task = plan.tasks[i];
+			if (task !is null && task.state == AIBP_TaskState::completed) initialCompleted++;
+		}
+	}
+	rules.set_bool("aibt fallback setup", published);
+	rules.set_bool("aibt fallback route safe", routeSafe);
+	rules.set_bool("aibt fallback primary rejected", primaryRejected);
+	rules.set_bool("aibt fallback progress observed", false);
+	rules.set_u16("aibt fallback plan id", plan is null ? 0 : plan.id);
+	rules.set_u16("aibt fallback plan version", plan is null ? 0 : plan.version);
+	rules.set_u16("aibt fallback tasks", plan is null ? 0 : u16(plan.tasks.length));
+	rules.set_u16("aibt fallback initial completed", initialCompleted);
+	rules.set_u16("aibt fallback primary anchor x", u16(Maths::Max(0, primaryAnchorX)));
+	rules.set_u16("aibt fallback selected anchor x", selected is null ? 0 : u16(Maths::Max(0, int(selected.anchor.x))));
+	rules.set_string("aibt fallback primary reason", primaryReason);
+	rules.set_string("aibt fallback template", selected is null ? "none" : selected.templateName);
+	rules.set_string("aibt fallback reasons", selected is null ? "none" : selected.reasons);
+	rules.set_string("aibt fallback setup failure", "initial_primary_valid=" + (initialPrimaryValid ? "true" : "false") +
+		" obstacle_ready=" + (obstacleReady ? "true" : "false") +
+		" primary=" + (primary is null ? "missing" : primary.templateName) + " rejected=" + (primaryRejected ? "true" : "false") +
+		" reason=" + primaryReason + " expected=" + expectedReason + " selected=" + (selected is null ? "none" : selected.templateName) +
+		" selected_valid=" + (selectedValid ? "true" : "false") + " distinct=" + (selectedDistinct ? "true" : "false") +
+		" route_safe=" + (routeSafe ? "true" : "false") + " published=" + (published ? "true" : "false"));
+	if (published)
+	{
+		AIBWorldState@ assignedWorld = AIBS_ObserveWorld(0);
+		AIBS_AssignBuilders(assignedWorld);
+	}
+}
+
+bool AIBT_FallbackPlanRespectsObstacle(const u8 obstacleKind, string &out obstacleDetails)
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	obstacleDetails = "";
+	if (rules is null || map is null) return false;
+	const u16 obstacleX = rules.get_u16("aibt fallback obstacle x");
+	const u16 obstacleY = rules.get_u16("aibt fallback obstacle y");
+	Vec2f obstacleCenter = AIBT_Pos(obstacleX, obstacleY);
+	array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
+	array<u8>@ phases = null; array<u8>@ states = null; array<u32>@ untils = null;
+	if (!AIBP_LoadTaskArrays(0, @xs, @ys, @blocks, @phases, @states, @reserved, @untils) ||
+		xs is null || ys is null || blocks is null || xs.length != ys.length || xs.length != blocks.length) return false;
+	if (obstacleKind == AIBT_FALLBACK_NO_BUILD)
+	{
+		const bool sectorPresent = map.getSectorAtPosition(obstacleCenter, "no build") !is null;
+		const bool tilePreserved = map.getTile(obstacleCenter).type == rules.get_u16("aibt fallback obstacle tile");
+		bool legalTasks = true;
+		for (uint i = 0; i < xs.length; i++)
+		{
+			Vec2f center = AIBT_Pos(xs[i], ys[i]);
+			if (AIBP_BlockId(blocks[i]) != AIBP_LADDER && map.getSectorAtPosition(center, "no build") !is null)
+			{
+				legalTasks = false;
+				break;
+			}
+		}
+		obstacleDetails = "sector_present=" + (sectorPresent ? "true" : "false") +
+			" tile_preserved=" + (tilePreserved ? "true" : "false") + " legal_tasks=" + (legalTasks ? "true" : "false");
+		return sectorPresent && tilePreserved && legalTasks;
+	}
+	if (obstacleKind == AIBT_FALLBACK_OCCUPIED)
+	{
+		CBlob@ blocker = getBlobByNetworkID(rules.get_netid("aibt fallback blocker"));
+		const bool blockerPreserved = blocker !is null && !blocker.hasTag("dead") &&
+			(blocker.getPosition() - obstacleCenter).LengthSquared() < 4.0f;
+		bool legalTasks = true;
+		for (uint i = 0; i < xs.length; i++)
+		{
+			if (AIBS_OverlapsProtectedBlob(0, AIBT_Pos(xs[i], ys[i])))
+			{
+				legalTasks = false;
+				break;
+			}
+		}
+		obstacleDetails = "blocker_preserved=" + (blockerPreserved ? "true" : "false") +
+			" legal_tasks=" + (legalTasks ? "true" : "false");
+		return blockerPreserved && legalTasks;
+	}
+	return false;
+}
+
+bool AIBT_EvaluateRepresentativeFallback(const u32 elapsed, string &out failure, string &out details)
+{
+	CRules@ rules = getRules();
+	CBlob@ executor = AIBT_GetBlob("aibt_bot");
+	if (rules is null || !rules.get_bool("aibt fallback setup"))
+	{
+		failure = "representative_fallback_setup_failed " + (rules is null ? "rules_missing" : rules.get_string("aibt fallback setup failure"));
+		return true;
+	}
+	AIBP_RefreshPlanState(0, true);
+	const u16 expectedTasks = rules.get_u16("aibt fallback tasks");
+	const u16 initialCompleted = rules.get_u16("aibt fallback initial completed");
+	const u16 countedCompleted = rules.get_u16(AIBP_PlanKey(0, "completed"));
+	if (countedCompleted > initialCompleted) rules.set_bool("aibt fallback progress observed", true);
+	u16 taskCount = 0; u16 stateCompleted = 0; u16 reservedCount = 0; string mismatch;
+	const bool physical = AIBT_AllPlanTasksPhysicallyComplete(0, taskCount, stateCompleted, reservedCount, mismatch);
+	const bool identityStable = rules.get_u16(AIBP_PlanKey(0, "id")) == rules.get_u16("aibt fallback plan id") &&
+		rules.get_u16(AIBP_PlanKey(0, "version")) == rules.get_u16("aibt fallback plan version");
+	const bool countersComplete = rules.get_u16(AIBP_PlanKey(0, "pending")) == 0 && countedCompleted == expectedTasks &&
+		rules.get_u8(AIBP_PlanKey(0, "status")) == 2;
+	const bool layersComplete = AIBT_CountLayerTiles(0, AIBP_Layer::ai_desired) == expectedTasks &&
+		AIBT_LayerIsEmpty(0, AIBP_Layer::ai_work);
+	const bool assignedExecutor = executor !is null && executor.hasTag("autobuilder") && executor.get_bool("aib strategy assigned") &&
+		executor.get_u8("ai builder job") == AIBS_JOB_BLUEPRINT;
+	const string archivePrefix = "aib strategy history plan " + rules.get_u16("aibt fallback plan id") + " team 0 ";
+	const bool archivedComplete = rules.get_string(archivePrefix + "archive reason") == "completed";
+	const bool primaryFallback = rules.get_bool("aibt fallback primary rejected") &&
+		(rules.get_string("aibt fallback template") != "flag_gatehouse" ||
+		 rules.get_u16("aibt fallback selected anchor x") != rules.get_u16("aibt fallback primary anchor x"));
+	const bool exercised = expectedTasks >= 6 && initialCompleted < expectedTasks && rules.get_bool("aibt fallback progress observed");
+	string obstacleDetails;
+	const bool obstacleSafe = AIBT_FallbackPlanRespectsObstacle(rules.get_u8("aibt fallback obstacle kind"), obstacleDetails);
+	if (physical && identityStable && countersComplete && layersComplete && assignedExecutor && archivedComplete &&
+		primaryFallback && exercised && obstacleSafe)
+	{
+		details = "representative_fallback_physically_complete=true obstacle=" + rules.get_u8("aibt fallback obstacle kind") +
+			" primary_rejection=" + rules.get_string("aibt fallback primary reason") + " template=" + rules.get_string("aibt fallback template") +
+			" primary_anchor=" + rules.get_u16("aibt fallback primary anchor x") + " selected_anchor=" + rules.get_u16("aibt fallback selected anchor x") +
+			" tasks=" + expectedTasks + " reservations=0 work_layer_empty=true " + obstacleDetails;
+		return true;
+	}
+	const u32 timeout = u32(expectedTasks) * 45 + 450;
+	if (elapsed > timeout)
+	{
+		failure = "representative_fallback_timeout obstacle=" + rules.get_u8("aibt fallback obstacle kind") +
+			" reason=" + rules.get_string("aibt fallback primary reason") + " template=" + rules.get_string("aibt fallback template") +
+			" elapsed=" + elapsed + " timeout=" + timeout + " expected=" + expectedTasks + " tasks=" + taskCount +
+			" states_completed=" + stateCompleted + " counted_completed=" + countedCompleted + " reserved=" + reservedCount +
+			" identity=" + (identityStable ? "true" : "false") + " counters=" + (countersComplete ? "true" : "false") +
+			" layers=" + (layersComplete ? "true" : "false") + " assigned=" + (assignedExecutor ? "true" : "false") +
+			" archived=" + (archivedComplete ? "true" : "false") + " fallback=" + (primaryFallback ? "true" : "false") +
+			" exercised=" + (exercised ? "true" : "false") + " obstacle_safe=" + (obstacleSafe ? "true" : "false") +
+			" obstacle_details=" + obstacleDetails + " mismatch=" + mismatch + " reasons=" + rules.get_string("aibt fallback reasons") +
+			" " + AIBT_DescribeBuilder(executor);
+		return true;
+	}
+	return false;
 }
 
 bool AIBT_HasDirectorTaskClaim(const u8 team)
@@ -2328,6 +2604,18 @@ void AIBT_SetupScenario(const int index)
 			break;
 		}
 
+		case 61:
+		{
+			AIBT_SetupRepresentativeFallback(AIBT_FALLBACK_NO_BUILD);
+			break;
+		}
+
+		case 62:
+		{
+			AIBT_SetupRepresentativeFallback(AIBT_FALLBACK_OCCUPIED);
+			break;
+		}
+
 	}
 }
 
@@ -3598,6 +3886,12 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				return true;
 			}
 			break;
+		}
+
+		case 61:
+		case 62:
+		{
+			return AIBT_EvaluateRepresentativeFallback(elapsed, failure, details);
 		}
 
 		case 44:

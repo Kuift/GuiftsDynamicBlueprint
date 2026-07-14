@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $jobs = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicJobs.as') -Raw
+$director = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBStrategicDirector.as') -Raw
 $scenarios = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBTestScenarios.as') -Raw
 
 foreach ($needle in @(
@@ -21,6 +22,32 @@ if (!$scenarios.Contains('strategic_bootstrap_rejects_sealed_cave_spawn') -or
     !$scenarios.Contains('mirrored_sealed_rejected=true') -or
     !$scenarios.Contains('open_surface_accepted=true')) {
     throw 'The mirrored sealed-pocket production fixture is missing'
+}
+foreach ($needle in @(
+    'strategic_blocked_bootstrap_cools_down_and_round_reset_recovers_both_sides',
+    'bool AIBT_ExerciseBootstrapRoundReset',
+    'distance = AIBS_BOOTSTRAP_MIN_HOME_DISTANCE; distance <= AIBS_BOOTSTRAP_MAX_HOME_DISTANCE; distance += 2',
+    'blocker.Tag("aibt bootstrap site blocker")',
+    'blocker.getShape().SetStatic(true)',
+    'blockedSpawn == Vec2f_zero',
+    'blockedTick + AIBS_BOOTSTRAP_RETRY_TICKS',
+    'rules.get_u32(AIBS_BootstrapKey(team, "next retry")) > getGameTime()',
+    'AIBS_ResetBootstrapForRound(rules, team);',
+    'const bool provisionedAfterReset = AIBS_TryBootstrapBuilder',
+    'AIBT_ExerciseBootstrapRoundReset(0, homeXs[0])',
+    'AIBT_ExerciseBootstrapRoundReset(1, homeXs[1])',
+    'blocked_sites_cooldown=true round_reset_reopened=true mirrored_safe_workers=true'
+)) {
+    if (!$scenarios.Contains($needle)) { throw "Bootstrap blocked-site/round-reset fixture is missing: $needle" }
+}
+if (!$director.Contains('AIBS_ResetBootstrapForRound(this, team);')) {
+    throw 'Strategic director onRestart no longer invokes the production bootstrap round reset'
+}
+
+$blockerDistances = @(6..24 | Where-Object { ($_ - 6) % 2 -eq 0 })
+foreach ($candidateDistance in 6..24) {
+    $covered = @($blockerDistances | Where-Object { [Math]::Abs($_ - $candidateDistance) -le 1 }).Count -gt 0
+    if (!$covered) { throw "Bootstrap blocker spacing leaves distance $candidateDistance uncovered" }
 }
 
 $solid = [Collections.Generic.HashSet[string]]::new()
@@ -124,4 +151,4 @@ if ($null -eq $selected -or $selected[0] -ne $openX -or $selected[1] -ne ($groun
     throw "Expected reachable rear surface at $openX,$($groundY - 1); selected $($selected -join ',')"
 }
 
-Write-Output 'AIB bootstrap surface-connectivity contract passed'
+Write-Output 'AIB bootstrap connectivity and round-reset contract passed'

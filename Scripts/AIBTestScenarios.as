@@ -88,7 +88,8 @@ string[] AIBT_SCENARIOS =
 	"strategic_bootstrap_rejects_sealed_cave_spawn",
 	"strategic_no_build_primary_falls_back_and_physically_completes",
 	"strategic_occupied_primary_falls_back_and_physically_completes",
-	"strategic_barrier_primary_falls_back_and_physically_completes"
+	"strategic_barrier_primary_falls_back_and_physically_completes",
+	"strategic_blocked_bootstrap_cools_down_and_round_reset_recovers_both_sides"
 };
 
 string AIBT_ScenarioName(const int index)
@@ -726,6 +727,15 @@ void AIBT_ClearScenarioRefs()
 	rules.set_string("aibt fallback template", "");
 	rules.set_string("aibt fallback reasons", "");
 	rules.set_string("aibt fallback setup failure", "");
+	rules.set_bool("aibt bootstrap lifecycle setup", false);
+	rules.set_bool("aibt bootstrap lifecycle plans", false);
+	for (u8 lifecycleTeam = 0; lifecycleTeam < 2; lifecycleTeam++)
+	{
+		const string prefix = "aibt bootstrap lifecycle team " + lifecycleTeam + " ";
+		rules.set_bool(prefix + "passed", false);
+		rules.set_netid(prefix + "worker", 0);
+		rules.set_string(prefix + "details", "");
+	}
 	array<u16> empty;
 	array<Vec2f> emptyVec;
 	rules.set("aibuilder selected stone tiles", emptyVec);
@@ -1272,6 +1282,105 @@ bool AIBT_BootstrapWorkerHasSafeGround(CBlob@ builder)
 	home.getShape().getBoundingRect(homeMin, homeMax);
 	return !(builderMin.x < homeMax.x && builderMax.x > homeMin.x &&
 		builderMin.y < homeMax.y && builderMax.y > homeMin.y);
+}
+
+string AIBT_BootstrapLifecycleKey(const u8 team, const string &in field)
+{
+	return "aibt bootstrap lifecycle team " + team + " " + field;
+}
+
+u16 AIBT_SpawnBootstrapSiteBlockers(const u8 team, const int homeX)
+{
+	u16 count = 0;
+	// A spawn envelope is three tiles wide. Blockers every two tiles cover
+	// both odd and even candidates without overlapping each other.
+	for (int distance = AIBS_BOOTSTRAP_MIN_HOME_DISTANCE; distance <= AIBS_BOOTSTRAP_MAX_HOME_DISTANCE; distance += 2)
+	{
+		for (int side = -1; side <= 1; side += 2)
+		{
+			CBlob@ blocker = AIBT_Spawn("crate", team, AIBT_Pos(homeX + side * distance, AIBT_GROUND_Y - 1));
+			if (blocker is null) continue;
+			blocker.Tag("aibt bootstrap site blocker");
+			blocker.set_u8("aibt bootstrap blocker team", team);
+			if (blocker.getShape() !is null) blocker.getShape().SetStatic(true);
+			count++;
+		}
+	}
+	return count;
+}
+
+u16 AIBT_KillBootstrapSiteBlockers(const u8 team)
+{
+	CBlob@[] blockers;
+	getBlobsByTag("aibt bootstrap site blocker", @blockers);
+	u16 killed = 0;
+	for (uint i = 0; i < blockers.length; i++)
+	{
+		CBlob@ blocker = blockers[i];
+		if (blocker is null || blocker.hasTag("dead") || blocker.get_u8("aibt bootstrap blocker team") != team) continue;
+		blocker.Tag("dead");
+		blocker.server_Die();
+		killed++;
+	}
+	return killed;
+}
+
+bool AIBT_ExerciseBootstrapRoundReset(const u8 team, const int homeX)
+{
+	CRules@ rules = getRules();
+	if (rules is null) return false;
+	const u16 blockerCount = AIBT_SpawnBootstrapSiteBlockers(team, homeX);
+	AIBWorldState@ blockedWorld = AIBS_ObserveWorld(team);
+	Vec2f blockedSpawn = AIBS_FindBootstrapSpawn(blockedWorld);
+	const u32 blockedTick = getGameTime();
+	const bool blockedAttempt = !AIBS_TryBootstrapBuilder(rules, blockedWorld);
+	const bool cooldownExact = rules.get_u32(AIBS_BootstrapKey(team, "next retry")) == blockedTick + AIBS_BOOTSTRAP_RETRY_TICKS;
+	const bool noPrematureWorker = AIBT_CountLiveTeamBuilders(team) == 0 &&
+		!rules.get_bool(AIBS_BootstrapKey(team, "provisioned"));
+
+	const u16 killedBlockers = AIBT_KillBootstrapSiteBlockers(team);
+	AIBWorldState@ openWorld = AIBS_ObserveWorld(team);
+	Vec2f openSpawn = AIBS_FindBootstrapSpawn(openWorld);
+	const bool cooldownHeld = !AIBS_TryBootstrapBuilder(rules, openWorld) && AIBT_CountLiveTeamBuilders(team) == 0 &&
+		rules.get_u32(AIBS_BootstrapKey(team, "next retry")) > getGameTime();
+
+	// Model the end of a round after a consumed provisioning entitlement. The
+	// production reset must preserve the administrator policy but clear both
+	// the one-time latch and any failed-search cooldown.
+	rules.set_bool(AIBS_BootstrapKey(team, "provisioned"), true);
+	const bool enabledBeforeReset = rules.get_bool(AIBS_BootstrapKey(team, "enabled"));
+	AIBS_ResetBootstrapForRound(rules, team);
+	const bool resetState = enabledBeforeReset && rules.get_bool(AIBS_BootstrapKey(team, "enabled")) &&
+		!rules.get_bool(AIBS_BootstrapKey(team, "provisioned")) && rules.get_u32(AIBS_BootstrapKey(team, "next retry")) == 0;
+
+	AIBWorldState@ resetWorld = AIBS_ObserveWorld(team);
+	const bool provisionedAfterReset = AIBS_TryBootstrapBuilder(rules, resetWorld);
+	CBlob@ worker = AIBT_GetBootstrapWorker(team);
+	if (worker !is null)
+	{
+		AIBWorldState@ assignedWorld = AIBS_ObserveWorld(team);
+		AIBS_AssignBuilders(assignedWorld);
+	}
+	const bool oneSafeAssignedWorker = worker !is null && AIBT_CountLiveTeamBuilders(team) == 1 &&
+		AIBT_CountLiveTeamBuilders(team, true) == 1 && AIBT_BootstrapWorkerHasSafeGround(worker) &&
+		worker.get_bool("aib strategy assigned");
+	AIBWorldState@ latchedWorld = AIBS_ObserveWorld(team);
+	const bool secondAttemptSuppressed = !AIBS_TryBootstrapBuilder(rules, latchedWorld) &&
+		AIBT_CountLiveTeamBuilders(team) == 1 && rules.get_bool(AIBS_BootstrapKey(team, "provisioned"));
+
+	const bool passed = blockerCount == 20 && killedBlockers == blockerCount && blockedSpawn == Vec2f_zero && blockedAttempt &&
+		cooldownExact && noPrematureWorker && openSpawn != Vec2f_zero && cooldownHeld && resetState &&
+		provisionedAfterReset && oneSafeAssignedWorker && secondAttemptSuppressed;
+	rules.set_bool(AIBT_BootstrapLifecycleKey(team, "passed"), passed);
+	rules.set_netid(AIBT_BootstrapLifecycleKey(team, "worker"), worker is null ? 0 : worker.getNetworkID());
+	rules.set_string(AIBT_BootstrapLifecycleKey(team, "details"),
+		"blockers=" + blockerCount + " killed=" + killedBlockers + " blocked_spawn_zero=" + (blockedSpawn == Vec2f_zero ? "true" : "false") +
+		" blocked_attempt=" + (blockedAttempt ? "true" : "false") + " cooldown_exact=" + (cooldownExact ? "true" : "false") +
+		" no_worker=" + (noPrematureWorker ? "true" : "false") + " open_spawn=" + (openSpawn != Vec2f_zero ? "true" : "false") +
+		" cooldown_held=" + (cooldownHeld ? "true" : "false") + " reset=" + (resetState ? "true" : "false") +
+		" provisioned=" + (provisionedAfterReset ? "true" : "false") + " safe_assigned=" + (oneSafeAssignedWorker ? "true" : "false") +
+		" second_suppressed=" + (secondAttemptSuppressed ? "true" : "false"));
+	return passed;
 }
 
 bool AIBT_HasReservationBy(const u8 team, const u16 builderID)
@@ -2664,6 +2773,35 @@ void AIBT_SetupScenario(const int index)
 			break;
 		}
 
+		case 64:
+		{
+			const int[] homeXs = { 100, 320 };
+			AIBT_SpawnTentTeam(homeXs[0], 0);
+			AIBT_SpawnTentTeam(homeXs[1], 1);
+			CRules@ rules = getRules();
+			bool plansPublished = rules !is null;
+			for (u8 team = 0; team < 2 && rules !is null; team++)
+			{
+				rules.set_bool(AIBS_BootstrapKey(team, "enabled"), true);
+				rules.set_bool(AIBS_BootstrapKey(team, "provisioned"), false);
+				rules.set_u32(AIBS_BootstrapKey(team, "next retry"), 0);
+				rules.set_u8(AIBP_ModeKey(team), AIBP_StrategyMode::auto_mode);
+				rules.set_u8("aib strategy last mode team " + team, AIBP_StrategyMode::auto_mode);
+				rules.set_u32("aib strategy last replan team " + team, getGameTime());
+				rules.set_u32("aib strategy important event team " + team, 0);
+				BlueprintPlan@ plan = AIBT_NewStrategicPlan(team, "bootstrap_round_reset_fixture");
+				plan.anchor = Vec2f(homeXs[team] + (team == 0 ? 30 : -30), AIBT_GROUND_Y);
+				plan.tasks.push_back(BlueprintTask(u16(plan.anchor.x), AIBT_GROUND_Y - 1, AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+				plansPublished = AIBP_PublishAIPlan(plan, true) && plansPublished;
+			}
+			const bool leftPassed = plansPublished && AIBT_ExerciseBootstrapRoundReset(0, homeXs[0]);
+			const bool rightPassed = plansPublished && AIBT_ExerciseBootstrapRoundReset(1, homeXs[1]);
+			rules.set_bool("aibt bootstrap lifecycle plans", plansPublished);
+			rules.set_bool("aibt bootstrap lifecycle setup", leftPassed && rightPassed);
+			AIBT_SetBlob("aibt_bot", AIBT_GetBootstrapWorker(0));
+			break;
+		}
+
 	}
 }
 
@@ -2684,7 +2822,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 	// background so cleanup can restore the exact pre-shop fixture tiles.
 	AIBT_TrackWorkshopBackgrounds(AIBT_GROUND_Y);
 
-	if (bot is null && index != 18 && index != 48 && index != 54 && index != 55 && index != 56 && index != 57 && index != 58 && index != 60)
+	if (bot is null && index != 18 && index != 48 && index != 54 && index != 55 && index != 56 && index != 57 && index != 58 && index != 60 && index != 64)
 	{
 		failure = "bot_missing";
 		return true;
@@ -3941,6 +4079,42 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 63:
 		{
 			return AIBT_EvaluateRepresentativeFallback(elapsed, failure, details);
+		}
+
+		case 64:
+		{
+			CRules@ rules = getRules();
+			CBlob@ left = AIBT_GetBootstrapWorker(0);
+			CBlob@ right = AIBT_GetBootstrapWorker(1);
+			const bool plansActive = rules !is null && rules.get_bool("aibt bootstrap lifecycle plans") &&
+				rules.get_u16(AIBP_PlanKey(0, "pending")) == 1 && rules.get_u16(AIBP_PlanKey(1, "pending")) == 1;
+			const bool mirroredWorkers = left !is null && right !is null && AIBT_CountLiveTeamBuilders(0) == 1 &&
+				AIBT_CountLiveTeamBuilders(1) == 1 && AIBT_BootstrapWorkerHasSafeGround(left) && AIBT_BootstrapWorkerHasSafeGround(right) &&
+				left.getPosition().x < right.getPosition().x && left.get_bool("aib strategy assigned") && right.get_bool("aib strategy assigned");
+			const bool latchesHeld = rules !is null && rules.get_bool(AIBS_BootstrapKey(0, "provisioned")) &&
+				rules.get_bool(AIBS_BootstrapKey(1, "provisioned")) &&
+				rules.get_u32(AIBS_BootstrapKey(0, "next retry")) == 0 && rules.get_u32(AIBS_BootstrapKey(1, "next retry")) == 0;
+			const bool passed = rules !is null && rules.get_bool("aibt bootstrap lifecycle setup") &&
+				rules.get_bool(AIBT_BootstrapLifecycleKey(0, "passed")) && rules.get_bool(AIBT_BootstrapLifecycleKey(1, "passed")) &&
+				plansActive && mirroredWorkers && latchesHeld;
+			if (passed)
+			{
+				details = "blocked_sites_cooldown=true round_reset_reopened=true mirrored_safe_workers=true left={" +
+					rules.get_string(AIBT_BootstrapLifecycleKey(0, "details")) + "} right={" +
+					rules.get_string(AIBT_BootstrapLifecycleKey(1, "details")) + "}";
+				return true;
+			}
+			if (elapsed > 10)
+			{
+				failure = "bootstrap_round_reset_lifecycle_failed setup=" +
+					(rules !is null && rules.get_bool("aibt bootstrap lifecycle setup") ? "true" : "false") +
+					" plans=" + (plansActive ? "true" : "false") + " workers=" + (mirroredWorkers ? "true" : "false") +
+					" latches=" + (latchesHeld ? "true" : "false") + " left={" +
+					(rules is null ? "rules_missing" : rules.get_string(AIBT_BootstrapLifecycleKey(0, "details"))) + "} right={" +
+					(rules is null ? "rules_missing" : rules.get_string(AIBT_BootstrapLifecycleKey(1, "details"))) + "}";
+				return true;
+			}
+			break;
 		}
 
 		case 44:

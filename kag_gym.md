@@ -207,7 +207,7 @@ Demonstrations are not copied blindly. Segment builder play into tasks (harvest,
 - material-role balancing and handoff from gathering to construction;
 - human blueprint priority over AI desired/work layers;
 - suggestion mode remains non-autonomous until accepted;
-- first-worker provisioning guard, safe spawn, one-per-round latch, round reset.
+- first-worker provisioning guard, safe spawn, blocked-site retry cooldown, one-per-round latch, and round reset in both team directions.
 
 ### Director fixtures
 
@@ -272,7 +272,7 @@ Production weights and template metadata must have one source of truth consumed 
 
 - [ ] Resolve `kag_path_mines_dirt_plug` with supported-chain and post-placement walkability evidence.
 - [ ] Add crate overflow, crate retrieval, editor delta, and selection save/load coverage.
-- [ ] PARTIAL — mirrored left/right, uneven blocked-primary fallback, asymmetric pressure, scarce-resource, damaged-front, full physical completion, mirrored sealed-bootstrap, and exact no-build/occupied/barrier fallback fixtures are defined; live KAG verdicts remain.
+- [ ] PARTIAL — mirrored left/right, uneven blocked-primary fallback, asymmetric pressure, scarce-resource, damaged-front, full physical completion, mirrored sealed-bootstrap, blocked-site cooldown/round-reset provisioning, and exact no-build/occupied/barrier fallback fixtures are defined; live KAG verdicts remain.
 - [ ] Complete and reproduce the entire current suite with final `DONE` evidence.
 
 ### Phase D — strategic evaluation

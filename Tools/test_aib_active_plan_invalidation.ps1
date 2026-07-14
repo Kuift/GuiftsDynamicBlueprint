@@ -126,8 +126,11 @@ foreach ($needle in @(
     if (!$cancelFunction.Contains($needle)) { throw "Authoritative cancellation is incomplete: $needle" }
 }
 
-$stopFunction = [regex]::Match($jobs, 'void AIBS_StopAssignedBuilders[\s\S]*?\n\}').Value
-if (!$stopFunction) { throw 'Director worker-stop helper is missing' }
+$stopFunction = [regex]::Match($jobs, 'void AIBS_StopBuilderAssignment[\s\S]*?\n\}').Value
+$stopTeamFunction = [regex]::Match($jobs, 'void AIBS_StopAssignedBuilders[\s\S]*?\n\}').Value
+if (!$stopFunction -or !$stopTeamFunction -or !$stopTeamFunction.Contains('AIBS_StopBuilderAssignment(team, builder);')) {
+    throw 'Director team-stop must delegate every assigned worker to the full per-builder cleanup helper'
+}
 foreach ($needle in @(
     'AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());',
     'if (brain !is null) brain.EndPath();',

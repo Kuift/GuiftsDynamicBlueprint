@@ -211,8 +211,8 @@ AIBBootstrapReachability@ AIBS_BuildBootstrapReachability(AIBWorldState@ world)
 {
 	AIBBootstrapReachability@ result = AIBBootstrapReachability();
 	CMap@ map = getMap();
-	if (world is null || map is null || world.home == Vec2f_zero) return result;
-	const Vec2f homeSpace = map.getTileSpacePosition(world.home);
+	if (world is null || map is null || world.resourceHome == Vec2f_zero) return result;
+	const Vec2f homeSpace = map.getTileSpacePosition(world.resourceHome);
 	const int homeX = Maths::Floor(homeSpace.x);
 	const int homeY = Maths::Floor(homeSpace.y);
 	result.minX = Maths::Max(1, homeX - int(AIBS_BOOTSTRAP_MAX_HOME_DISTANCE) - 2);
@@ -226,7 +226,7 @@ AIBBootstrapReachability@ AIBS_BuildBootstrapReachability(AIBWorldState@ world)
 
 	// Use one deterministic terrain seed nearest to the home. Seeding every
 	// nearby standing cell would incorrectly bless a sealed pocket merely
-	// because its wall happens to be close to a tent or flag.
+	// because its wall happens to be close to a tent or hall.
 	int seedX = -1;
 	int seedY = -1;
 	int seedScore = 2147483647;
@@ -332,8 +332,8 @@ bool AIBS_IsSafeBootstrapSpawn(AIBWorldState@ world, Vec2f center,
 Vec2f AIBS_FindBootstrapSpawn(AIBWorldState@ world)
 {
 	CMap@ map = getMap();
-	if (world is null || map is null || world.home == Vec2f_zero) return Vec2f_zero;
-	const Vec2f homeSpace = map.getTileSpacePosition(world.home);
+	if (world is null || map is null || world.resourceHome == Vec2f_zero) return Vec2f_zero;
+	const Vec2f homeSpace = map.getTileSpacePosition(world.resourceHome);
 	const int homeX = Maths::Floor(homeSpace.x);
 	const int homeY = Maths::Floor(homeSpace.y);
 	const int preferredSide = world.enemyDirection >= 0 ? -1 : 1;
@@ -382,7 +382,8 @@ bool AIBS_TryBootstrapBuilder(CRules@ rules, AIBWorldState@ world)
 		rules.get_u8("aib developer force worker team") == team;
 	if (!rules.get_bool(AIBS_BootstrapKey(team, "enabled")) ||
 		rules.get_bool(AIBS_BootstrapKey(team, "provisioned")) ||
-		world.home == Vec2f_zero || (!developerForce && !AIBS_HasActivePendingPlan(team))) return false;
+		world.home == Vec2f_zero || world.resourceHome == Vec2f_zero ||
+		(!developerForce && !AIBS_HasActivePendingPlan(team))) return false;
 
 	array<CBlob@> builders;
 	AIBS_GetTeamBuilders(team, builders);
@@ -514,6 +515,20 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 		AIBS_SetBuilderJob(teamBuilders[i], AIBS_JOB_BLUEPRINT, AIBS_STATE_FIND_BLUEPRINT);
 		teamBuilders.removeAt(i);
 	}
+	if (world.resourceHome == Vec2f_zero)
+	{
+		// Autobuilders have no inventory and may keep executing paid blueprint
+		// work around a surviving strategic flag. Ordinary runners cannot finish
+		// collection, delivery, or retrieval without a tent/hall, so relinquish
+		// only their director assignments until an operational home returns.
+		for (uint i = 0; i < teamBuilders.length; i++)
+		{
+			CBlob@ builder = teamBuilders[i];
+			if (builder !is null && builder.get_bool("aib strategy assigned"))
+				AIBS_StopBuilderAssignment(world.team, builder);
+		}
+		return;
+	}
 	if (hasAutoBuilder)
 	{
 		// A normal bootstrap worker can already exist by the time a player buys
@@ -542,6 +557,29 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 	AIBS_AssignStableRoles(teamBuilders, woodCollectors, stoneCollectors, builders);
 }
 
+void AIBS_StopBuilderAssignment(const u8 team, CBlob@ builder)
+{
+	if (builder is null || !builder.get_bool("aib strategy assigned")) return;
+	AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());
+	CBrain@ brain = builder.getBrain();
+	if (brain !is null) brain.EndPath();
+	builder.set_u8("ai builder state", AIBS_STATE_IDLE);
+	builder.set_bool("ai builder job active", false);
+	builder.set_bool("aib strategy assigned", false);
+	builder.set_bool("aib strategy role pending", false);
+	builder.set_netid("ai builder target", 0);
+	builder.set_Vec2f("ai builder destination", Vec2f_zero);
+	builder.set_Vec2f("ai builder tile target", Vec2f_zero);
+	builder.setKeyPressed(key_left, false);
+	builder.setKeyPressed(key_right, false);
+	builder.setKeyPressed(key_up, false);
+	builder.setKeyPressed(key_down, false);
+	builder.setKeyPressed(key_action1, false);
+	builder.setKeyPressed(key_action2, false);
+	builder.Sync("ai builder state", true);
+	builder.Sync("ai builder job active", true);
+}
+
 void AIBS_StopAssignedBuilders(const u8 team)
 {
 	array<CBlob@> builders;
@@ -549,24 +587,6 @@ void AIBS_StopAssignedBuilders(const u8 team)
 	for (uint i = 0; i < builders.length; i++)
 	{
 		CBlob@ builder = builders[i];
-		if (builder is null || !builder.get_bool("aib strategy assigned")) continue;
-		AIBP_ReleaseBuilderReservation(team, builder.getNetworkID());
-		CBrain@ brain = builder.getBrain();
-		if (brain !is null) brain.EndPath();
-		builder.set_u8("ai builder state", AIBS_STATE_IDLE);
-		builder.set_bool("ai builder job active", false);
-		builder.set_bool("aib strategy assigned", false);
-		builder.set_bool("aib strategy role pending", false);
-		builder.set_netid("ai builder target", 0);
-		builder.set_Vec2f("ai builder destination", Vec2f_zero);
-		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
-		builder.setKeyPressed(key_left, false);
-		builder.setKeyPressed(key_right, false);
-		builder.setKeyPressed(key_up, false);
-		builder.setKeyPressed(key_down, false);
-		builder.setKeyPressed(key_action1, false);
-		builder.setKeyPressed(key_action2, false);
-		builder.Sync("ai builder state", true);
-		builder.Sync("ai builder job active", true);
+		AIBS_StopBuilderAssignment(team, builder);
 	}
 }

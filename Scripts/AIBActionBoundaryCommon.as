@@ -118,5 +118,6 @@ u16 AIB_ActionArchiveReasonCode(const string &in reason)
 	if (reason == "cancelled") return 5;
 	if (reason == "round_reset") return 6;
 	if (reason == "human_override") return 7;
+	if (reason == "home_lost") return 8;
 	return 255;
 }

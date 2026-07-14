@@ -2749,8 +2749,18 @@ void AIBT_SetupScenario(const int index)
 			AIBT_SpawnTentTeam(340, 1);
 			@bot = AIBT_SpawnBotTeam(206, 0);
 			AIBT_DisableStarterMaterials(bot);
+			CBlob@ survivingFlag = AIBT_Spawn("flag", 3, AIBT_Pos(74, AIBT_GROUND_Y - 2));
+			CBlob@ lostResourceHome = AIBT_SpawnTentTeam(90, 3);
+			CBlob@ resourceWorker = AIBT_Spawn("aibuilder", 3, AIBT_Pos(96, AIBT_GROUND_Y - 2));
+			AIBT_DisableStarterMaterials(resourceWorker);
+			AIBT_SetBlob("aibt_resource_home_loss_worker", resourceWorker);
+			CBlob@ lostStrategicHome = AIBT_SpawnTentTeam(140, 4);
+			CBlob@ strategicWorker = AIBT_Spawn("aibuilder", 4, AIBT_Pos(146, AIBT_GROUND_Y - 2));
+			AIBT_DisableStarterMaterials(strategicWorker);
+			AIBT_SetBlob("aibt_strategic_home_loss_worker", strategicWorker);
+			AIBT_SetBlob("aibt_bot", bot);
 			CRules@ rules = getRules();
-			for (u8 team = 0; team < 3; team++)
+			for (u8 team = 0; team < 5; team++)
 			{
 				rules.set_bool(AIBS_BootstrapKey(team, "enabled"), true);
 				rules.set_bool(AIBS_BootstrapKey(team, "provisioned"), false);
@@ -2761,9 +2771,31 @@ void AIBT_SetupScenario(const int index)
 			rules.set_u8(AIBP_ModeKey(0), AIBP_StrategyMode::auto_mode);
 			rules.set_u8(AIBP_ModeKey(1), AIBP_StrategyMode::suggest);
 			rules.set_u8(AIBP_ModeKey(2), AIBP_StrategyMode::auto_mode);
+			rules.set_u8(AIBP_ModeKey(3), AIBP_StrategyMode::auto_mode);
+			rules.set_u8(AIBP_ModeKey(4), AIBP_StrategyMode::auto_mode);
 			rules.set_u8("aib strategy last mode team 0", AIBP_StrategyMode::off);
 			rules.set_u8("aib strategy last mode team 1", AIBP_StrategyMode::off);
 			rules.set_u8("aib strategy last mode team 2", AIBP_StrategyMode::off);
+			rules.set_u8("aib strategy last mode team 3", AIBP_StrategyMode::off);
+			rules.set_u8("aib strategy last mode team 4", AIBP_StrategyMode::off);
+			BlueprintPlan@ resourcePlan = AIBT_NewStrategicPlan(3, "resource_home_loss_guard");
+			resourcePlan.anchor = Vec2f(102, AIBT_GROUND_Y);
+			resourcePlan.tasks.push_back(BlueprintTask(102, AIBT_GROUND_Y - 1, AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+			const bool resourcePlanPublished = AIBP_PublishAIPlan(resourcePlan, true);
+			AIBS_SetBuilderJob(resourceWorker, AIBS_JOB_BLUEPRINT, AIBS_STATE_COLLECT_BLUEPRINT);
+			const bool resourceReservation = resourceWorker !is null && AIBP_ReserveTask(3, 102, AIBT_GROUND_Y - 1, resourceWorker.getNetworkID());
+			BlueprintPlan@ strategicPlan = AIBT_NewStrategicPlan(4, "strategic_home_loss_guard");
+			strategicPlan.anchor = Vec2f(152, AIBT_GROUND_Y);
+			strategicPlan.tasks.push_back(BlueprintTask(152, AIBT_GROUND_Y - 1, AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+			const bool strategicPlanPublished = AIBP_PublishAIPlan(strategicPlan, true);
+			AIBS_SetBuilderJob(strategicWorker, AIBS_JOB_BLUEPRINT, AIBS_STATE_COLLECT_BLUEPRINT);
+			const bool strategicReservation = strategicWorker !is null && AIBP_ReserveTask(4, 152, AIBT_GROUND_Y - 1, strategicWorker.getNetworkID());
+			rules.set_bool("aibt resource home loss setup", survivingFlag !is null && lostResourceHome !is null &&
+				resourceWorker !is null && resourcePlanPublished && resourceReservation);
+			rules.set_bool("aibt strategic home loss setup", lostStrategicHome !is null && strategicWorker !is null &&
+				strategicPlanPublished && strategicReservation);
+			if (lostResourceHome !is null) lostResourceHome.server_Die();
+			if (lostStrategicHome !is null) lostStrategicHome.server_Die();
 			break;
 		}
 
@@ -3010,6 +3042,7 @@ void AIBT_SetupScenario(const int index)
 			AIBWorldState@ world = AIBWorldState();
 			world.team = 0;
 			world.home = home is null ? Vec2f_zero : home.getPosition();
+			world.resourceHome = world.home;
 			world.enemyDirection = 1;
 			array<Vec2f> blockerMins;
 			array<Vec2f> blockerMaxs;
@@ -3929,25 +3962,56 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			const u16 team0Bootstrap = AIBT_CountLiveTeamBuilders(0, true);
 			const u16 team1Builders = AIBT_CountLiveTeamBuilders(1);
 			const u16 team2Builders = AIBT_CountLiveTeamBuilders(2);
+			CBlob@ resourceWorker = AIBT_GetBlob("aibt_resource_home_loss_worker");
+			CBlob@ strategicWorker = AIBT_GetBlob("aibt_strategic_home_loss_worker");
 			const bool activeTeam0Plan = rules.get_u16(AIBP_PlanKey(0, "id")) != 0 &&
 				rules.get_u16(AIBP_PlanKey(0, "pending")) > 0;
 			const bool suggestedTeam1Plan = rules.get_u16(AIBP_PlanKey(1, "id")) != 0 &&
 				AIBT_CountLayerTiles(1, AIBP_Layer::ai_desired) > 0 && AIBT_LayerIsEmpty(1, AIBP_Layer::ai_work);
 			const bool noHomeTeam2Plan = rules.get_u16(AIBP_PlanKey(2, "id")) == 0;
+			array<u8>@ resourceStates = null; array<u16>@ resourceReserved = null; array<u32>@ resourceUntils = null;
+			rules.get(AIBP_TaskKey(3, "state"), @resourceStates);
+			rules.get(AIBP_TaskKey(3, "reserved"), @resourceReserved);
+			rules.get(AIBP_TaskKey(3, "until"), @resourceUntils);
+			AIBWorldState@ resourceWorld = AIBS_ObserveWorld(3);
+			const bool resourceHomeSuspended = rules.get_bool("aibt resource home loss setup") && resourceWorld !is null &&
+				resourceWorld.home != Vec2f_zero && resourceWorld.resourceHome == Vec2f_zero &&
+				rules.get_u8(AIBP_PlanKey(3, "status")) == 1 && rules.get_u16(AIBP_PlanKey(3, "pending")) == 1 &&
+				!AIBT_LayerIsEmpty(3, AIBP_Layer::ai_desired) && !AIBT_LayerIsEmpty(3, AIBP_Layer::ai_work) &&
+				resourceStates !is null && resourceStates.length == 1 && resourceStates[0] == AIBP_TaskState::pending &&
+				resourceReserved !is null && resourceReserved.length == 1 && resourceReserved[0] == 0 &&
+				resourceUntils !is null && resourceUntils.length == 1 && resourceUntils[0] == 0 &&
+				resourceWorker !is null && !resourceWorker.get_bool("aib strategy assigned") &&
+				!resourceWorker.get_bool("ai builder job active") && resourceWorker.get_u8("ai builder state") == AIBS_STATE_IDLE &&
+				!rules.get_bool(AIBS_BootstrapKey(3, "provisioned"));
+			array<u16>@ lostReserved = null; array<u32>@ lostUntils = null;
+			rules.get(AIBP_TaskKey(4, "reserved"), @lostReserved);
+			rules.get(AIBP_TaskKey(4, "until"), @lostUntils);
+			const u16 lostPlanID = rules.get_u16(AIBP_PlanKey(4, "id"));
+			const bool homeLossClosed = rules.get_bool("aibt strategic home loss setup") && lostPlanID != 0 &&
+				rules.get_u8(AIBP_PlanKey(4, "status")) == 3 &&
+				rules.get_string("aib strategy history plan " + lostPlanID + " team 4 archive reason") == "home_lost" &&
+				AIBT_LayerIsEmpty(4, AIBP_Layer::ai_desired) && AIBT_LayerIsEmpty(4, AIBP_Layer::ai_work) &&
+				lostReserved !is null && lostReserved.length == 1 && lostReserved[0] == 0 &&
+				lostUntils !is null && lostUntils.length == 1 && lostUntils[0] == 0 &&
+				strategicWorker !is null && !strategicWorker.get_bool("aib strategy assigned") &&
+				!strategicWorker.get_bool("ai builder job active") && strategicWorker.get_u8("ai builder state") == AIBS_STATE_IDLE &&
+				rules.get_u32("aib strategy important event team 4") > rules.get_u32("aib strategy last replan team 4");
 			const bool guardsHeld = activeTeam0Plan && suggestedTeam1Plan && noHomeTeam2Plan && team0Builders == 1 && team0Bootstrap == 0 &&
 				team1Builders == 0 && team2Builders == 0 &&
 				!rules.get_bool(AIBS_BootstrapKey(0, "provisioned")) &&
 				!rules.get_bool(AIBS_BootstrapKey(1, "provisioned")) &&
-				!rules.get_bool(AIBS_BootstrapKey(2, "provisioned"));
+				!rules.get_bool(AIBS_BootstrapKey(2, "provisioned")) && resourceHomeSuspended && homeLossClosed;
 			if (guardsHeld)
 			{
-				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
+				details = "existing_worker_suppressed=true suggest_plan_visible=true suggest_work_inactive=true suggest_bootstrap_suppressed=true no_home_plan_suppressed=true no_home_bootstrap_suppressed=true resource_home_loss_suspends_runner=true active_plan_preserved=true strategic_home_loss_cancelled=true reservations_released=true workers_stopped=true prompt_replan=true heartbeats=2 team0_builders=1 team1_builders=0 team2_builders=0";
 				return true;
 			}
 			if (elapsed > 100)
 			{
 				failure = "bootstrap_guard_failed active_plan=" + (activeTeam0Plan ? "true" : "false") +
 					" suggest_plan=" + (suggestedTeam1Plan ? "true" : "false") + " no_home_plan=" + (noHomeTeam2Plan ? "true" : "false") +
+					" resource_home_suspended=" + (resourceHomeSuspended ? "true" : "false") + " home_loss_closed=" + (homeLossClosed ? "true" : "false") +
 					" team0=" + team0Builders + " team0_bootstrap=" + team0Bootstrap +
 					" team1=" + team1Builders + " team2=" + team2Builders +
 					" provisioned=" + (rules.get_bool(AIBS_BootstrapKey(0, "provisioned")) ? "true" : "false") + "," +

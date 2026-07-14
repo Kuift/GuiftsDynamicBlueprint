@@ -65,6 +65,13 @@ CBlob@ AIBS_TeamHomeBlob(const u8 team)
 	return AIBS_NearestTeamBlob(team, "hall", Vec2f_zero);
 }
 
+CBlob@ AIBS_TeamResourceHomeBlob(const u8 team, Vec2f from)
+{
+	CBlob@ tent = AIBS_NearestTeamBlob(team, "tent", from);
+	if (tent !is null) return tent;
+	return AIBS_NearestTeamBlob(team, "hall", from);
+}
+
 CBlob@ AIBS_EnemyHomeBlob(const u8 team, Vec2f from)
 {
 	CBlob@ best = null;
@@ -195,6 +202,8 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 	world.team = team;
 	CBlob@ home = AIBS_TeamHomeBlob(team);
 	world.home = home is null ? Vec2f_zero : home.getPosition();
+	CBlob@ resourceHome = AIBS_TeamResourceHomeBlob(team, world.home);
+	world.resourceHome = resourceHome is null ? Vec2f_zero : resourceHome.getPosition();
 	CBlob@ enemyHome = AIBS_EnemyHomeBlob(team, world.home);
 	world.enemyHome = enemyHome is null ? Vec2f_zero : enemyHome.getPosition();
 	world.enemyDirection = world.enemyHome == Vec2f_zero || world.enemyHome.x >= world.home.x ? 1 : -1;

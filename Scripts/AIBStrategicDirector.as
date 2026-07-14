@@ -63,6 +63,25 @@ void AIBS_HandleModeChange(CRules@ rules, const u8 team, const u8 mode)
 	AIBS_Log("mode", team, "from=" + previous + " to=" + mode);
 }
 
+void AIBS_HandleMissingHome(CRules@ rules, const u8 team)
+{
+	if (rules is null) return;
+	const bool activePlan = rules.get_u16(AIBP_PlanKey(team, "id")) != 0 &&
+		rules.get_u8(AIBP_PlanKey(team, "status")) == 1;
+	if (activePlan && AIBP_CancelCurrentPlan(team, "home_lost"))
+	{
+		// Preserve an immediate replan trigger. If a flag, tent, or hall is restored
+		// before the normal replan interval expires, the next heartbeat should
+		// not wait on the plan that was just cancelled for having no home.
+		rules.set_u32("aib strategy important event team " + int(team), getGameTime());
+	}
+	// No strategic anchor remains for this plan. Release all strategy-owned
+	// workers, including Autobuilders; manually ordered builders remain under
+	// player control.
+	AIBS_StopAssignedBuilders(team);
+	AIBS_DecayPressure(team);
+}
+
 void AIBS_UpdateTeam(CRules@ rules, const u8 team)
 {
 	const u8 mode = rules.get_u8(AIBP_ModeKey(team));
@@ -74,7 +93,7 @@ void AIBS_UpdateTeam(CRules@ rules, const u8 team)
 	// Planning is a team-level responsibility.  Publish the plan even before a
 	// builder is deployed so the intent is visible and the first arriving AI
 	// builder can be assigned immediately on the next observation heartbeat.
-	if (world.home == Vec2f_zero) { AIBS_DecayPressure(team); return; }
+	if (world.home == Vec2f_zero) { AIBS_HandleMissingHome(rules, team); return; }
 	const u32 now = getGameTime();
 	const u32 lastPlan = rules.get_u32("aib strategy last replan team " + int(team));
 	const u32 important = rules.get_u32("aib strategy important event team " + int(team));

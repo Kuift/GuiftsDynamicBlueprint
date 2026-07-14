@@ -5,7 +5,7 @@ $source = Get-Content -LiteralPath $path -Raw
 
 foreach ($needle in @(
     'strategic_mirrored_sides_select_safe_inward_candidates',
-    'strategic_uneven_right_edge_selects_reachable_fallback',
+    'strategic_uneven_right_edge_fallback_physically_completes',
     'strategic_scarcity_penalizes_unfunded_large_plan',
     'strategic_collapse_pressure_prefers_emergency_barrier',
     'strategic_damaged_front_reactivates_without_plan_replacement',
@@ -20,7 +20,12 @@ foreach ($needle in @(
     'representative_not_inward',
     'representative_task_out_of_bounds',
     'representative_fixture_not_uneven',
-    'uneven_edge_primary_not_rejected',
+    'void AIBT_SetupUnevenEdgeCompletion()',
+    'bool AIBT_EvaluateUnevenEdgeCompletion',
+    'primaryReason == "occupied_terrain"',
+    'terrainVariance >= 2',
+    'uneven_edge_fallback_physically_complete=true',
+    'const bool obstaclePreserved = map.isTileCastle',
     'AIBS_GenerateCandidates(world, generated);',
     'AIBP_RefreshPlanState(0, true);',
     'AIBS_ActivePlanInvalid(world)',
@@ -73,5 +78,18 @@ if ($source -notmatch 'index != 54 && index != 55 && index != 56 && index != 57 
 if ($source -notmatch 'world\.planPending == 2 && world\.planCompleted == 1 && world\.planDamaged == 2') { throw 'Damaged-front fixture does not assert exact reactivation counts' }
 if ($source -notmatch 'AIBT_CountLayerTiles\(0, AIBP_Layer::ai_desired\) == expectedTasks') { throw 'Physical completion fixture does not verify the full desired layer' }
 if ($source -notmatch 'AIBT_LayerIsEmpty\(0, AIBP_Layer::ai_work\)') { throw 'Physical completion fixture does not require exhausted work' }
+
+$unevenStart = $source.IndexOf('void AIBT_SetupUnevenEdgeCompletion()')
+$initialValid = $source.IndexOf('const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);', $unevenStart)
+$obstacleAdded = $source.IndexOf('AIBT_SetTemporaryTile(obstacleX, obstacleLowerY, CMap::tile_castle);', $unevenStart)
+$fallbackSelected = $source.IndexOf('AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);', $unevenStart)
+$planPublished = $source.IndexOf('AIBP_PublishAIPlan(plan, true)', $unevenStart)
+$executorSpawned = $source.IndexOf('CBlob@ executor = AIBT_Spawn("autobuilder"', $unevenStart)
+$executorAssigned = $source.IndexOf('AIBS_AssignBuilders(assignedWorld);', $unevenStart)
+if ($unevenStart -lt 0 -or $initialValid -lt $unevenStart -or $obstacleAdded -le $initialValid -or
+    $fallbackSelected -le $obstacleAdded -or $planPublished -le $fallbackSelected -or
+    $executorSpawned -le $planPublished -or $executorAssigned -le $executorSpawned) {
+    throw 'Uneven-edge fixture must validate the original primary, add terrain, select/publish without an Autobuilder, then spawn and assign the executor'
+}
 
 Write-Output 'AIB representative director fixture contract passed'

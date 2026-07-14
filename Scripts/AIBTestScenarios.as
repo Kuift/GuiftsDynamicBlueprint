@@ -80,7 +80,7 @@ string[] AIBT_SCENARIOS =
 	"full_crate_creates_grounded_overflow_storage",
 	"damaged_owned_tile_is_repaired_without_replacing_neighbors",
 	"strategic_mirrored_sides_select_safe_inward_candidates",
-	"strategic_uneven_right_edge_selects_reachable_fallback",
+	"strategic_uneven_right_edge_fallback_physically_completes",
 	"strategic_scarcity_penalizes_unfunded_large_plan",
 	"strategic_collapse_pressure_prefers_emergency_barrier",
 	"strategic_damaged_front_reactivates_without_plan_replacement",
@@ -727,6 +727,20 @@ void AIBT_ClearScenarioRefs()
 	rules.set_string("aibt fallback template", "");
 	rules.set_string("aibt fallback reasons", "");
 	rules.set_string("aibt fallback setup failure", "");
+	rules.set_bool("aibt uneven edge setup", false);
+	rules.set_bool("aibt uneven edge route safe", false);
+	rules.set_bool("aibt uneven edge progress observed", false);
+	rules.set_u16("aibt uneven edge plan id", 0);
+	rules.set_u16("aibt uneven edge plan version", 0);
+	rules.set_u16("aibt uneven edge tasks", 0);
+	rules.set_u16("aibt uneven edge initial completed", 0);
+	rules.set_u16("aibt uneven edge primary anchor x", 0);
+	rules.set_u16("aibt uneven edge selected anchor x", 0);
+	rules.set_u16("aibt uneven edge terrain variance", 0);
+	rules.set_string("aibt uneven edge primary reason", "");
+	rules.set_string("aibt uneven edge template", "");
+	rules.set_string("aibt uneven edge reasons", "");
+	rules.set_string("aibt uneven edge setup failure", "");
 	rules.set_bool("aibt bootstrap lifecycle setup", false);
 	rules.set_bool("aibt bootstrap lifecycle plans", false);
 	for (u8 lifecycleTeam = 0; lifecycleTeam < 2; lifecycleTeam++)
@@ -1197,6 +1211,164 @@ bool AIBT_EvaluateRepresentativeFallback(const u32 elapsed, string &out failure,
 			" exercised=" + (exercised ? "true" : "false") + " obstacle_safe=" + (obstacleSafe ? "true" : "false") +
 			" obstacle_details=" + obstacleDetails + " mismatch=" + mismatch + " reasons=" + rules.get_string("aibt fallback reasons") +
 			" " + AIBT_DescribeBuilder(executor);
+		return true;
+	}
+	return false;
+}
+
+u16 AIBT_TerrainVarianceBetween(const int firstX, const int secondX)
+{
+	CMap@ map = getMap();
+	if (map is null) return 0;
+	const int minX = Maths::Max(0, Maths::Min(firstX, secondX));
+	const int maxX = Maths::Min(int(map.tilemapwidth) - 1, Maths::Max(firstX, secondX));
+	u16 minSurface = 65535;
+	u16 maxSurface = 0;
+	for (int x = minX; x <= maxX; x++)
+	{
+		const u16 surface = AIBS_SurfaceAt(x);
+		minSurface = Maths::Min(minSurface, surface);
+		maxSurface = Maths::Max(maxSurface, surface);
+	}
+	return minSurface == 65535 ? 0 : maxSurface - minSurface;
+}
+
+void AIBT_SetupUnevenEdgeCompletion()
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null) return;
+	const int homeX = 382;
+	const int obstacleX = 372;
+	const u16 obstacleUpperY = AIBT_GROUND_Y - 2;
+	const u16 obstacleLowerY = AIBT_GROUND_Y - 1;
+	CBlob@ home = AIBT_SpawnTentTeam(homeX, 0);
+	AIBT_SpawnTentTeam(54, 1);
+
+	// Prove the production primary is legal on the original edge terrain before
+	// introducing the step. Keep the planner world free of an Autobuilder so
+	// ordinary approach/reachability checks remain active during selection.
+	AIBWorldState@ initialWorld = AIBS_ObserveWorld(0);
+	array<AIBPlanCandidate@> initialCandidates;
+	AIBS_GenerateCandidates(initialWorld, initialCandidates);
+	const int primaryAnchorX = initialWorld is null ? 0 : int(initialWorld.home.x / map.tilesize) + initialWorld.enemyDirection * 10;
+	AIBPlanCandidate@ initialPrimary = AIBT_FindGeneratedCandidate(initialCandidates, "flag_gatehouse", primaryAnchorX);
+	const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);
+
+	AIBT_SetTemporaryTile(obstacleX, obstacleLowerY, CMap::tile_castle);
+	AIBT_SetTemporaryTile(obstacleX, obstacleUpperY, CMap::tile_castle);
+	AIBWorldState@ world = AIBS_ObserveWorld(0);
+	array<AIBPlanCandidate@> generated;
+	AIBS_GenerateCandidates(world, generated);
+	AIBPlanCandidate@ primary = AIBT_FindGeneratedCandidate(generated, "flag_gatehouse", primaryAnchorX);
+	const bool primaryRejected = primary !is null && !AIBS_ValidateCandidate(world, primary);
+	const string primaryReason = primary is null ? "missing" : primary.rejection;
+	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);
+	const bool selectedValid = selected !is null && AIBS_ValidateCandidate(world, selected);
+	const bool selectedDistinct = selected !is null && primary !is null &&
+		(selected.templateName != primary.templateName || int(selected.anchor.x) != int(primary.anchor.x));
+	const int selectedAnchorX = selected is null ? 0 : int(selected.anchor.x);
+	const bool inward = world !is null && selected !is null && selectedAnchorX < int(world.home.x / map.tilesize);
+	const u16 terrainVariance = AIBT_TerrainVarianceBetween(homeX, selectedAnchorX);
+	const bool routeSafe = selectedValid && AIBS_PreservesFriendlyRoute(selected);
+	BlueprintPlan@ plan = selectedValid && selectedDistinct && inward && terrainVariance >= 2 ? AIBS_MakePlan(world, selected) : null;
+	const bool published = home !is null && initialPrimaryValid && primaryAnchorX == obstacleX && primaryRejected &&
+		primaryReason == "occupied_terrain" && routeSafe && plan !is null && AIBP_PublishAIPlan(plan, true);
+	u16 initialCompleted = 0;
+	if (plan !is null)
+	{
+		for (uint i = 0; i < plan.tasks.length; i++)
+		{
+			BlueprintTask@ task = plan.tasks[i];
+			if (task !is null && task.state == AIBP_TaskState::completed) initialCompleted++;
+		}
+	}
+	CBlob@ executor = AIBT_Spawn("autobuilder", 0, AIBT_Pos(390, AIBT_GROUND_Y - 3));
+	AIBT_SetBlob("aibt_bot", executor);
+	rules.set_bool("aibt uneven edge setup", published && executor !is null);
+	rules.set_bool("aibt uneven edge route safe", routeSafe);
+	rules.set_bool("aibt uneven edge progress observed", false);
+	rules.set_u16("aibt uneven edge plan id", plan is null ? 0 : plan.id);
+	rules.set_u16("aibt uneven edge plan version", plan is null ? 0 : plan.version);
+	rules.set_u16("aibt uneven edge tasks", plan is null ? 0 : u16(plan.tasks.length));
+	rules.set_u16("aibt uneven edge initial completed", initialCompleted);
+	rules.set_u16("aibt uneven edge primary anchor x", u16(Maths::Max(0, primaryAnchorX)));
+	rules.set_u16("aibt uneven edge selected anchor x", u16(Maths::Max(0, selectedAnchorX)));
+	rules.set_u16("aibt uneven edge terrain variance", terrainVariance);
+	rules.set_string("aibt uneven edge primary reason", primaryReason);
+	rules.set_string("aibt uneven edge template", selected is null ? "none" : selected.templateName);
+	rules.set_string("aibt uneven edge reasons", selected is null ? "none" : selected.reasons);
+	rules.set_string("aibt uneven edge setup failure", "initial_primary_valid=" + (initialPrimaryValid ? "true" : "false") +
+		" primary_anchor=" + primaryAnchorX + " expected_anchor=" + obstacleX + " primary_rejected=" + (primaryRejected ? "true" : "false") +
+		" reason=" + primaryReason + " selected=" + (selected is null ? "none" : selected.templateName) +
+		" valid=" + (selectedValid ? "true" : "false") + " distinct=" + (selectedDistinct ? "true" : "false") +
+		" inward=" + (inward ? "true" : "false") + " variance=" + terrainVariance + " route_safe=" + (routeSafe ? "true" : "false") +
+		" published=" + (published ? "true" : "false") + " executor=" + (executor !is null ? "true" : "false"));
+	if (published && executor !is null)
+	{
+		AIBWorldState@ assignedWorld = AIBS_ObserveWorld(0);
+		AIBS_AssignBuilders(assignedWorld);
+	}
+}
+
+bool AIBT_EvaluateUnevenEdgeCompletion(const u32 elapsed, string &out failure, string &out details)
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	CBlob@ executor = AIBT_GetBlob("aibt_bot");
+	if (rules is null || map is null || !rules.get_bool("aibt uneven edge setup"))
+	{
+		failure = "uneven_edge_setup_failed " + (rules is null ? "rules_missing" : rules.get_string("aibt uneven edge setup failure"));
+		return true;
+	}
+	AIBP_RefreshPlanState(0, true);
+	const u16 expectedTasks = rules.get_u16("aibt uneven edge tasks");
+	const u16 initialCompleted = rules.get_u16("aibt uneven edge initial completed");
+	const u16 countedCompleted = rules.get_u16(AIBP_PlanKey(0, "completed"));
+	if (countedCompleted > initialCompleted) rules.set_bool("aibt uneven edge progress observed", true);
+	u16 taskCount = 0; u16 stateCompleted = 0; u16 reservedCount = 0; string mismatch;
+	const bool physical = AIBT_AllPlanTasksPhysicallyComplete(0, taskCount, stateCompleted, reservedCount, mismatch);
+	const bool identityStable = rules.get_u16(AIBP_PlanKey(0, "id")) == rules.get_u16("aibt uneven edge plan id") &&
+		rules.get_u16(AIBP_PlanKey(0, "version")) == rules.get_u16("aibt uneven edge plan version");
+	const bool countersComplete = rules.get_u16(AIBP_PlanKey(0, "pending")) == 0 && countedCompleted == expectedTasks &&
+		rules.get_u8(AIBP_PlanKey(0, "status")) == 2;
+	const bool layersComplete = AIBT_CountLayerTiles(0, AIBP_Layer::ai_desired) == expectedTasks &&
+		AIBT_LayerIsEmpty(0, AIBP_Layer::ai_work);
+	const bool assignedExecutor = executor !is null && executor.hasTag("autobuilder") && executor.get_bool("aib strategy assigned") &&
+		executor.get_u8("ai builder job") == AIBS_JOB_BLUEPRINT;
+	const string archivePrefix = "aib strategy history plan " + rules.get_u16("aibt uneven edge plan id") + " team 0 ";
+	const bool archivedComplete = rules.get_string(archivePrefix + "archive reason") == "completed";
+	const bool fallbackValid = rules.get_string("aibt uneven edge primary reason") == "occupied_terrain" &&
+		rules.get_u16("aibt uneven edge primary anchor x") == 372 &&
+		rules.get_u16("aibt uneven edge selected anchor x") < 382 &&
+		(rules.get_string("aibt uneven edge template") != "flag_gatehouse" ||
+		 rules.get_u16("aibt uneven edge selected anchor x") != rules.get_u16("aibt uneven edge primary anchor x")) &&
+		rules.get_u16("aibt uneven edge terrain variance") >= 2 && rules.get_bool("aibt uneven edge route safe");
+	const bool obstaclePreserved = map.isTileCastle(map.getTile(AIBT_Pos(372, AIBT_GROUND_Y - 1)).type) &&
+		map.isTileCastle(map.getTile(AIBT_Pos(372, AIBT_GROUND_Y - 2)).type);
+	const bool exercised = expectedTasks >= 6 && initialCompleted < expectedTasks && rules.get_bool("aibt uneven edge progress observed");
+	if (physical && identityStable && countersComplete && layersComplete && assignedExecutor && archivedComplete &&
+		fallbackValid && obstaclePreserved && exercised)
+	{
+		details = "uneven_edge_fallback_physically_complete=true primary_rejection=occupied_terrain template=" +
+			rules.get_string("aibt uneven edge template") + " primary_anchor=" + rules.get_u16("aibt uneven edge primary anchor x") +
+			" selected_anchor=" + rules.get_u16("aibt uneven edge selected anchor x") + " terrain_variance=" +
+			rules.get_u16("aibt uneven edge terrain variance") + " tasks=" + expectedTasks +
+			" obstacle_preserved=true reservations=0 work_layer_empty=true route_safe=true";
+		return true;
+	}
+	const u32 timeout = u32(expectedTasks) * 45 + 450;
+	if (elapsed > timeout)
+	{
+		failure = "uneven_edge_completion_timeout template=" + rules.get_string("aibt uneven edge template") +
+			" elapsed=" + elapsed + " timeout=" + timeout + " expected=" + expectedTasks + " tasks=" + taskCount +
+			" states_completed=" + stateCompleted + " counted_completed=" + countedCompleted + " reserved=" + reservedCount +
+			" identity=" + (identityStable ? "true" : "false") + " counters=" + (countersComplete ? "true" : "false") +
+			" layers=" + (layersComplete ? "true" : "false") + " assigned=" + (assignedExecutor ? "true" : "false") +
+			" archived=" + (archivedComplete ? "true" : "false") + " fallback=" + (fallbackValid ? "true" : "false") +
+			" obstacle=" + (obstaclePreserved ? "true" : "false") +
+			" exercised=" + (exercised ? "true" : "false") + " mismatch=" + mismatch +
+			" reasons=" + rules.get_string("aibt uneven edge reasons") + " " + AIBT_DescribeBuilder(executor);
 		return true;
 	}
 	return false;
@@ -2590,13 +2762,7 @@ void AIBT_SetupScenario(const int index)
 
 		case 55:
 		{
-			AIBT_SpawnTentTeam(382, 0);
-			AIBT_SpawnTentTeam(54, 1);
-			// Block the primary inward gatehouse anchor with a two-high terrain
-			// step. Production validation must reject it and select another safe
-			// candidate on this near-edge approach.
-			AIBT_SetTemporaryTile(372, AIBT_GROUND_Y - 1, CMap::tile_castle);
-			AIBT_SetTemporaryTile(372, AIBT_GROUND_Y - 2, CMap::tile_castle);
+			AIBT_SetupUnevenEdgeCompletion();
 			break;
 		}
 
@@ -3888,33 +4054,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 55:
 		{
-			string candidateFailure; string candidateDetails;
-			AIBWorldState@ world = AIBS_ObserveWorld(0);
-			array<AIBPlanCandidate@> generated;
-			AIBS_GenerateCandidates(world, generated);
-			bool primaryFound = false; bool primaryRejected = false;
-			string primaryRejection = "missing";
-			for (uint i = 0; i < generated.length; i++)
-			{
-				AIBPlanCandidate@ candidate = generated[i];
-				if (candidate is null || candidate.templateName != "flag_gatehouse" || int(candidate.anchor.x) != 372) continue;
-				primaryFound = true;
-				primaryRejected = !AIBS_ValidateCandidate(world, candidate);
-				primaryRejection = candidate.rejection;
-				break;
-			}
-			if (!primaryFound || !primaryRejected)
-			{
-				failure = "uneven_edge_primary_not_rejected found=" + (primaryFound ? "true" : "false") + " rejection=" + primaryRejection;
-				return true;
-			}
-			if (!AIBT_RepresentativeDirectorCandidate(0, -1, true, candidateFailure, candidateDetails))
-			{
-				failure = "uneven_edge_director_candidate_failed " + candidateFailure;
-				return true;
-			}
-			details = "uneven_edge_safe_fallback=true primary_rejection=" + primaryRejection + " " + candidateDetails;
-			return true;
+			return AIBT_EvaluateUnevenEdgeCompletion(elapsed, failure, details);
 		}
 
 		case 56:

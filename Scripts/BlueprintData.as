@@ -73,18 +73,40 @@ u16 AIBP_GridValue(array<u16>@ grid, const u16 width, const int x, const int y)
 	return index < grid.length ? grid[index] : 0;
 }
 
+bool AIBP_PlayerCanReceiveDisplay(CPlayer@ player, const u8 team, const u16 targetNetID = 0)
+{
+	if (player is null) return false;
+	if (targetNetID != 0 && player.getNetworkID() != targetNetID) return false;
+	const int playerTeam = player.getTeamNum();
+	return playerTeam == team || playerTeam >= 100;
+}
+
+void AIBP_SendDisplayTileToPlayer(CRules@ rules, CPlayer@ player, const u8 team,
+	const u16 x, const u16 y, const u16 value, const u16 humanVersion)
+{
+	if (rules is null || player is null) return;
+	CBitStream sync;
+	sync.write_u8(team);
+	sync.write_u16(x);
+	sync.write_u16(y);
+	sync.write_u16(value);
+	sync.write_u16(humanVersion);
+	rules.SendCommand(rules.getCommandID("syncBlueprintBlock"), sync, player);
+}
+
 void AIBP_NotifyDisplayTile(const u8 team, const u16 x, const u16 y)
 {
 	if (!isServer()) return;
 	CRules@ rules = getRules();
 	if (rules is null) return;
-	CBitStream sync;
-	sync.write_u8(team);
-	sync.write_u16(x);
-	sync.write_u16(y);
-	sync.write_u16(AIBP_GetDisplayTile(team, x, y));
-	sync.write_u16(rules.get_u16(AIBP_PlanKey(team, "human version")));
-	rules.SendCommand(rules.getCommandID("syncBlueprintBlock"), sync);
+	const u16 value = AIBP_GetDisplayTile(team, x, y);
+	const u16 humanVersion = rules.get_u16(AIBP_PlanKey(team, "human version"));
+	for (int i = 0; i < getPlayersCount(); i++)
+	{
+		CPlayer@ player = getPlayer(i);
+		if (!AIBP_PlayerCanReceiveDisplay(player, team)) continue;
+		AIBP_SendDisplayTileToPlayer(rules, player, team, x, y, value, humanVersion);
+	}
 }
 
 u16 AIBP_GetDisplayTile(const u8 team, const u16 x, const u16 y)
@@ -140,25 +162,34 @@ void AIBP_SendDisplaySnapshot(const u16 targetNetID, const u8 team)
 	CMap@ map = getMap();
 	CRules@ rules = getRules();
 	if (map is null || rules is null) return;
-	CBitStream snapshot;
-	snapshot.write_u16(targetNetID);
-	snapshot.write_u8(team);
-	snapshot.write_u16(map.tilemapwidth);
-	snapshot.write_u16(map.tilemapheight);
-	snapshot.write_u16(rules.get_u16(AIBP_PlanKey(team, "human version")));
 	array<u16>@ human = null;
 	array<u16>@ ai = null;
 	AIBP_GetLayerGrid(team, AIBP_Layer::human, @human);
 	const u8 mode = rules.get_u8(AIBP_ModeKey(team));
 	AIBP_GetLayerGrid(team, mode == AIBP_StrategyMode::suggest ? AIBP_Layer::ai_desired : AIBP_Layer::ai_work, @ai);
 	const uint cells = uint(map.tilemapwidth) * uint(map.tilemapheight);
+	array<u16> display(cells, 0);
 	for (uint index = 0; index < cells; index++)
 	{
 		const u16 humanValue = human is null || index >= human.length ? 0 : human[index];
 		const u16 aiValue = ai is null || index >= ai.length ? 0 : ai[index];
-		snapshot.write_u16(humanValue != 0 ? humanValue : aiValue);
+		display[index] = humanValue != 0 ? humanValue : aiValue;
 	}
-	rules.SendCommand(rules.getCommandID("giveAllBlocks"), snapshot);
+	const u16 humanVersion = rules.get_u16(AIBP_PlanKey(team, "human version"));
+	for (int i = 0; i < getPlayersCount(); i++)
+	{
+		CPlayer@ player = getPlayer(i);
+		if (!AIBP_PlayerCanReceiveDisplay(player, team, targetNetID)) continue;
+		CBitStream snapshot;
+		snapshot.write_u16(targetNetID);
+		snapshot.write_u8(team);
+		snapshot.write_u16(map.tilemapwidth);
+		snapshot.write_u16(map.tilemapheight);
+		snapshot.write_u16(humanVersion);
+		for (uint index = 0; index < display.length; index++) snapshot.write_u16(display[index]);
+		rules.SendCommand(rules.getCommandID("giveAllBlocks"), snapshot, player);
+		if (targetNetID != 0) return;
+	}
 }
 
 bool AIBP_SetHumanTile(const u8 team, const u16 x, const u16 y, const u16 value, const u16 expectedVersion = 0xffff)
@@ -176,6 +207,7 @@ bool AIBP_SetHumanTile(const u8 team, const u16 x, const u16 y, const u16 value,
 	if (!AIBP_GetLayerGrid(team, AIBP_Layer::human, @human) || human is null) return false;
 	const uint index = y * map.tilemapwidth + x;
 	if (index >= human.length) return false;
+	if (human[index] == value) return false;
 	human[index] = value;
 	rules.set(AIBP_LayerDataKey(team, AIBP_Layer::human), human);
 	rules.set_u16(versionKey, currentVersion + 1);

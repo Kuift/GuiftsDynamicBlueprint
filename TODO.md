@@ -60,12 +60,11 @@ The current blueprint/editor code works, but it is too coupled and fragile. Most
   - Store full `u16` block ids and rotation in a documented format so future ids are not constrained by color-channel hacks.
   - Add migration handling for older saved PNG-only blueprints.
 
-- Make live editing and AI-visible blueprint data authoritative.
-  - Decide whether the server or an overseer client owns blueprint edits.
-  - Publish blueprint deltas from the authority, not every local client.
-  - Team-scope blueprint data so one team's plans are not sent to the other team unless intended.
-  - Keep the AI-visible rules snapshot in sync after add/remove/send/save/load and after an AI places a tile.
-  - Add tests for live ghost blueprint blocks being built by AI builders.
+- Runtime-validate and finish authoritative live editing and AI-visible blueprint publication.
+  - The server owns accepted add/remove/prefab/clear mutations, validates the active command player and overseer permission, rate-limits edits, updates the human/compatibility layers, and emits authoritative action boundaries. Same-value single-tile packets are now no-ops rather than version/telemetry churn.
+  - Tile deltas and full display snapshots use targeted rules commands for same-team players and spectators; enemy clients no longer receive another team's blueprint contents and merely discard them locally. `Tools/test_aib_editor_delta_authority.ps1` pins recipient, authority, rate, version, and HUD-defense paths.
+  - Live-test two teams plus a spectator: same-team and spectator clients must receive add/remove/prefab/clear updates, the enemy must not, and the AI-visible compatibility grid must match after every mutation and after AI consumption.
+  - Add a physical fixture for a live ghost blueprint block being accepted and completed by an AI builder.
 
 - Improve network efficiency.
   - Replace full-map `getAllBlocks` / `giveAllBlocks` transfers with chunked snapshots or sparse deltas.
@@ -102,8 +101,8 @@ The current blueprint/editor code works, but it is too coupled and fragile. Most
 - Keep the 65-scenario registry and expected final result synchronized when blueprint-editor scenarios are added.
 - Keep `Tools/run_aib_tests.ps1` as the main regression path, but split long pathing scenarios into a separate slower suite if they keep masking unrelated regressions.
 - Add focused tests for:
-  - live editor delta publication to AI-visible blueprint data
   - selection rectangle save/load dimensions
+- Runtime-validate the existing authoritative editor-delta contract with two teams and a spectator; static recipient/source checks cannot prove actual network delivery or non-delivery.
 - Runtime-run the existing focused contracts for supported recovery, crate overflow/second-crate purchase, and blueprint material retrieval; their source/static coverage is not a substitute for a visible KAG verdict.
 
 ## Manual Coverage

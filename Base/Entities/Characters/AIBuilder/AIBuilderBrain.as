@@ -90,6 +90,10 @@ const u32 AIB_TREE_NO_PROGRESS_TICKS = 10 * 30;
 const u32 AIB_TREE_RETRY_COOLDOWN = 30 * 30;
 const f32 AIB_TREE_DISTANCE_PROGRESS = 8.0f;
 const u32 AIB_RESOURCE_HANDOFF_HOLD_TICKS = 31;
+// Inventory transfers are queued by KAG. A crate can report acceptance in the
+// mutation tick and return the stack to the builder shortly afterward.
+const u32 AIB_DELIVERY_CONFIRM_TICKS = 3;
+const string AIB_DELIVERY_CONFIRM_UNTIL_KEY = "ai builder delivery confirm until";
 const u32 AIB_LOG_NO_PROGRESS_TICKS = 10 * 30;
 const u32 AIB_LOG_RETRY_COOLDOWN = 30 * 30;
 const f32 AIB_LOG_DISTANCE_PROGRESS = 8.0f;
@@ -138,6 +142,10 @@ void onInit(CBrain@ this)
 	AIB_SyncPublicState(blob, true);
 	blob.set_u32("ai builder log wait until", 0);
 	blob.set_u16("ai builder pending wood", 0);
+	blob.set_u32(AIB_DELIVERY_CONFIRM_UNTIL_KEY, 0);
+	blob.set_u16("ai builder delivery pending wood", 0);
+	blob.set_u16("ai builder delivery pending stone", 0);
+	blob.set_u16("ai builder delivery pending gold", 0);
 	blob.set_u8("ai builder obstruction threshold", 0);
 	blob.set_bool("ai builder justgo", false);
 	blob.set_u32("ai builder next place", 0);
@@ -673,14 +681,62 @@ void AIB_ReturnWood(CBrain@ brain, CBlob@ blob)
 		return;
 	}
 
-	AIB_StashCarriedResource(blob);
-	if (!AIB_StoreResourcesInBaseCrates(blob, home))
+	bool deliveryConfirmed = false;
+	const u32 now = getGameTime();
+	const u32 confirmUntil = blob.get_u32(AIB_DELIVERY_CONFIRM_UNTIL_KEY);
+	if (confirmUntil != 0)
 	{
-		AIB_ReportWaitingStatus(blob, "Waiting for storage at home");
-		AIB_Debug(blob, "waiting for crate storage at base");
+		if (now < confirmUntil)
+		{
+			AIB_ReportWaitingStatus(blob, "Confirming storage transfer");
+			return;
+		}
+		blob.set_u32(AIB_DELIVERY_CONFIRM_UNTIL_KEY, 0);
+		if (AIB_HasAnyResource(blob))
+		{
+			// A queued crate insertion bounced back. Retry the normal selector so
+			// it can mark the rejected crate full and fund overflow storage.
+			AIB_LogEvent("ai", "store_resources_retry", AIB_EventBlobRef(blob),
+				"wood=" + AIB_CountMaterial(blob, "mat_wood") +
+				" stone=" + AIB_CountMaterial(blob, "mat_stone") +
+				" gold=" + AIB_CountMaterial(blob, "mat_gold"));
+		}
+		else
+		{
+			deliveryConfirmed = true;
+		}
+	}
+
+	if (!deliveryConfirmed)
+	{
+		AIB_StashCarriedResource(blob);
+		if (blob.get_u16("ai builder delivery pending wood") == 0 &&
+			blob.get_u16("ai builder delivery pending stone") == 0 &&
+			blob.get_u16("ai builder delivery pending gold") == 0)
+		{
+			blob.set_u16("ai builder delivery pending wood", AIB_CountMaterial(blob, "mat_wood"));
+			blob.set_u16("ai builder delivery pending stone", AIB_CountMaterial(blob, "mat_stone"));
+			blob.set_u16("ai builder delivery pending gold", AIB_CountMaterial(blob, "mat_gold"));
+		}
+		if (!AIB_StoreResourcesInBaseCrates(blob, home))
+		{
+			AIB_ReportWaitingStatus(blob, "Waiting for storage at home");
+			AIB_Debug(blob, "waiting for crate storage at base");
+			return;
+		}
+		blob.set_u32(AIB_DELIVERY_CONFIRM_UNTIL_KEY, now + AIB_DELIVERY_CONFIRM_TICKS);
+		AIB_ReportWaitingStatus(blob, "Confirming storage transfer");
 		return;
 	}
-	AIB_LogEvent("ai", "store_resources", AIB_EventBlobRef(blob), "home=" + AIB_EventBlobRef(home) + " pos=" + AIB_EventPos(home.getPosition()));
+	AIB_LogEvent("ai", "store_resources", AIB_EventBlobRef(blob),
+		"home=" + AIB_EventBlobRef(home) +
+		" wood=" + blob.get_u16("ai builder delivery pending wood") +
+		" stone=" + blob.get_u16("ai builder delivery pending stone") +
+		" gold=" + blob.get_u16("ai builder delivery pending gold") +
+		" pos=" + AIB_EventPos(home.getPosition()));
+	blob.set_u16("ai builder delivery pending wood", 0);
+	blob.set_u16("ai builder delivery pending stone", 0);
+	blob.set_u16("ai builder delivery pending gold", 0);
 
 	// Delivery is the resource episode's atomic handoff boundary. Clear the old
 	// tree/stone route before entering its neutral find state; otherwise the
@@ -1193,6 +1249,7 @@ void AIB_FindBlueprintBlock(CBrain@ brain, CBlob@ blob)
 	if (tile == Vec2f_zero)
 	{
 		const string waitStatus = AIB_GetBlueprintWaitStatus(blob);
+		AIB_LogBlueprintWaitSnapshot(blob, waitStatus);
 		if (blob.get_bool("ai builder saw blueprint target") || waitStatus != "Waiting for blueprint work")
 		{
 			AIB_ReportWaitingStatus(blob, waitStatus);
@@ -1215,6 +1272,23 @@ void AIB_FindBlueprintBlock(CBrain@ brain, CBlob@ blob)
 		return;
 	}
 	AIB_SetState(blob, AIBuilderState::build_blueprint_block, "blueprint target acquired");
+}
+
+void AIB_LogBlueprintWaitSnapshot(CBlob@ blob, const string &in status)
+{
+	if (blob is null) return;
+	CRules@ rules = getRules();
+	if (rules is null) return;
+	const u8 team = u8(blob.getTeamNum());
+	const string signature = status + " phase=" + AIBP_CurrentTaskPhase(team) +
+		" pending=" + rules.get_u16(AIBP_PlanKey(team, "pending")) +
+		" wood=" + AIB_CountWood(blob) + " stone=" + AIB_CountStone(blob);
+	const u32 now = getGameTime();
+	if (blob.get_string("ai builder blueprint wait signature") == signature &&
+		now < blob.get_u32("ai builder blueprint wait log tick") + AIB_STATUS_BUBBLE_RATE) return;
+	blob.set_string("ai builder blueprint wait signature", signature);
+	blob.set_u32("ai builder blueprint wait log tick", now);
+	AIB_LogEvent("ai", "blueprint_wait", AIB_EventBlobRef(blob), signature);
 }
 
 void AIB_BuildBlueprintBlock(CBrain@ brain, CBlob@ blob)

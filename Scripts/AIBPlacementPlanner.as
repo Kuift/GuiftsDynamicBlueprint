@@ -93,7 +93,9 @@ bool AIBS_TaskTouchesSupportedPlan(AIBPlanCandidate@ candidate, const uint taskI
 		if (!supported[i] || i == taskIndex) continue;
 		BlueprintTask@ other = candidate.tasks[i];
 		if (other is null || !AIBS_CandidateSupportBlock(other.block)) continue;
-		if (other.phase > task.phase && !AIBS_CandidateBackwallBlock(task.block)) continue;
+		// A later phase cannot support an earlier task: the executor will never
+		// make that future task eligible, so accepting the edge creates a cycle.
+		if (other.phase > task.phase) continue;
 		if (Maths::Abs(int(other.x) - int(task.x)) + Maths::Abs(int(other.y) - int(task.y)) == 1) return true;
 	}
 	return false;

@@ -69,10 +69,17 @@ AIBPlanCandidate@ AIBS_FrontlineTowerTemplate(const int anchorX, const int groun
 	for (int y = 2; y <= 6; y++) AIBS_AddTask(c, anchorX, groundY - y, AIBP_LADDER, AIBP_Phase::access);
 	AIBS_AddTask(c, anchorX - 1, groundY - 4, AIBP_PLATFORM, AIBP_Phase::access);
 	AIBS_AddTask(c, anchorX + 1, groundY - 4, AIBP_PLATFORM, AIBP_Phase::access);
-	for (int y = 1; y <= 6; y++)
+	// Keep foundation cells below the two platform anchors. The old full-height
+	// columns left backwalls above each phase-1 platform after AddTask deduped the
+	// overlapping cell. Phase 0 then waited for support through a phase-1 task,
+	// so neither phase could advance. The lower seven cells provide the intended
+	// grounded interior backing without crossing an access-phase dependency.
+	for (int y = 1; y <= 3; y++)
 	{
-		for (int x = -1; x <= 1; x++) AIBS_AddTask(c, anchorX + x, groundY - y, AIBP_STONE_BACKWALL, AIBP_Phase::foundation);
+		AIBS_AddTask(c, anchorX - 1, groundY - y, AIBP_STONE_BACKWALL, AIBP_Phase::foundation);
+		AIBS_AddTask(c, anchorX + 1, groundY - y, AIBP_STONE_BACKWALL, AIBP_Phase::foundation);
 	}
+	AIBS_AddTask(c, anchorX, groundY - 1, AIBP_STONE_BACKWALL, AIBP_Phase::foundation);
 	return c;
 }
 

@@ -153,6 +153,13 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Rule: empty tiles and ground background do not provide support; solid terrain, built foreground, and valid wood/stone backwalls do.
 - Evidence requirement: inspect state acquisition separately from movement. In the live CTF trace, the worker entered `find_blueprint_block` at tick 300 but never emitted a target/state transition afterward, proving selection/support classification—not path following—was the first failure.
 
+### Directly created blueprint platforms may disappear after an apparent completion
+
+- Symptom: a director-built `wooden_platform` matches long enough for the task to be marked complete, then the blob disappears and the next plan refresh reactivates the task as damage.
+- Reproduced evidence: `../../Logs/console-26-07-14-05-21-18.txt` completed the team-1 platform at `(178,36)` on tick 2410, reported it damaged on tick 2430, rebuilt it on tick 2442, and reported it damaged again on tick 2460. The neighbouring `(176,36)` platform completed on tick 2434 and was also damaged on tick 2460.
+- Do not conclude: a successful `server_CreateBlob`, a same-tick catalog match, or one task-complete event proves a blob-backed blueprint task is durable.
+- Workaround: keep blob-backed placement and durable completion as separate evidence boundaries. Recheck the exact blob name/team/rotation/anchor after its normal attachment/lifecycle scripts have advanced before allowing the plan to rely on it; if it disappears, diagnose the entity's player-build initialization/attachment contract rather than repeatedly consuming materials or cancelling the whole plan.
+
 ### Engine pathing and direct movement can fight each other
 
 - Symptom: builders jump in place, oscillate between surface and shaft nodes, or repeatedly replan near a valid destination.

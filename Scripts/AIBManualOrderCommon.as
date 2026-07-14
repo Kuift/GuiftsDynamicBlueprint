@@ -60,6 +60,10 @@ void AIBM_ClearNavigationIntent(CBlob@ builder)
 	builder.set_u32("ai builder stone corner escape cooldown", 0);
 	builder.set_s32("ai builder stone corner escape direction", 0);
 	builder.set_netid("ai builder delivery home", 0);
+	builder.set_u32("ai builder delivery confirm until", 0);
+	builder.set_u16("ai builder delivery pending wood", 0);
+	builder.set_u16("ai builder delivery pending stone", 0);
+	builder.set_u16("ai builder delivery pending gold", 0);
 	builder.set_Vec2f("ai builder recovery support target", Vec2f_zero);
 	builder.set_u32("ai builder recovery support tick", 0);
 	builder.set_u8("ai builder recovery support chain", 0);

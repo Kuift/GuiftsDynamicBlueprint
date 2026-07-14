@@ -555,13 +555,16 @@ bool AIBS_ActivePlanInvalid(AIBWorldState@ world)
 		const uint index = ys[i] * map.tilemapwidth + xs[i];
 		if (human !is null && index < human.length && human[index] != 0) return true;
 		if (AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i], world.team)) continue;
-		if (AIBP_IsRepairablePlanOccupant(world.team, xs[i], ys[i], blocks[i])) continue;
 		Vec2f center = Vec2f(xs[i] * map.tilesize + 4, ys[i] * map.tilesize + 4);
-		const TileType current = map.getTile(center).type;
-		if (map.isTileBedrock(current) || (map.isTileSolid(current) && !map.isTileGrass(current))) return true;
 		if (!AIBS_InsideBarrierSide(world, center)) return true;
 		if (AIBP_BlockId(blocks[i]) != AIBP_LADDER && map.getSectorAtPosition(center, "no build") !is null) return true;
 		if (AIBS_OverlapsProtectedBlob(world.team, center)) return true;
+		// A damaged owned tile is repairable only after the current world safety
+		// gates pass. Checking repairability first let a newly active barrier,
+		// no-build sector, or protected building overlap be skipped indefinitely.
+		if (AIBP_IsRepairablePlanOccupant(world.team, xs[i], ys[i], blocks[i])) continue;
+		const TileType current = map.getTile(center).type;
+		if (map.isTileBedrock(current) || (map.isTileSolid(current) && !map.isTileGrass(current))) return true;
 	}
 	return false;
 }

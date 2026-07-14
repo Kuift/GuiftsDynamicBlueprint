@@ -7,6 +7,7 @@
 #include "AIBBarrierCommon.as";
 #include "AIBStoneRouteCommon.as";
 #include "AIBEventLog.as";
+#include "AIBHomeResourceCommon.as";
 #include "AutoBuilderCommon.as";
 #include "BlueprintData.as";
 #include "Pathing/BrainPathing.as";
@@ -2949,50 +2950,13 @@ Vec2f AIB_GetHomeDropPoint(CBlob@ home)
 Vec2f AIB_GetBaseStoragePoint(CBlob@ home)
 {
 	if (home is null) return Vec2f_zero;
-
-	CMap@ map = getMap();
-	if (map is null) return home.getPosition();
-	const f32 ts = map.tilesize;
-	const Vec2f homeSpace = map.getTileSpacePosition(home.getPosition());
-	const int homeX = Maths::Floor(homeSpace.x);
-	const int homeY = Maths::Floor(homeSpace.y);
-	Vec2f best = Vec2f_zero;
-	f32 bestScore = 999999.0f;
-	// Preserve the established nine-tile left storage site when it is usable,
-	// but mirror to the right near a map edge or obstruction.  Search standing
-	// cells rather than applying a vertical pixel offset that can point into air.
-	for (int distance = 9; distance >= 4; distance--)
-	{
-		for (int side = -1; side <= 1; side += 2)
-		{
-			const int x = homeX + side * distance;
-			for (int yOffset = -3; yOffset <= 4; yOffset++)
-			{
-				const int y = homeY + yOffset;
-				Vec2f candidate = Vec2f((x + 0.5f) * ts, (y + 0.5f) * ts);
-				if (!AIB_IsGroundedBaseStoragePoint(candidate)) continue;
-				const f32 score = Maths::Abs(distance - 9) * 3.0f + Maths::Abs(yOffset) + (side > 0 ? 0.25f : 0.0f);
-				if (score < bestScore)
-				{
-					bestScore = score;
-					best = candidate;
-				}
-			}
-		}
-	}
+	Vec2f best = AIBR_FindBaseStoragePoint(home);
 	return best != Vec2f_zero ? best : AIB_GetHomeDropPoint(home);
 }
 
 bool AIB_IsGroundedBaseStoragePoint(Vec2f candidate)
 {
-	CMap@ map = getMap();
-	if (map is null) return false;
-	const f32 ts = map.tilesize;
-	if (candidate.x < 2.0f * ts || candidate.x >= (map.tilemapwidth - 2) * ts ||
-		candidate.y < 2.0f * ts || candidate.y >= (map.tilemapheight - 2) * ts) return false;
-	if (!AIB_IsBuilderPassableAt(candidate) || !AIB_IsBuilderPassableAt(candidate - Vec2f(0.0f, ts))) return false;
-	if (!map.isTileSolid(map.getTile(candidate + Vec2f(0.0f, ts)).type)) return false;
-	return AIB_IsInsideCurrentBarrierZoneAt(candidate);
+	return AIBR_IsGroundedStoragePoint(candidate);
 }
 
 Vec2f AIB_GetBuilderShopPoint(CBlob@ home)
@@ -4052,7 +4016,7 @@ u8 AIB_CountBaseResourceCrates(CBlob@ home)
 	u8 count = 0;
 	CBlob@[] crates;
 	getBlobsByName("crate", @crates);
-	Vec2f storage = AIB_GetBaseStoragePoint(home);
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
 	for (uint i = 0; i < crates.length; i++)
 	{
 		CBlob@ crate = crates[i];
@@ -4070,7 +4034,7 @@ CBlob@ AIB_GetBestBaseResourceCrate(CBlob@ blob, CBlob@ home)
 	f32 bestScore = 999999.0f;
 	CBlob@[] crates;
 	getBlobsByName("crate", @crates);
-	Vec2f storage = AIB_GetBaseStoragePoint(home);
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
 	for (uint i = 0; i < crates.length; i++)
 	{
 		CBlob@ crate = crates[i];
@@ -4096,14 +4060,7 @@ CBlob@ AIB_GetBestBaseResourceCrate(CBlob@ blob, CBlob@ home)
 
 bool AIB_IsBaseResourceCrate(CBlob@ crate, CBlob@ home, Vec2f storage)
 {
-	if (crate is null || home is null || crate.hasTag("dead")) return false;
-	if (crate.isAttached() || crate.isInInventory()) return false;
-	if (crate.getTeamNum() != home.getTeamNum()) return false;
-	if (crate.exists("packed")) return false;
-	if ((crate.getPosition() - storage).Length() > 128.0f) return false;
-
-	CInventory@ inv = crate.getInventory();
-	return inv !is null;
+	return AIBR_IsBaseResourceCrate(crate, home, storage);
 }
 
 bool AIB_CrateCanTakeAnyResource(CBlob@ crate, CBlob@ blob)
@@ -4236,33 +4193,7 @@ bool AIB_CollectHomeMaterial(CBlob@ blob, CBlob@ home, const string &in name)
 
 u16 AIB_CountHomeMaterial(CBlob@ home, const string &in name)
 {
-	if (home is null) return 0;
-
-	u16 count = 0;
-	CBlob@[] mats;
-	getBlobsByName(name, @mats);
-	Vec2f homePos = AIB_GetHomeDropPoint(home);
-	for (uint i = 0; i < mats.length; i++)
-	{
-		CBlob@ mat = mats[i];
-		if (!AIB_IsLooseWorldResource(mat)) continue;
-		if ((mat.getPosition() - homePos).Length() > 56.0f) continue;
-		count += mat.getQuantity();
-	}
-
-	CBlob@[] crates;
-	getBlobsByName("crate", @crates);
-	Vec2f storage = AIB_GetBaseStoragePoint(home);
-	for (uint i = 0; i < crates.length; i++)
-	{
-		CBlob@ crate = crates[i];
-		if (!AIB_IsBaseResourceCrate(crate, home, storage)) continue;
-
-		CInventory@ inv = crate.getInventory();
-		if (inv !is null) count += inv.getCount(name);
-	}
-
-	return count;
+	return AIBR_CountAccessibleHomeMaterial(home, name);
 }
 
 bool AIB_TakeHomeMaterial(CBlob@ home, const string &in name, const u16 amount)
@@ -4272,12 +4203,10 @@ bool AIB_TakeHomeMaterial(CBlob@ home, const string &in name, const u16 amount)
 	u16 remaining = amount;
 	CBlob@[] mats;
 	getBlobsByName(name, @mats);
-	Vec2f homePos = AIB_GetHomeDropPoint(home);
 	for (uint i = 0; i < mats.length && remaining > 0; i++)
 	{
 		CBlob@ mat = mats[i];
-		if (!AIB_IsLooseWorldResource(mat)) continue;
-		if ((mat.getPosition() - homePos).Length() > 56.0f) continue;
+		if (!AIBR_IsLooseHomeMaterial(home, mat)) continue;
 
 		const u16 quantity = mat.getQuantity();
 		const u16 take = Maths::Min(quantity, remaining);
@@ -4294,7 +4223,7 @@ bool AIB_TakeHomeMaterial(CBlob@ home, const string &in name, const u16 amount)
 
 	CBlob@[] crates;
 	getBlobsByName("crate", @crates);
-	Vec2f storage = AIB_GetBaseStoragePoint(home);
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
 	for (uint i = 0; i < crates.length && remaining > 0; i++)
 	{
 		CBlob@ crate = crates[i];
@@ -4320,12 +4249,10 @@ CBlob@ AIB_GetHomeMaterial(CBlob@ blob, CBlob@ home, const string &in name)
 
 	CBlob@ best = null;
 	f32 bestDistance = 999999.0f;
-	Vec2f homePos = AIB_GetHomeDropPoint(home);
 	for (uint i = 0; i < mats.length; i++)
 	{
 		CBlob@ mat = mats[i];
-		if (!AIB_IsLooseWorldResource(mat)) continue;
-		if ((mat.getPosition() - homePos).Length() > 56.0f) continue;
+		if (!AIBR_IsLooseHomeMaterial(home, mat)) continue;
 
 		const f32 distance = (mat.getPosition() - blob.getPosition()).Length();
 		if (distance < bestDistance)
@@ -4345,7 +4272,7 @@ CBlob@ AIB_GetCratedHomeMaterialSource(CBlob@ home, const string &in name)
 
 	CBlob@[] crates;
 	getBlobsByName("crate", @crates);
-	Vec2f storage = AIB_GetBaseStoragePoint(home);
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
 	for (uint i = 0; i < crates.length; i++)
 	{
 		CBlob@ crate = crates[i];
@@ -5407,11 +5334,7 @@ bool AIB_IsResourceBlob(CBlob@ blob)
 
 bool AIB_IsLooseWorldResource(CBlob@ blob)
 {
-	if (!AIB_IsResourceBlob(blob)) return false;
-	if (blob.hasTag("dead")) return false;
-	if (blob.isAttached()) return false;
-	if (blob.isInInventory()) return false;
-	return true;
+	return AIBR_IsLooseWorldResource(blob);
 }
 
 CBlob@ AIB_GetNearest(CBlob@ blob, CBlob@[]@ candidates)

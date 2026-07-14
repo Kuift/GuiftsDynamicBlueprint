@@ -3156,21 +3156,10 @@ u16 AIB_CountDisplayedBlueprintTiles()
 
 u16 AIB_CountTeamStoredMaterial(const u8 team, const string &in material)
 {
-	u32 count = 0;
-	string[] names = { "tent", "hall", "crate", "buildershop", "aibuilder" };
-	for(uint n = 0; n < names.length; n++)
-	{
-		CBlob@[] blobs;
-		getBlobsByName(names[n], @blobs);
-		for(uint i = 0; i < blobs.length; i++)
-		{
-			CBlob@ blob = blobs[i];
-			if(blob is null || blob.hasTag("dead") || blob.getTeamNum() != team) continue;
-			CInventory@ inventory = blob.getInventory();
-			if(inventory !is null) count += inventory.getCount(material);
-		}
-	}
-	return u16(Maths::Min(count, 65535));
+	CRules@ rules = getRules();
+	if(rules is null) return 0;
+	const string kind = material == "mat_stone" ? "stone" : "wood";
+	return rules.get_u16("aib strategy accessible " + kind + " team " + int(team));
 }
 
 void AIB_BlueprintMaterialCosts(u32 &out wood, u32 &out stone)
@@ -3275,8 +3264,8 @@ void RenderBlueprintAdvancedPanel()
 		const u16 storedStone = AIB_CountTeamStoredMaterial(team, "mat_stone");
 		const bool infiniteBuilder = AIB_TeamHasAutoBuilder(team);
 		AIB_DrawAdvancedLine(content, 0, "Blueprint cost", SColor(0xffffffff));
-		AIB_DrawAdvancedLine(content, 1, "Wood: " + wood + "  stored " + storedWood);
-		AIB_DrawAdvancedLine(content, 2, "Stone: " + stone + "  stored " + storedStone);
+		AIB_DrawAdvancedLine(content, 1, "Wood: " + wood + "  accessible " + storedWood);
+		AIB_DrawAdvancedLine(content, 2, "Stone: " + stone + "  accessible " + storedStone);
 		AIB_DrawAdvancedLine(content, 3, infiniteBuilder ? "Wood shortage: ignored by Autobuilder" :
 			"Wood shortage: " + (wood > storedWood ? wood - storedWood : 0));
 		AIB_DrawAdvancedLine(content, 4, infiniteBuilder ? "Stone shortage: ignored by Autobuilder" :

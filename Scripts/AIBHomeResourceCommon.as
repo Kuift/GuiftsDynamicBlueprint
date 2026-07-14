@@ -1,0 +1,117 @@
+#include "AIBBarrierCommon.as";
+
+const f32 AIBR_LOOSE_HOME_RADIUS = 88.0f;
+const f32 AIBR_CRATE_STORAGE_RADIUS = 128.0f;
+
+bool AIBR_IsLooseWorldResource(CBlob@ blob)
+{
+	if (blob is null || blob.getName().substr(0, 4) != "mat_") return false;
+	return !blob.hasTag("dead") && !blob.isAttached() && !blob.isInInventory();
+}
+
+bool AIBR_IsLooseHomeMaterial(CBlob@ home, CBlob@ material)
+{
+	if (home is null || !AIBR_IsLooseWorldResource(material)) return false;
+	// AIB_GetHomeDropPoint may move up to three tiles sideways and two tiles
+	// vertically around this nominal point.  Eleven tiles covers the old
+	// seven-tile pickup radius around every one of those legal drop points,
+	// while keeping remote battlefield stacks out of base stock.
+	Vec2f center = home.getPosition() + Vec2f(0.0f, -12.0f);
+	return (material.getPosition() - center).Length() <= AIBR_LOOSE_HOME_RADIUS;
+}
+
+bool AIBR_IsBuilderPassableAt(Vec2f position)
+{
+	CMap@ map = getMap();
+	if (map is null) return false;
+	const TileType type = map.getTile(position).type;
+	return !map.isTileBedrock(type) && !map.isTileSolid(type);
+}
+
+bool AIBR_IsInsideCurrentBarrierZoneAt(Vec2f position)
+{
+	CRules@ rules = getRules();
+	if (rules is null || !AIB_ShouldBarrier(rules)) return true;
+	const u16 x1 = rules.get_u16("barrier_x1");
+	const u16 x2 = rules.get_u16("barrier_x2");
+	if (x1 == x2) return true;
+	return AIB_GetBarrierZone(position.x, x1, x2) != 0;
+}
+
+bool AIBR_IsGroundedStoragePoint(Vec2f candidate)
+{
+	CMap@ map = getMap();
+	if (map is null) return false;
+	const f32 ts = map.tilesize;
+	if (candidate.x < 2.0f * ts || candidate.x >= (map.tilemapwidth - 2) * ts ||
+		candidate.y < 2.0f * ts || candidate.y >= (map.tilemapheight - 2) * ts) return false;
+	if (!AIBR_IsBuilderPassableAt(candidate) || !AIBR_IsBuilderPassableAt(candidate - Vec2f(0.0f, ts))) return false;
+	if (!map.isTileSolid(map.getTile(candidate + Vec2f(0.0f, ts)).type)) return false;
+	return AIBR_IsInsideCurrentBarrierZoneAt(candidate);
+}
+
+Vec2f AIBR_FindBaseStoragePoint(CBlob@ home)
+{
+	if (home is null) return Vec2f_zero;
+	CMap@ map = getMap();
+	if (map is null) return Vec2f_zero;
+	const f32 ts = map.tilesize;
+	Vec2f homeSpace = map.getTileSpacePosition(home.getPosition());
+	const int homeX = Maths::Floor(homeSpace.x);
+	const int homeY = Maths::Floor(homeSpace.y);
+	Vec2f best = Vec2f_zero;
+	f32 bestScore = 999999.0f;
+	// Keep this search shared with the executor.  A crate that is merely near a
+	// base but not near this grounded point is not production-accessible stock.
+	for (int distance = 9; distance >= 4; distance--)
+	{
+		for (int side = -1; side <= 1; side += 2)
+		{
+			const int x = homeX + side * distance;
+			for (int yOffset = -3; yOffset <= 4; yOffset++)
+			{
+				const int y = homeY + yOffset;
+				Vec2f candidate = Vec2f((x + 0.5f) * ts, (y + 0.5f) * ts);
+				if (!AIBR_IsGroundedStoragePoint(candidate)) continue;
+				const f32 score = Maths::Abs(distance - 9) * 3.0f + Maths::Abs(yOffset) + (side > 0 ? 0.25f : 0.0f);
+				if (score < bestScore) { bestScore = score; best = candidate; }
+			}
+		}
+	}
+	return best;
+}
+
+bool AIBR_IsBaseResourceCrate(CBlob@ crate, CBlob@ home, Vec2f storage)
+{
+	if (crate is null || home is null || storage == Vec2f_zero || crate.hasTag("dead")) return false;
+	if (crate.isAttached() || crate.isInInventory() || crate.getTeamNum() != home.getTeamNum() || crate.exists("packed")) return false;
+	if ((crate.getPosition() - storage).Length() > AIBR_CRATE_STORAGE_RADIUS) return false;
+	return crate.getInventory() !is null;
+}
+
+u16 AIBR_CountAccessibleHomeMaterial(CBlob@ home, const string &in material)
+{
+	if (home is null) return 0;
+	u32 total = 0;
+	CBlob@[] materials;
+	getBlobsByName(material, @materials);
+	for (uint i = 0; i < materials.length; i++)
+	{
+		CBlob@ item = materials[i];
+		if (AIBR_IsLooseHomeMaterial(home, item)) total += item.getQuantity();
+	}
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
+	if (storage != Vec2f_zero)
+	{
+		CBlob@[] crates;
+		getBlobsByName("crate", @crates);
+		for (uint i = 0; i < crates.length; i++)
+		{
+			CBlob@ crate = crates[i];
+			if (!AIBR_IsBaseResourceCrate(crate, home, storage)) continue;
+			CInventory@ inventory = crate.getInventory();
+			if (inventory !is null) total += inventory.getCount(material);
+		}
+	}
+	return u16(Maths::Min(total, u32(65535)));
+}

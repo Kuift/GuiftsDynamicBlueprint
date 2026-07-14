@@ -79,6 +79,8 @@ When crate storage needs a builder shop, the AI searches nearby ground on both s
 
 Resource delivery uses the same terrain-aware principle. Never restore a fixed offset such as `home - 9 tiles, -8 px`: on real CTF maps that point can be inside a slope or void and produce endless jump/repath loops. Search both sides for a clear standing cell with solid ground below, then use the workshop/crate at that grounded point.
 
+Director storage pressure must count only stock an ordinary production builder can retrieve: loose `mat_*` near the selected tent/hall resource home plus same-team unpacked crates near the shared grounded storage point. Do not restore a global scan of tent, hall, workshop, builder, or remote-crate inventories; that can suppress collectors and make an unfunded plan look paid. `Scripts/AIBHomeResourceCommon.as` owns the shared eligibility used by world observation and the executor, while the advanced UI reads the server-synced accessible totals. Run `Tools/test_aib_accessible_stock.ps1` after changing home material radii, storage-point search, crate eligibility, world resource accounting, or the displayed shortage summary.
+
 ### Blueprint support and role handoff
 
 Unsupported foreground blueprint blocks are not automatically invalid. If a matching wood or stone backwall chain can connect them to terrain, the planner and executor must agree that the generated backwall is a legal dependency and the builder must place it before the foreground block.

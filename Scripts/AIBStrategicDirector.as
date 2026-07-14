@@ -86,7 +86,14 @@ void AIBS_UpdateTeam(CRules@ rules, const u8 team)
 {
 	const u8 mode = rules.get_u8(AIBP_ModeKey(team));
 	AIBS_HandleModeChange(rules, team, mode);
-	if (mode == AIBP_StrategyMode::off) { AIBS_DecayPressure(team); return; }
+	if (mode == AIBP_StrategyMode::off)
+	{
+		// Manual blueprints still show their shortage summary with the director
+		// disabled, so keep the server-authoritative accessible totals current.
+		AIBS_RefreshAccessibleStock(rules, team);
+		AIBS_DecayPressure(team);
+		return;
+	}
 	AIBP_RefreshPlanState(team, mode == AIBP_StrategyMode::auto_mode);
 	AIBWorldState@ world = AIBS_ObserveWorld(team);
 	if (world is null) return;

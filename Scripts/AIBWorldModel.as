@@ -1,4 +1,5 @@
 #include "AIBStrategicTypes.as";
+#include "AIBHomeResourceCommon.as";
 
 array<u16> AIBS_surface;
 array<u16> AIBS_lane_width;
@@ -177,23 +178,28 @@ u16 AIBS_WallHeightAt(const int x)
 	return AIBS_wall_height[Maths::Clamp(x, 0, map.tilemapwidth - 1)];
 }
 
-u16 AIBS_CountStored(const u8 team, const string &in material)
+u16 AIBS_CountStored(CBlob@ resourceHome, const string &in material)
 {
-	u32 total = 0;
-	string[] names = { "tent", "hall", "crate", "buildershop", "aibuilder" };
-	for (uint n = 0; n < names.length; n++)
-	{
-		CBlob@[] blobs;
-		getBlobsByName(names[n], @blobs);
-		for (uint i = 0; i < blobs.length; i++)
-		{
-			CBlob@ blob = blobs[i];
-			if (blob is null || blob.hasTag("dead") || blob.getTeamNum() != team) continue;
-			CInventory@ inv = blob.getInventory();
-			if (inv !is null) total += inv.getCount(material);
-		}
-	}
-	return u16(Maths::Min(total, 65535));
+	return AIBR_CountAccessibleHomeMaterial(resourceHome, material);
+}
+
+void AIBS_PublishAccessibleStock(CRules@ rules, const u8 team, const string &in material, const u16 amount)
+{
+	if (rules is null) return;
+	const string kind = material == "mat_stone" ? "stone" : "wood";
+	const string key = "aib strategy accessible " + kind + " team " + int(team);
+	if (rules.exists(key) && rules.get_u16(key) == amount) return;
+	rules.set_u16(key, amount);
+	rules.Sync(key, true);
+}
+
+void AIBS_RefreshAccessibleStock(CRules@ rules, const u8 team)
+{
+	CBlob@ strategicHome = AIBS_TeamHomeBlob(team);
+	Vec2f strategicPosition = strategicHome is null ? Vec2f_zero : strategicHome.getPosition();
+	CBlob@ resourceHome = AIBS_TeamResourceHomeBlob(team, strategicPosition);
+	AIBS_PublishAccessibleStock(rules, team, "mat_wood", AIBS_CountStored(resourceHome, "mat_wood"));
+	AIBS_PublishAccessibleStock(rules, team, "mat_stone", AIBS_CountStored(resourceHome, "mat_stone"));
 }
 
 AIBWorldState@ AIBS_ObserveWorld(const u8 team)
@@ -204,12 +210,14 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 	world.home = home is null ? Vec2f_zero : home.getPosition();
 	CBlob@ resourceHome = AIBS_TeamResourceHomeBlob(team, world.home);
 	world.resourceHome = resourceHome is null ? Vec2f_zero : resourceHome.getPosition();
+	CRules@ rules = getRules();
 	CBlob@ enemyHome = AIBS_EnemyHomeBlob(team, world.home);
 	world.enemyHome = enemyHome is null ? Vec2f_zero : enemyHome.getPosition();
 	world.enemyDirection = world.enemyHome == Vec2f_zero || world.enemyHome.x >= world.home.x ? 1 : -1;
-	world.storedWood = AIBS_CountStored(team, "mat_wood");
-	world.storedStone = AIBS_CountStored(team, "mat_stone");
-	CRules@ rules = getRules();
+	world.storedWood = AIBS_CountStored(resourceHome, "mat_wood");
+	world.storedStone = AIBS_CountStored(resourceHome, "mat_stone");
+	AIBS_PublishAccessibleStock(rules, team, "mat_wood", world.storedWood);
+	AIBS_PublishAccessibleStock(rules, team, "mat_stone", world.storedStone);
 	world.planPending = rules is null ? 0 : rules.get_u16(AIBP_PlanKey(team, "pending"));
 	world.planCompleted = rules is null ? 0 : rules.get_u16(AIBP_PlanKey(team, "completed"));
 	world.planDamaged = rules is null ? 0 : rules.get_u16(AIBP_PlanKey(team, "damaged"));

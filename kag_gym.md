@@ -11,7 +11,7 @@ The gym is not a reinforcement-learning environment yet. KAG is the authoritativ
 This is the order of work. Do not spend another milestone polishing test presentation while a higher-priority real behavior is broken.
 
 1. Real builder primitives: selected tree, exposed stone, obstructed stone, material retrieval, one supported block, door/platform, recovery ladder, repair. Physical repair now has a complete focused pass; mining/pathing still need representative evidence.
-2. Resource lifecycle: home/crate deposit, crate retrieval, full-crate overflow, shortage recovery, no-home safety. Overflow production behavior is implemented, but the corrected final fixture is not yet run. Strategic flag ownership is now separated from tent/hall resource capability: static contracts cover runner suspension/free-provisioning suppression with only a flag left and full plan cancellation when every strategic home is gone; the split path remains runtime-uncompiled.
+2. Resource lifecycle: home/crate deposit, crate retrieval, full-crate overflow, shortage recovery, no-home safety. Overflow production behavior is implemented, but the corrected final fixture is not yet run. Strategic flag ownership is now separated from tent/hall resource capability: static contracts cover runner suspension/free-provisioning suppression with only a flag left and full plan cancellation when every strategic home is gone. Director shortage pressure, executor retrieval, and the advanced UI now share the same near-home loose-material and grounded-base-crate stock boundary; a static/runtime-ready fixture excludes remote inventory, but the split and accounting paths remain runtime-uncompiled.
 3. Multi-builder construction: deterministic roles, reservation handoff, support-first sequencing, no duplicate work, full small-plan completion.
 4. Director fixtures: simultaneous full completion of mirrored inward plans, full uneven near-edge blocked-primary fallback completion, exact scarce-storage scoring, emergency selection under collapse pressure, damaged-front retention, full selected-plan completion, mirrored sealed-bootstrap rejection, and full no-build/occupied/barrier fallback completion are defined through production paths but remain runtime-unverified.
 5. Outcome/cost capture: schema v3 covers attributed outcomes, accepted blueprint/director actions, director-shop purchases, and plan/task boundaries plus an offline raw episode summary. Generic hits, explicit pickup/drop, non-director purchases, and runtime validation remain.
@@ -273,7 +273,7 @@ Production weights and template metadata must have one source of truth consumed 
 ### Phase C — scenario depth
 
 - [ ] Resolve `kag_path_mines_dirt_plug` with supported-chain and post-placement walkability evidence.
-- [ ] Add crate overflow, crate retrieval, editor delta, and selection save/load coverage.
+- [ ] PARTIAL — crate overflow, retrieval-source accounting, editor delta, and selection save/load coverage exist at different depths. The accessible-stock contract and overflow conservation are statically covered; the corrected physical overflow/retrieval paths still need live KAG verdicts.
 - [ ] PARTIAL — simultaneous mirrored left/right full completion, uneven blocked-primary full completion, asymmetric pressure, scarce-resource, damaged-front, full physical completion, mirrored sealed-bootstrap, blocked-site cooldown/round-reset provisioning, and exact no-build/occupied/barrier fallback fixtures are defined; live KAG verdicts remain.
 - [ ] Complete and reproduce the entire current suite with final `DONE` evidence.
 
@@ -283,7 +283,7 @@ Production weights and template metadata must have one source of truth consumed 
 - [x] Fixture/version/team/side-aware comparator with exactly-one-variant pairing and a default three-seed minimum per cohort.
 - [x] Deterministic 48-trial/24-pair NDJSON collection manifest with explicit fresh-reset requirements.
 - [ ] Live 48-trial paired dataset and semantic gates.
-- [x] Central scoring configuration shared by production and offline tools (`Rules/CommonScripts/AIBStrategyWeights.cfg`), with a 68-key static contract, stored-resource shortage pressure, and deterministic simulator regression. KAG runtime loading remains unverified.
+- [x] Central scoring configuration shared by production and offline tools (`Rules/CommonScripts/AIBStrategyWeights.cfg`), with a 68-key static contract, production-accessible home-stock shortage pressure, and deterministic simulator regression. KAG runtime loading remains unverified.
 
 ### Phase E — public learning loop
 

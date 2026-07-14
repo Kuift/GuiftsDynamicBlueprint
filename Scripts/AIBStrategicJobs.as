@@ -15,6 +15,7 @@ const u8 AIBS_BOOTSTRAP_MAX_HOME_DISTANCE = 24;
 const u8 AIBS_BOOTSTRAP_VERTICAL_SEARCH = 12;
 const u8 AIBS_BOOTSTRAP_HOME_SEED_RADIUS = 4;
 const u32 AIBS_BOOTSTRAP_RETRY_TICKS = 10 * 30;
+const u16 AIBS_COLLECTOR_LOAD = 250;
 
 class AIBBootstrapReachability
 {
@@ -418,6 +419,81 @@ bool AIBS_TryBootstrapBuilder(CRules@ rules, AIBWorldState@ world)
 	return true;
 }
 
+void AIBS_ComputeRoleDemand(const uint builderCount, const u16 planPending,
+	const u32 woodShort, const u32 stoneShort,
+	uint &out woodCollectors, uint &out stoneCollectors, uint &out builders)
+{
+	woodCollectors = 0;
+	stoneCollectors = 0;
+	builders = builderCount;
+	if (builderCount == 0) return;
+
+	const u32 totalShort = woodShort + stoneShort;
+	if (totalShort == 0) return;
+	const uint maxCollectors = builderCount > 1 && planPending > 0 ? builderCount - 1 : builderCount;
+	uint collectors = uint(Maths::Ceil(float(totalShort) / float(AIBS_COLLECTOR_LOAD)));
+	const uint materialKinds = (woodShort > 0 ? 1 : 0) + (stoneShort > 0 ? 1 : 0);
+	collectors = Maths::Min(maxCollectors, Maths::Max(collectors, materialKinds));
+	if (collectors == 0) return;
+
+	// When only one collector slot is available, minimum-one-per-material is
+	// impossible. Choose the larger outstanding demand instead of always
+	// favoring wood because it happens to be assigned first.
+	if (collectors == 1)
+	{
+		woodCollectors = woodShort > 0 && (stoneShort == 0 || woodShort >= stoneShort) ? 1 : 0;
+		stoneCollectors = 1 - woodCollectors;
+	}
+	else
+	{
+		woodCollectors = uint(Maths::Round(float(collectors) * float(woodShort) / float(totalShort)));
+		if (woodShort > 0 && woodCollectors == 0) woodCollectors = 1;
+		if (stoneShort > 0 && woodCollectors >= collectors) woodCollectors = collectors - 1;
+		stoneCollectors = collectors - woodCollectors;
+	}
+	builders = builderCount - collectors;
+}
+
+void AIBS_AssignStableRoles(array<CBlob@> &in teamBuilders,
+	const uint woodCollectors, const uint stoneCollectors, const uint builders)
+{
+	array<u8> roles;
+	roles.set_length(teamBuilders.length);
+	for (uint i = 0; i < roles.length; i++) roles[i] = 255;
+	uint woodLeft = woodCollectors;
+	uint stoneLeft = stoneCollectors;
+	uint buildLeft = builders;
+
+	// Keep builders already in a still-needed role. This avoids needless
+	// cross-role handoffs when a delivery changes a shortage by one heartbeat.
+	for (uint i = 0; i < teamBuilders.length; i++)
+	{
+		CBlob@ builder = teamBuilders[i];
+		if (builder is null || !builder.get_bool("aib strategy assigned")) continue;
+		const u8 job = builder.get_u8("ai builder job");
+		if (job == AIBS_JOB_WOOD && woodLeft > 0) { roles[i] = job; woodLeft--; }
+		else if (job == AIBS_JOB_STONE && stoneLeft > 0) { roles[i] = job; stoneLeft--; }
+		else if (job == AIBS_JOB_BLUEPRINT && buildLeft > 0) { roles[i] = job; buildLeft--; }
+	}
+
+	// AIBS_GetTeamBuilders sorted the roster by network ID, so filling open
+	// slots in this order is deterministic even when entities enumerate oddly.
+	for (uint i = 0; i < teamBuilders.length; i++)
+	{
+		if (roles[i] != 255) continue;
+		if (woodLeft > 0) { roles[i] = AIBS_JOB_WOOD; woodLeft--; }
+		else if (stoneLeft > 0) { roles[i] = AIBS_JOB_STONE; stoneLeft--; }
+		else { roles[i] = AIBS_JOB_BLUEPRINT; if (buildLeft > 0) buildLeft--; }
+	}
+
+	for (uint i = 0; i < teamBuilders.length; i++)
+	{
+		if (roles[i] == AIBS_JOB_WOOD) AIBS_SetBuilderJob(teamBuilders[i], AIBS_JOB_WOOD, AIBS_STATE_FIND_TREE);
+		else if (roles[i] == AIBS_JOB_STONE) AIBS_SetBuilderJob(teamBuilders[i], AIBS_JOB_STONE, AIBS_STATE_FIND_STONE);
+		else AIBS_SetBuilderJob(teamBuilders[i], AIBS_JOB_BLUEPRINT, AIBS_STATE_COLLECT_BLUEPRINT);
+	}
+}
+
 void AIBS_AssignBuilders(AIBWorldState@ world)
 {
 	if (world is null) return;
@@ -458,19 +534,12 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 	const u16 stoneCost = AIBP_RemainingMaterialCost(world.team, "mat_stone");
 	const u32 woodShort = woodCost > world.storedWood ? woodCost - world.storedWood : 0;
 	const u32 stoneShort = stoneCost > world.storedStone ? stoneCost - world.storedStone : 0;
-	const u32 totalShort = woodShort + stoneShort;
-	const uint maxCollectors = teamBuilders.length > 1 && world.planPending > 0 ? teamBuilders.length - 1 : teamBuilders.length;
-	uint collectors = totalShort == 0 ? 0 : uint(Maths::Ceil(float(totalShort) / 250.0f));
-	const uint materialKinds = (woodShort > 0 ? 1 : 0) + (stoneShort > 0 ? 1 : 0);
-	collectors = Maths::Min(maxCollectors, Maths::Max(collectors, materialKinds));
-	uint woodCollectors = totalShort == 0 ? 0 : uint(Maths::Round(float(collectors) * float(woodShort) / float(totalShort)));
-	if (woodShort > 0 && woodCollectors == 0 && collectors > 0) woodCollectors = 1;
-	if (stoneShort > 0 && woodCollectors >= collectors && collectors > 1) woodCollectors = collectors - 1;
-	const uint stoneCollectors = collectors - woodCollectors;
-	uint index = 0;
-	for (uint i = 0; i < woodCollectors && index < teamBuilders.length; i++) AIBS_SetBuilderJob(teamBuilders[index++], AIBS_JOB_WOOD, AIBS_STATE_FIND_TREE);
-	for (uint i = 0; i < stoneCollectors && index < teamBuilders.length; i++) AIBS_SetBuilderJob(teamBuilders[index++], AIBS_JOB_STONE, AIBS_STATE_FIND_STONE);
-	while (index < teamBuilders.length) AIBS_SetBuilderJob(teamBuilders[index++], AIBS_JOB_BLUEPRINT, AIBS_STATE_COLLECT_BLUEPRINT);
+	uint woodCollectors = 0;
+	uint stoneCollectors = 0;
+	uint builders = 0;
+	AIBS_ComputeRoleDemand(teamBuilders.length, world.planPending, woodShort, stoneShort,
+		woodCollectors, stoneCollectors, builders);
+	AIBS_AssignStableRoles(teamBuilders, woodCollectors, stoneCollectors, builders);
 }
 
 void AIBS_StopAssignedBuilders(const u8 team)

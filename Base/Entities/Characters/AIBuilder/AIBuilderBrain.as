@@ -1205,6 +1205,8 @@ void AIB_FindBlueprintBlock(CBrain@ brain, CBlob@ blob)
 
 	blob.set_bool("ai builder saw blueprint target", true);
 	blob.set_Vec2f("ai builder tile target", tile);
+	AIB_LogEvent("ai", "blueprint_target", AIB_EventBlobRef(blob),
+		"tile=" + AIB_EventPos(tile) + " block=" + AIB_GetBlueprintTargetForTile(tile, u8(blob.getTeamNum())));
 	string needed;
 	u16 amount = 0;
 	if (AIB_GetBlueprintMaterialNeed(blob, needed, amount))
@@ -4641,9 +4643,15 @@ Vec2f AIB_GetNearestBlueprintBuildTile(CBlob@ blob)
 		{
 			u16 block = AIB_GetBlueprintBlock(blueprint, width, height, x, y);
 			if (!AIB_IsSupportedBlueprintBlock(block)) continue;
+			// Generated backwall cells use loose reservations because they are not
+			// explicit strategic tasks. Gate them through their owning blueprint
+			// task first, otherwise a shell dependency can bypass unfinished
+			// foundation/access phases and strand the worker on premature work.
+			if (!AIBP_TaskAvailableForBuilder(team, u16(x), u16(y), blob.getNetworkID())) continue;
 
 			Vec2f tile = Vec2f(x * map.tilesize, y * map.tilesize);
 			Vec2f support = AIB_GetNeededSupportTileFor(tile, block);
+			if (AIB_IsInvalidBlueprintSupportTile(support)) continue;
 			Vec2f target = support != Vec2f_zero ? support : tile;
 			if (!AIB_BlueprintTileStillNeedsWork(target, team))
 			{
@@ -4718,7 +4726,13 @@ string AIB_GetBlueprintWaitStatus(CBlob@ blob)
 			Vec2f tile = Vec2f(x * map.tilesize, y * map.tilesize);
 			if (AIB_MapTileMatchesBlueprint(tile, block)) continue;
 			unfinished++;
+			if (!AIBP_TaskAvailableForBuilder(team, u16(x), u16(y), blob.getNetworkID()))
+			{
+				reserved++;
+				continue;
+			}
 			Vec2f support = AIB_GetNeededSupportTileFor(tile, block);
+			if (AIB_IsInvalidBlueprintSupportTile(support)) continue;
 			Vec2f target = support != Vec2f_zero ? support : tile;
 			if (!AIB_BlueprintTileStillNeedsWork(target, team)) continue;
 			Vec2f targetSpace = map.getTileSpacePosition(target);
@@ -4825,24 +4839,38 @@ Vec2f AIB_GetNeededSupportTileFor(Vec2f blueprintTile, const u16 block)
 	if (AIB_HasBlueprintSupportAt(blueprintTile)) return Vec2f_zero;
 
 	Vec2f scan = below;
-	Vec2f lowestMissing = Vec2f_zero;
+	bool crossedGap = false;
 	while (scan.y < map.tilemapheight * map.tilesize)
 	{
 		if (AIB_TileProvidesBlueprintSupport(scan))
 		{
-			return lowestMissing;
+			// Immediate support was already handled above. Reaching an anchor only
+			// after an unbuildable gap means no legal vertical dependency exists.
+			return crossedGap ? AIB_InvalidBlueprintSupportTile() : Vec2f_zero;
 		}
-		// Build the cheapest legal attachment chain rather than a full foreground
-		// pillar.  Once this backwall exists it supports the cell above, and the
-		// next dependency step naturally advances toward the requested block.
+		// Select the first cell that can legally attach. It is already supported
+		// from below or from a side, and the next dependency step will naturally
+		// advance upward. Continuing past this cell used to overwrite it with the
+		// bottom map row, whose out-of-bounds neighbour may look solid to KAG.
 		if (!AIB_MapTileMatchesBlueprint(scan, supportBackwall) && AIB_CanPlaceBlueprintAt(scan, supportBackwall))
 		{
-			lowestMissing = scan;
+			return scan;
 		}
+		crossedGap = true;
 		scan += Vec2f(0.0f, map.tilesize);
 	}
 
-	return lowestMissing;
+	return AIB_InvalidBlueprintSupportTile();
+}
+
+Vec2f AIB_InvalidBlueprintSupportTile()
+{
+	return Vec2f(-8.0f, -8.0f);
+}
+
+bool AIB_IsInvalidBlueprintSupportTile(Vec2f tile)
+{
+	return tile.x < 0.0f || tile.y < 0.0f;
 }
 
 u16 AIB_GetBlueprintSupportBackwall(const u16 block)
@@ -4869,17 +4897,19 @@ Vec2f AIB_GetNeededWorkshopSupportTile(Vec2f blueprintTile)
 		if (AIB_TileProvidesBlueprintSupport(foundation)) continue;
 
 		Vec2f scan = foundation;
-		Vec2f lowestMissing = Vec2f_zero;
+		bool crossedGap = false;
 		while (scan.y < map.tilemapheight * ts)
 		{
-			if (AIB_TileProvidesBlueprintSupport(scan)) return lowestMissing;
+			if (AIB_TileProvidesBlueprintSupport(scan))
+				return crossedGap ? AIB_InvalidBlueprintSupportTile() : Vec2f_zero;
 			if (!AIB_MapTileMatchesBlueprint(scan, 2) && AIB_CanPlaceBlueprintAt(scan, 2))
 			{
-				lowestMissing = scan;
+				return scan;
 			}
+			crossedGap = true;
 			scan += Vec2f(0.0f, ts);
 		}
-		return lowestMissing;
+		return AIB_InvalidBlueprintSupportTile();
 	}
 
 	return Vec2f_zero;
@@ -5177,6 +5207,9 @@ bool AIB_TileProvidesBlueprintSupport(Vec2f tile)
 {
 	CMap@ map = getMap();
 	if (map is null) return false;
+	// map.getTile() may report an out-of-bounds sentinel as solid. The bottom
+	// map edge is not a legal KAG attachment anchor.
+	if (!AIB_IsInsideMap(AIB_TileCenter(tile))) return false;
 
 	const TileType type = map.getTile(tile).type;
 	if (type == CMap::tile_empty || type == CMap::tile_ground_back) return false;

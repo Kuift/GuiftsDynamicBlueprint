@@ -266,7 +266,7 @@ Production weights and template metadata must have one source of truth consumed 
 
 - [ ] Reusable rolling observation buffer per builder.
 - [x] Passive motion-stall, jump-loop, and path-thrash window monitors with first-failure latching.
-- [ ] PARTIAL — active-job/no-intent, state-side-effect stall, and target-thrash monitors are implemented and statically contracted; KAG runtime calibration remains.
+- [ ] PARTIAL — active-job/no-intent, state-side-effect stall, and target-thrash monitors are implemented and statically contracted. `console-26-07-14-09-20-52.txt` exposed a state-stall false positive during a successful miner window with 25px displacement; state stall now also requires low displacement. Broader KAG runtime calibration remains.
 - [ ] PARTIAL — accessible-resource, stale/dead-reservation, and invalid-build-retry monitors are implemented and statically contracted; KAG runtime calibration remains.
 - [ ] PARTIAL — compact 30-sample pre/12-sample post diagnostic windows and strict parsing are implemented; classifier-specific runtime assertions and KAG calibration remain.
 

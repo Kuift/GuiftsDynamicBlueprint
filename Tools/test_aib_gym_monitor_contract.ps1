@@ -57,4 +57,17 @@ if ($brain -notmatch 'state != AIBuilderState::idle \|\| blob\.get_bool\("ai bui
 if ($consumers -match 'get_u8\("aib gym failure flags"\)') { throw 'A gym failure consumer still truncates 16-bit flags' }
 if ($consumers -notmatch 'get_u16\("aib gym failure flags"\)') { throw 'No test consumer reads 16-bit gym flags' }
 
+$stateStallStart = $monitor.IndexOf('if (!activeIdle && !explicitlyWaiting')
+$stateStallEnd = $monitor.IndexOf('flags |= AIBG_FAILURE_STATE_STALL;', $stateStallStart)
+if ($stateStallStart -lt 0 -or $stateStallEnd -le $stateStallStart) {
+    throw 'State-stall classifier could not be isolated'
+}
+$stateStall = $monitor.Substring($stateStallStart, $stateStallEnd - $stateStallStart)
+foreach ($needle in @(
+    'movementTicks == 0', 'interactions == 0', 'targetChanges == 0', 'outcomes == 0',
+    'maxMove < AIBG_STALL_DISPLACEMENT'
+)) {
+    if (!$stateStall.Contains($needle)) { throw "State-stall classifier is missing progress guard: $needle" }
+}
+
 Write-Output 'AIB advanced passive gym monitor contract passed'

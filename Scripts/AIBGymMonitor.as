@@ -271,7 +271,12 @@ void AIBG_Tick(CBrain@ brain, CBlob@ blob, const u8 state, const bool monitorabl
 	const bool explicitlyWaiting = waitTouched + 1 >= now;
 	if (activeIdle) flags |= AIBG_FAILURE_NO_INTENT;
 	if (targetChanges >= AIBG_TARGET_THRASH_CHANGES && outcomes == 0) flags |= AIBG_FAILURE_TARGET_THRASH;
-	if (!activeIdle && !explicitlyWaiting && movementTicks == 0 && interactions == 0 && targetChanges == 0 && outcomes == 0)
+	// Direct controllers can advance without leaving key/destination intent set
+	// when this observer samples. Real displacement is still progress: the
+	// Gloryhill miner moved 25px in a quiet window before later delivering its
+	// stone, so state-stall must require low motion as well as no side effect.
+	if (!activeIdle && !explicitlyWaiting && movementTicks == 0 && interactions == 0 && targetChanges == 0 && outcomes == 0 &&
+		maxMove < AIBG_STALL_DISPLACEMENT)
 		flags |= AIBG_FAILURE_STATE_STALL;
 	if (AIBG_HasAccessibleBlueprintResource(blob) && outcomes == 0 && maxMove < AIBG_STALL_DISPLACEMENT)
 		flags |= AIBG_FAILURE_RESOURCE_DEADLOCK;

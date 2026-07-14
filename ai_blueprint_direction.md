@@ -205,6 +205,8 @@ Live human blueprint deltas now stay within their intended visibility boundary. 
 
 Blueprint save selection now has durable local ownership distinct from the shared gesture rectangle. A committed blueprint selection is normalized and cached; later tree, stone, or overseer drags cannot alter it, while restart/team change or beginning a replacement drag invalidates it. A one-tile selection and reversed/asymmetric drags preserve their exact inclusive dimensions, x/y orientation, serialized ordering, and centered authoritative footprint through runtime memory and PNG paths. `Tools/test_aib_blueprint_selection_roundtrip.ps1` pins the full source chain; a real disk save followed by a KAG process restart and reload remains runtime acceptance work.
 
+Passive gym calibration now treats real displacement as state progress even when a direct controller leaves no sampled key or destination intent. In player-facing CTF log `../../Logs/console-26-07-14-09-20-52.txt`, the miner was falsely labeled `state_stall` after moving 25px, then continued to mine and deliver 216 and 252 stone before physically placing blueprint blocks. State stall now requires displacement below the existing stall threshold in addition to no intent, interaction, target change, or outcome; monitor and parser contracts pass, while a fresh live negative calibration remains optional rather than a blocker.
+
 ## Evidence Discipline
 
 - A focused PASS proves only its named behavior.

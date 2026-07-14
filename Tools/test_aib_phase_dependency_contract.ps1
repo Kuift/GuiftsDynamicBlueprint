@@ -64,6 +64,13 @@ if ($tower.Contains('for (int x = -2; x <= 2; x++) AIBS_AddTask(c, anchorX + x, 
     throw 'Frontline tower can still seal its roof while an opposite wall remains pending'
 }
 
+$validateStart = $planner.IndexOf('bool AIBS_ValidateCandidate(')
+$reachableGate = $planner.IndexOf('candidate.rejection = "unreachable_tasks"', $validateStart)
+$routeGate = $planner.IndexOf('candidate.rejection = "friendly_route"', $validateStart)
+if ($validateStart -lt 0 -or $reachableGate -le $validateStart -or $routeGate -le $reachableGate) {
+    throw 'Candidate validation can still mask unreachable tasks as a friendly-route failure'
+}
+
 foreach ($needle in @(
     'bool AIBP_IsAIWorkTile(const u8 team, const u16 x, const u16 y)',
     'return index < work.length && work[index] != 0;'

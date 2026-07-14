@@ -463,8 +463,11 @@ bool AIBS_ValidateCandidate(AIBWorldState@ world, AIBPlanCandidate@ candidate)
 	}
 	if (matched == candidate.tasks.length || matched * 4 >= candidate.tasks.length * 3) { candidate.rejection = "duplicate"; return false; }
 	if (!AIBS_CandidateHasDependencySupport(world, candidate)) { candidate.rejection = "unsupported"; return false; }
-	if (!AIBS_PreservesFriendlyRoute(candidate)) { candidate.rejection = "friendly_route"; return false; }
 	if (world.autoBuilders == 0 && !AIBS_AllTasksHaveReachableApproach(candidate)) { candidate.rejection = "unreachable_tasks"; return false; }
+	// Route preservation may use task reachability as its access-passage
+	// fallback. Report the underlying reachability failure first instead of
+	// mislabelling it as a friendly-route regression.
+	if (!AIBS_PreservesFriendlyRoute(candidate)) { candidate.rejection = "friendly_route"; return false; }
 	if (candidate.intent == AIBStrategyIntent::archer_perch && AIBS_SightLineLength(candidate, world.enemyDirection) < 8)
 		{ candidate.rejection = "poor_sightline"; return false; }
 

@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $path = Join-Path $root 'Scripts\AIBTestScenarios.as'
 $source = Get-Content -LiteralPath $path -Raw
+$templates = Get-Content -LiteralPath (Join-Path $root 'Scripts\AIBBlueprintTemplates.as') -Raw
 
 foreach ($needle in @(
     'strategic_mirrored_sides_physically_complete_safe_inward_plans',
@@ -104,6 +105,15 @@ $rightAssigned = $source.IndexOf('AIBS_AssignBuilders(rightWorld);', $mirroredSt
 if ($mirroredStart -lt 0 -or $leftPrepared -lt $mirroredStart -or $rightPrepared -le $leftPrepared -or
     $leftSpawned -le $rightPrepared -or $leftAssigned -le $leftSpawned -or $rightAssigned -le $leftAssigned) {
     throw 'Mirrored fixture must prepare and publish both ordinary-reachability plans before spawning and assigning either Autobuilder'
+}
+
+foreach ($needle in @(
+    'const int[] towerFallbackOffsets = { -4, 4, 8, 12, 16 };',
+    'const int fallback = towerX + world.enemyDirection * towerFallbackOffsets[i];',
+    'if (tacticalAnchors[j] == fallback) { duplicate = true; break; }',
+    'if (!duplicate) tacticalAnchors.push_back(fallback);'
+)) {
+    if (!$templates.Contains($needle)) { throw "Representative candidate generation lacks bounded nearby tower coverage: $needle" }
 }
 
 Write-Output 'AIB representative director fixture contract passed'

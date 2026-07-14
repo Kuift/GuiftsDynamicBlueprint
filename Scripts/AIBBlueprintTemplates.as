@@ -149,7 +149,23 @@ void AIBS_GenerateCandidates(AIBWorldState@ world, array<AIBPlanCandidate@> &out
 		const int x = gateX + world.enemyDirection * gateOffsets[i];
 		candidates.push_back(AIBS_GatehouseTemplate(x, AIBS_SurfaceAt(x)));
 	}
-	const int[] tacticalAnchors = { chokeX, towerX, frontlineX - world.enemyDirection * 8 };
+	int[] tacticalAnchors = { chokeX, towerX, frontlineX - world.enemyDirection * 8 };
+	// Real CTF terrain can make all three semantic samples fail for unrelated
+	// reasons (occupied choke, unreachable tower, protected/no-build fallback).
+	// Search a small neighborhood around the intended tower rather than leaving
+	// an otherwise healthy team with no plan. Validation and scoring still own
+	// the final safety and quality decision.
+	const int[] towerFallbackOffsets = { -4, 4, 8, 12, 16 };
+	for (uint i = 0; i < towerFallbackOffsets.length; i++)
+	{
+		const int fallback = towerX + world.enemyDirection * towerFallbackOffsets[i];
+		bool duplicate = false;
+		for (uint j = 0; j < tacticalAnchors.length; j++)
+		{
+			if (tacticalAnchors[j] == fallback) { duplicate = true; break; }
+		}
+		if (!duplicate) tacticalAnchors.push_back(fallback);
+	}
 	for (uint i = 0; i < tacticalAnchors.length; i++)
 	{
 		const int x = tacticalAnchors[i];

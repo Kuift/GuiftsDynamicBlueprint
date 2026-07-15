@@ -1,0 +1,23 @@
+TCPR: client 127.0.0.1:43745 is now authenticated.
+Files have the same name! (rename for safety) Maps/Official/CTF/Potatobird_SharkRomance_v1.png - Maps/CTF/Dormant/Potatobird_SharkRomance_v1.png (during query 'shark')
+RCON command from 127.0.0.1:43745 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:43745 :
+getRules().set_u8("aib infrastructure team", 0)
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:43745 :
+getRules().set_string("aib infrastructure variant", "diagnostic")
+RCON command from 127.0.0.1:43745 :
+getRules().set_string("aib infrastructure run id", "gloryhill_flag_gatehouse_diagnostic_005")
+RCON command from 127.0.0.1:43745 :
+getRules().set_u32("aib infrastructure readiness deadline", 0)
+RCON command from 127.0.0.1:43745 :
+getRules().set_bool("aib infrastructure stop requested", false)
+RCON command from 127.0.0.1:43745 :
+getRules().set_bool("aib infrastructure request", true)
+[AIBGYMI] schema=1 status=abort run=gloryhill_flag_gatehouse_diagnostic_005 reason=no_valid_gatehouse
+[AIBGYMI] schema=1 status=abort run=gloryhill_flag_gatehouse_diagnostic_005 reason=no_valid_gatehouse
+AIBGYMI|ABORT|run=gloryhill_flag_gatehouse_diagnostic_005|reason=no_valid_gatehouse
+RCON command from 127.0.0.1:43745 :
+tcpr("AIBGYMI|ARMED|run=gloryhill_flag_gatehouse_diagnostic_005")
+AIBGYMI|ARMED|run=gloryhill_flag_gatehouse_diagnostic_005

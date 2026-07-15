@@ -59,7 +59,7 @@ CBlob@ AIBS_NearestTeamBlob(const u8 team, const string &in name, Vec2f from)
 
 CBlob@ AIBS_TeamHomeBlob(const u8 team)
 {
-	CBlob@ flag = AIBS_NearestTeamBlob(team, "flag", Vec2f_zero);
+	CBlob@ flag = AIBS_NearestTeamBlob(team, "ctf_flag", Vec2f_zero);
 	if (flag !is null) return flag;
 	CBlob@ tent = AIBS_NearestTeamBlob(team, "tent", Vec2f_zero);
 	if (tent !is null) return tent;
@@ -77,7 +77,7 @@ CBlob@ AIBS_EnemyHomeBlob(const u8 team, Vec2f from)
 {
 	CBlob@ best = null;
 	f32 distance = 99999999.0f;
-	string[] names = { "flag", "tent", "hall" };
+	string[] names = { "ctf_flag", "tent", "hall" };
 	for (uint n = 0; n < names.length; n++)
 	{
 		CBlob@[] homes;
@@ -240,17 +240,17 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 		if (blob is null || blob.hasTag("dead")) continue;
 		const bool friendly = blob.getTeamNum() == team;
 		const string name = blob.getName();
-		if (name == "flag" || name == "tent" || name == "hall")
+		if (name == "ctf_flag" || name == "tent" || name == "hall")
 		{
 			if (friendly)
 			{
 				world.friendlyHomes.push_back(blob.getPosition());
-				if (name == "flag") world.friendlyFlags++; else if (name == "tent") world.friendlyTents++; else world.friendlyHalls++;
+				if (name == "ctf_flag") world.friendlyFlags++; else if (name == "tent") world.friendlyTents++; else world.friendlyHalls++;
 			}
 			else if (blob.getTeamNum() < 100)
 			{
 				world.enemyHomes.push_back(blob.getPosition());
-				if (name == "flag") world.enemyFlags++; else if (name == "tent") world.enemyTents++; else world.enemyHalls++;
+				if (name == "ctf_flag") world.enemyFlags++; else if (name == "tent") world.enemyTents++; else world.enemyHalls++;
 			}
 		}
 		if (!friendly && blob.getTeamNum() < 100 && (name == "bomb" || name == "keg" || name == "mine" || name == "bombarrow"))

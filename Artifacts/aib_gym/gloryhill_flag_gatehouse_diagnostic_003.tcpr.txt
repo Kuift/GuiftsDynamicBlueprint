@@ -1,0 +1,23 @@
+Files have the same name! (rename for safety) Maps/Official/CTF/JTG_NewGetisburgMines.png - Maps/CTF/Dormant/JTG_NewGetisburgMines.png (during query 'mine')
+TCPR: client 127.0.0.1:48888 is now authenticated.
+Files have the same name! (rename for safety) Maps/Official/CTF/Mazey_Junctions.png - Maps/CTF/Dormant/Mazey_Junctions.png (during query 'junction')
+RCON command from 127.0.0.1:48888 :
+getRules().SetCurrentState(GAME)
+Files have the same name! (rename for safety) Maps/Official/CTF/Potatobird_SharkRomance_v1.png - Maps/CTF/Dormant/Potatobird_SharkRomance_v1.png (during query 'shark')
+RCON command from 127.0.0.1:48888 :
+getRules().set_u8("aib infrastructure team", 0)
+RCON command from 127.0.0.1:48888 :
+getRules().set_string("aib infrastructure variant", "diagnostic")
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:48888 :
+getRules().set_string("aib infrastructure run id", "gloryhill_flag_gatehouse_diagnostic_003")
+RCON command from 127.0.0.1:48888 :
+getRules().set_bool("aib infrastructure stop requested", false)
+RCON command from 127.0.0.1:48888 :
+getRules().set_bool("aib infrastructure request", true)
+[AIBGYMI] schema=1 status=abort run=gloryhill_flag_gatehouse_diagnostic_003 reason=missing_team_flags
+[AIBGYMI] schema=1 status=abort run=gloryhill_flag_gatehouse_diagnostic_003 reason=missing_team_flags
+AIBGYMI|ABORT|run=gloryhill_flag_gatehouse_diagnostic_003|reason=missing_team_flags
+RCON command from 127.0.0.1:48888 :
+tcpr("AIBGYMI|ARMED|run=gloryhill_flag_gatehouse_diagnostic_003")
+AIBGYMI|ARMED|run=gloryhill_flag_gatehouse_diagnostic_003

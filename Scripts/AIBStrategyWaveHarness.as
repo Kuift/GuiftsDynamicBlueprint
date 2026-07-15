@@ -13,6 +13,7 @@ const u32 AIBW_JUMP_HOLD_TICKS = 18;
 const u32 AIBW_JUMP_RETRY_TICKS = 30;
 const u32 AIBW_STALL_TICKS = 12;
 const f32 AIBW_PROGRESS_STEP = 4.0f;
+const u8 AIBW_TOTAL_AI_LIMIT = 8;
 
 u32 AIBW_DesiredPlanCost(const u8 team)
 {
@@ -171,6 +172,19 @@ bool AIBW_Start(CRules@ rules)
 		AIBW_Abort(rules, "no_nonempty_active_plan", candidate);
 		return false;
 	}
+	array<CBlob@> existingWorkers;
+	AIBW_GetConstructionWorkers(existingWorkers);
+	u8 liveWorkers = 0;
+	for (uint i = 0; i < existingWorkers.length; i++)
+	{
+		if (existingWorkers[i] !is null && !existingWorkers[i].hasTag("dead")) liveWorkers++;
+	}
+	if (liveWorkers >= AIBW_TOTAL_AI_LIMIT)
+	{
+		AIBW_Abort(rules, "no_attacker_slots_under_ai_cap", candidate);
+		return false;
+	}
+	rules.set_u8("aib wave spawn limit", AIBW_TOTAL_AI_LIMIT - liveWorkers);
 	rules.set_bool("aib wave running", true);
 	rules.set_u32("aib wave start tick", getGameTime());
 	rules.set_u8("aib wave spawned", 0);
@@ -232,6 +246,21 @@ void AIBW_EquipArcher(CBlob@ unit)
 
 void AIBW_SpawnUnit(CRules@ rules)
 {
+	array<CBlob@> constructionWorkers;
+	AIBW_GetConstructionWorkers(constructionWorkers);
+	u8 liveActors = 0;
+	for (uint i = 0; i < constructionWorkers.length; i++)
+	{
+		if (constructionWorkers[i] !is null && !constructionWorkers[i].hasTag("dead")) liveActors++;
+	}
+	CBlob@[] activeWave;
+	getBlobsByTag("aib strategy wave unit", @activeWave);
+	for (uint i = 0; i < activeWave.length; i++)
+	{
+		if (activeWave[i] !is null && !activeWave[i].hasTag("dead")) liveActors++;
+	}
+	if (liveActors >= AIBW_TOTAL_AI_LIMIT) return;
+
 	const u8 team = rules.get_u8("aib wave team");
 	const u8 enemyTeam = team == 0 ? 1 : 0;
 	const u8 index = rules.get_u8("aib wave spawned");
@@ -258,8 +287,8 @@ void AIBW_SpawnUnit(CRules@ rules)
 		unit.set_f32("aib wave progress x", unit.getPosition().x);
 		unit.set_u32("aib wave progress tick", getGameTime());
 		AIBW_EquipArcher(unit);
+		rules.set_u8("aib wave spawned", index + 1);
 	}
-	rules.set_u8("aib wave spawned", index + 1);
 }
 
 void AIBW_ThrowBomb(CBlob@ unit, CBlob@ home)
@@ -410,6 +439,7 @@ void AIBW_Finish(CRules@ rules)
 		" first_damage_tick=" + rules.get_u32("aib wave first damage tick") + " structure_lifetime=" + structureLifetime +
 		" builder_travel=" + rules.get_f32("aib wave builder travel") + " builder_idle_ticks=" + rules.get_u32("aib wave builder idle") +
 		" reservation_conflicts=" + rules.get_u16("aib wave reservation conflicts") + " replans=" + rules.get_u16("aib wave replans") +
+		" ai_actor_cap=" + AIBW_TOTAL_AI_LIMIT + " spawn_limit=" + rules.get_u8("aib wave spawn limit") +
 		" route_preserved=" + rules.get_bool("aib wave route preserved") + " friendly_route_penalty=" + rules.get_f32("aib wave friendly route penalty") +
 		AIBW_InitialMetrics(rules));
 	rules.set_bool("aib wave enabled", false);
@@ -430,10 +460,12 @@ void onTick(CRules@ this)
 	}
 	const u32 elapsed = getGameTime() - this.get_u32("aib wave start tick");
 	const u32 spawnInterval = 40 + (this.get_u32("aib wave seed") % 11);
-	if (this.get_u8("aib wave spawned") < 12 && elapsed % spawnInterval == 1) AIBW_SpawnUnit(this);
+	const u8 spawnLimit = this.get_u8("aib wave spawn limit");
+	if (this.get_u8("aib wave spawned") < spawnLimit && elapsed % spawnInterval == 1) AIBW_SpawnUnit(this);
 	AIBW_DriveUnits(this);
 	AIBW_SampleBuilders(this);
-	if (elapsed >= 1200 || (this.get_u8("aib wave spawned") >= 12 && this.get_u8("aib wave crossings") + this.get_u8("aib wave deaths") >= 12)) AIBW_Finish(this);
+	if (elapsed >= 1200 || (this.get_u8("aib wave spawned") >= spawnLimit &&
+		this.get_u8("aib wave crossings") + this.get_u8("aib wave deaths") >= spawnLimit)) AIBW_Finish(this);
 }
 
 void onBlobDie(CRules@ this, CBlob@ blob)

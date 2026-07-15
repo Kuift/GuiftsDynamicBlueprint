@@ -1,0 +1,25 @@
+AIBGYM|ARMED|run=gloryhill_4b_scoped_baseline_002
+AIBGYM|START|run=gloryhill_4b_scoped_baseline_002|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=150|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=300|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=450|collected=112|delivered=112|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=600|collected=112|delivered=112|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=750|collected=212|delivered=212|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=900|collected=526|delivered=526|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1050|collected=526|delivered=526|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1200|collected=526|delivered=526|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1350|collected=526|delivered=526|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1500|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1650|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1800|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=1950|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=2100|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=2250|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=2400|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=2550|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=2700|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=2850|collected=826|delivered=826|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_scoped_baseline_002|elapsed=3000|collected=826|delivered=826|deaths=0
+AIBGYM|CONTAMINATION|run=gloryhill_4b_scoped_baseline_002|kind=worker_flag_pickup|slot=2|worker=59|flag=48|restored=true
+[AIBGYMR] schema=4 status=abort run=gloryhill_4b_scoped_baseline_002 reason=gym_worker_picked_flag
+AIBGYM|ABORT|run=gloryhill_4b_scoped_baseline_002|reason=gym_worker_picked_flag

@@ -1,0 +1,34 @@
+TCPR: client 127.0.0.1:21954 is now authenticated.
+RCON command from 127.0.0.1:21954 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:21954 :
+getRules().set_bool("aib event log enabled", false)
+RCON command from 127.0.0.1:21954 :
+getRules().set_u8("aib gym team", 0)
+RCON command from 127.0.0.1:21954 :
+getRules().set_u8("aib gym builder count", 1)
+RCON command from 127.0.0.1:21954 :
+getRules().set_string("aib gym resource order", "wood")
+RCON command from 127.0.0.1:21954 :
+getRules().set_u32("aib gym duration ticks", 300)
+RCON command from 127.0.0.1:21954 :
+getRules().set_string("aib gym variant", "diagnostic")
+RCON command from 127.0.0.1:21954 :
+getRules().set_string("aib gym run id", "gloryhill_transport_smoke_001")
+RCON command from 127.0.0.1:21954 :
+getRules().set_bool("aib gym stop requested", false)
+RCON command from 127.0.0.1:21954 :
+getRules().set_bool("aib gym request", true)
+RCON command from 127.0.0.1:21954 :
+tcpr("AIBGYM" + "|ARMED|run=gloryhill_transport_smoke_001")
+AIBGYM|ARMED|run=gloryhill_transport_smoke_001
+[AIBGYM] AIBGYM|START|run=gloryhill_transport_smoke_001|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=300
+AIBGYM|START|run=gloryhill_transport_smoke_001|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=300
+[AIBACT] v=3 episode=1 batch=2 records=13 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAACRAA0gEAAAcAAAABAAGxACgABgADAAcAAAAAAAA1AAEB5vAXrEoGGAEGAQAAAAA9AAAB5vAXrIwAJAEEDQAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+AIBGYM|PROGRESS|run=gloryhill_transport_smoke_001|elapsed=150|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_transport_smoke_001|elapsed=300|collected=0|delivered=0|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_transport_smoke_001 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=4228059211 initial_fingerprint=w1-3142477075-210x66-4228059211-4867-546008144-1040-56-2766413114-1298017017-2466050567 builders=1 live_builders=1 order=wood duration=300 elapsed=300 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0 stock_delta_wood=0 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=0 idle_ticks=0 travel_px=324.725 reason=duration_complete
+[AIBGYMR] schema=4 status=result run=gloryhill_transport_smoke_001 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=4228059211 initial_fingerprint=w1-3142477075-210x66-4228059211-4867-546008144-1040-56-2766413114-1298017017-2466050567 builders=1 live_builders=1 order=wood duration=300 elapsed=300 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0 stock_delta_wood=0 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=0 idle_ticks=0 travel_px=324.725 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_transport_smoke_001 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_transport_smoke_001 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+AIBGYM|RESULT|run=gloryhill_transport_smoke_001|status=result|metric=resource_collection_smoke|collected=0|delivered=0|elapsed=300|deaths=0|failures=0|reason=duration_complete

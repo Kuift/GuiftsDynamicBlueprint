@@ -213,7 +213,7 @@ bool AIBS_OverlapsProtectedBlob(const u8 team, Vec2f center)
 				center.y > boundsMin.y - tileRadius && center.y < boundsMax.y + tileRadius) return true;
 			continue;
 		}
-		if (name == "flag" || name == "tent" || name == "hall" || name == "buildershop" || name == "crate" || blob.hasTag("building")) return true;
+		if (name == "ctf_flag" || name == "tent" || name == "hall" || name == "buildershop" || name == "crate" || blob.hasTag("building")) return true;
 		if (distance <= 8.0f && (blob.hasTag("vehicle") || blob.hasTag("door") || name == "wooden_platform" || name == "ladder")) return true;
 	}
 	return false;

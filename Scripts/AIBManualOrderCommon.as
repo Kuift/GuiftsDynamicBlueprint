@@ -5,6 +5,7 @@
 const string AIBM_MANUAL_CONTROL_KEY = "aib player manual order";
 const string AIBM_RETIRE_PENDING_KEY = "aib strategy retire pending";
 const string AIBM_RESOURCE_HANDOFF_UNTIL_KEY = "aib strategy resource handoff until";
+const string AIBM_STONE_RETURN_ANCHOR_KEY = "ai builder stone return anchor";
 const u8 AIBM_JOB_WOOD = 0;
 const u8 AIBM_JOB_STONE = 1;
 const u8 AIBM_JOB_BLUEPRINT = 2;
@@ -51,9 +52,11 @@ void AIBM_ClearNavigationIntent(CBlob@ builder)
 	builder.set_Vec2f("ai builder tile target", Vec2f_zero);
 	builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
 	builder.set_Vec2f("ai builder stone route corner", Vec2f_zero);
+	builder.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, Vec2f_zero);
 	builder.set_bool("ai builder justgo", false);
 	builder.set_bool("ai builder mining gold", false);
 	builder.set_bool("ai builder direct stone shaft", false);
+	builder.set_bool("ai builder direct stone return", false);
 	builder.set_u8("ai builder obstruction threshold", 0);
 	builder.set_Vec2f("ai builder jump peak", Vec2f_zero);
 	builder.set_u32("ai builder stone corner escape until", 0);

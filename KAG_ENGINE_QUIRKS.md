@@ -4,14 +4,14 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 
 ## Runtime And Test Process
 
-### Visible `RunLocalhost` may stop the entire simulation mid-action
+### Visible `RunLocalhost` can look frozen when its console observation stops
 
-- Symptom: the builder appears to work for roughly 1.5-3 seconds and then freezes mid-swing; the test heartbeat and every other server event stop at the same game tick.
-- Evidence rule: distinguish an AI stall from a simulation stall. If blob deltas, heartbeats, and game time all stop, do not diagnose the builder state machine from the frozen pose.
-- Current workaround: retain the visible scene for human inspection, report the automated result as inconclusive, and use normal CTF/manual play for longer behavior checks. Do not extend the timeout when game time itself is not advancing.
-- Diagnostic requirement: harvesting fixtures emit change-only blob deltas for tree health/growth/support, logs, loose resources, carried resources, inventory, and crate storage.
-- Scope confirmed in manual testing: a builder that freezes before completing tree work in the AIBTest environment can chop the same kind of tree normally in an actual CTF game. Do not transfer an AIBTest-only freeze into production AI code without reproducing it in CTF.
-- Acceptance boundary: use AIBTest for short deterministic assertions and scene-delta diagnostics. Use visible CTF for sustained harvesting, mining, navigation, construction, and director acceptance until the AIBTest runtime freeze is independently eliminated.
+- Symptom: the builder appears to stop mid-action and the console file stops after a heartbeat or `Waiting for scripts...`.
+- Corrected build-4762 evidence (2026-07-15): after a minimal localhost console stopped at game time 30, read-only native traces showed the main pause byte clear, the initialized rules tick advancing from 905 through 912, the network callback enabled, and the error-free `aibresearchminimalprobe` `onTick` hook entering the per-script dispatcher on consecutive cycles.
+- Do not conclude: an unchanged console file, missing heartbeat, or frozen-looking client pose proves that the entire simulation stopped. The old log-only classification conflated an observation-channel stall with a simulation stall.
+- Reliable check: require a non-console state or physical outcome to stop as well. Native rules-tick sampling is a diagnostic option; normal test evidence should use a directly readable state/verdict channel once one is validated.
+- Current workaround: classify a stopped file log by itself as `observation_stalled` and report the automated result as inconclusive. Use visible CTF/manual play for sustained harvesting, mining, navigation, construction, and director acceptance, and do not transfer an AIBTest-only apparent freeze into production AI code without reproducing the behavior in CTF.
+- Diagnostic requirement: harvesting fixtures emit change-only blob deltas for tree health/growth/support, logs, loose resources, carried resources, inventory, and crate storage, but those records are still unavailable if the console transport itself stops.
 
 ### Final AIBTest verdicts intentionally freeze their fixture
 
@@ -19,6 +19,14 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Cause: `AIBT_FreezeFinalFixture()` deliberately disables the fixture after the final verdict so humans can inspect it.
 - Do not conclude: the production brain chose to stop. Check the overlay and final verdict first.
 - Test-design rule: deadlines must cover the complete physical action. A tree fixture now receives 1,800 in-game ticks and cannot fail at the old short chopping deadline.
+
+### A terrain-mutating fixture can invalidate the next hot restart before behavior begins
+
+- Symptom: a direct cold start or an immediate second hot restart of `stone_corner_escape_from_mirrored_upper_overhangs` freezes as `FAIL` at elapsed tick 1 with `canonical_fixture_reset_failed tile_hash_mismatch expected=3810503333 actual=3332178581`.
+- Reproduced on build 4762 (2026-07-15): the first clean hill-to-corner hot switch passed its full recovery cycle, while the immediate corner-to-corner rebuild produced the same hash mismatch. Starting directly on the corner fixture reproduced the mismatch during the controller restart. No movement intent or displacement preceded either failure.
+- Do not conclude: this verdict is an AI recovery failure. It is the canonical map guard rejecting setup state before the behavior window.
+- Uncertainty: the exact terrain mutation that survives that rebuild boundary is not yet isolated; do not weaken the canonical hash or silently recapture the modified map.
+- Workaround: for repeatability evidence, start a fresh visible process on a non-mutating fixture, hot-switch once into the terrain-mutating fixture, then close the process. Record setup-guard failures separately from behavior outcomes.
 
 ### Per-tick `print()` telemetry can make a visible localhost session severely laggy
 
@@ -48,12 +56,43 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Do not conclude: `exists()` proves that an administrator or an earlier owner intentionally assigned the value.
 - Workaround: use a dedicated owner-controlled initialization sentinel. Apply the policy when that sentinel is false, then set it true; round restarts preserve both the sentinel and moderator override, while a newly created rules object receives the configured default.
 
-### Visible `RunLocalhost()` can stop advancing
+### A stopped localhost console file is not a simulation clock
 
-- Symptom: the KAG process and window remain alive, but game time, `[AIBTEST]` heartbeats, and the console log stop changing.
-- Do not conclude: a scenario failed, timed out in its own state machine, or reached later assertions.
-- Reliable check: compare game time and log length over time. `Tools/run_aib_tests.ps1` reports this as a distinct stale-simulation/log condition after 25 seconds.
-- Workaround: keep focused scenarios short, use exact/range runs, and preserve the last advancing heartbeat as partial evidence only. A PASS without the final `[AIBTEST] DONE` is not a completed run.
+- Symptom: the KAG process and window remain alive, while `[AIBTEST]` heartbeats and the console file stop changing.
+- Do not conclude: the scenario clock necessarily stopped. Build-4762 native evidence above proves that rules ticks and script dispatch can continue after the file stops.
+- Reliable check: log length is only logger health. A completed automated run still needs a fresh correlated verdict, but a missing verdict must be classified as observation failure unless an independent state/physical clock also stops.
+- Workaround: preserve the last console heartbeat as partial evidence only. The existing `Tools/run_aib_tests.ps1` stale diagnostic remains useful operationally, but its wording must not be treated as native proof of a stopped simulation. A PASS without final `DONE` is still not a completed run.
+
+### Selective TCPR does not forward ordinary `print()` output
+
+- Symptom: an authenticated TCPR socket accepts a console `print()` expression but receives no bytes, even though the same connection remains open.
+- Reproduced on build 4762 (2026-07-15): with `sv_tcpr = true`, `sv_tcpr_everything = false`, and `sv_tcpr_timestamp = false`, a runtime-assembled `print()` marker produced no TCPR record during a bounded 15-second receive window. Replacing only the expression with runtime-assembled `tcpr(...)` returned the exact marker on the same port/protocol.
+- Do not conclude: a silent socket means TCPR authentication, the listener, or the simulation failed. In selective mode it means the expression did not use an explicitly forwarded channel.
+- Additional evidence: sending the console command `sv_tcpr_everything 1` to an already-running listener did not make a subsequent assembled `print()` marker observable. Treat forwarding scope as a listener-start setting, not a reliable runtime toggle.
+- Workaround: keep production `sv_tcpr_everything = false` and emit only compact, intentional `tcpr(...)` records. The research controller temporarily writes `true` before launching its owned process so the bounded rebuild compiler transaction is visible, still uses explicit READY/server ACK/state/DONE records for protocol boundaries, and restores `false` only after KAG exits.
+
+### An early TCPR accept can reset before the listener is ready for a transaction
+
+- Symptom: the controller opens an authenticated socket during visible KAG startup, then the first command fails with a connection reset and the run produces no metric row.
+- Reproduced on build 4762 (2026-07-15): `gloryhill_downpath_candidate_1b_001` reached the listener during its startup transition, lost that socket before the benchmark arm transaction, and was excluded rather than counted as a physical episode. A fresh retry after requiring one connection to remain live for three seconds completed normally.
+- Do not conclude: the first successful TCP connect proves the rules listener is stable enough for a multi-command benchmark transaction, or that an aborted transport is a zero-score episode.
+- Workaround: `tcpr_send.py --stability-seconds 3` reconnects within the bounded connect deadline until one authenticated socket survives the stability window. `Invoke-AIBGymResourceRun.ps1` uses that setting, requires exactly one aggregate result plus the expected worker rows, and restores CTF only after its owned KAG process exits.
+
+### Localhost TCPR expressions observe client rules; server work needs a rules command
+
+- Symptom: `getRules()` queries through TCPR retain client-local unsynced values, and a direct `LoadRules(...)` expression creates a BOOTING client rules object while the server-only AIBTest runner never advances it.
+- Reproduced on build 4762 (2026-07-15): direct client rules loading remained `done=0`, `scenario=boot`, `status=AIBTEST: BOOTING` while game time advanced to 1,785. Earlier queries also retained the client-local `aibfast_armed` scenario after the server-synced final status had changed to PASS.
+- Do not conclude: an inbound RCON/TCPR expression using `getRules()` automatically runs in authoritative server script context merely because the TCP listener belongs to the localhost server.
+- Workaround: register a research-only `CRules` command on both sides, send it from the client rules object, validate it in `onCommand` with `isServer()`, and perform the privileged action on that server callback. Verdict fields should be read and emitted by the server bridge, not reconstructed from unsynced client properties.
+
+### Rules restart is a server `CRules` method, not a global console primitive
+
+- Symptom: sending global `RestartRules()` leaves a uniquely armed rules state unchanged while game time and TCPR queries continue normally.
+- Reproduced on build 4762 (2026-07-15): the armed state remained intact through a 60-second bound and game time 2,301. Base/working-mod source uses `this.RestartRules()` on a `CRules` object; no working global `RestartRules()` call was found.
+- Reliable path: the research server bridge acknowledges a client rules command, calls `this.RestartRules()`, and emits the exact server verdict for the same epoch. A controlled run ACKed at game time 692 and completed after the restarted rules clock reached game time 6.
+- Same-PID rebuild proof: PID 21240 loaded bridge protocol 1, the source was changed to protocol 2 while it stayed open, and the next `rebuild()`/server-restart run returned protocol 2 plus an exact PASS. The hot controller took 2.2 seconds wall-clock; rebuild return was 156 ms and server request-to-DONE was 594 ms.
+- Compile-failure proof: with full forwarding enabled at process start, a deliberate missing expression in `AIBFastServerBridge.as` produced four exact compiler errors. The controller returned compile-failure exit code 7 in 1.8 seconds, did not accept a server verdict, closed KAG, and restored CTF plus `sv_tcpr_everything = false`.
+- Workaround: use the research `CRules.SendCommand` bridge plus server `this.RestartRules()` for focused iteration. Do not use direct client `LoadRules`, global `RestartRules()`, or file-log growth as the completion mechanism.
 
 ### A CTF pressure wave in staging is not valid evidence
 
@@ -75,6 +114,7 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 
 - Symptom: code that reads a rules vector into `const Vec2f` fails compilation on equality with `Vec2f_zero` and addition with a temporary `Vec2f`, even though the same operators work on a mutable local.
 - Reproduced on build 4762: `console-26-07-14-09-30-43.txt` rejected `spawn == Vec2f_zero`, `spawn + Vec2f(0, yOffset)`, and a second `const Vec2f` zero comparison while compiling the wave harness/arm helper.
+- Reconfirmed on build 4762 in `console-26-07-15-16-44-10.txt`: the physical infrastructure benchmark rejected both `feet +/- Vec2f(...)` and `start + Vec2f(...)` solely because `feet` and `start` were `const Vec2f` locals. The compile failed before the benchmark START boundary; making those locals mutable is the runtime-verified workaround under test.
 - Do not conclude: C++-style const qualification is transparent to KAG's AngelScript operator overload resolution.
 - Workaround: keep local `Vec2f` values mutable when they need engine-defined equality or arithmetic operators. Const scalar components remain safe.
 
@@ -210,8 +250,26 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 ### Engine pathing and direct movement can fight each other
 
 - Symptom: builders jump in place, oscillate between surface and shaft nodes, or repeatedly replan near a valid destination.
-- Cause: generic obstruction recovery, ladder/jump behavior, `CBrain.SetPathTo` suggestions, and a specialized direct shaft/tunnel controller can issue conflicting intent.
+- Cause: generic obstruction recovery, ladder/jump behavior, custom `BrainPath`
+  suggestions (or native `CBrain` suggestions in fallback), and a specialized
+  direct shaft/tunnel controller can issue conflicting intent.
 - Workaround: give specialized movement explicit ownership while active. Suppress generic jumps/recovery ladders during dedicated tunnel movement, clear stale paths on state/target changes, and hand off only at a deterministic proximity/visibility boundary.
+
+### Normal AI Builder travel uses custom AngelScript pathing while native `CBrain` stays idle
+
+- Scope: this is the current mod/engine integration on build 4762, not a claim that KAG's native pathfinder is globally unused.
+- Cause: `AIB_GoTo` prefers `AIB_GoToBrainPath`; CTF and AIBTest both load `PathingNodes.as`, so a non-empty `node_map` normally drives `BrainPath.SetPath/Tick/SetSuggestedKeys` and `CBlob.setKeyPressed`. A new custom route clears native state with `CBrain.EndPath()`. Only `AIB_GoToFallback` calls native `CBrain.SetPathTo` and `CBrain.SetSuggestedKeys`; it is reached when the node map/custom path is unavailable or a custom search yields no usable route while the goal is still distant.
+- Reproduced evidence (2026-07-15): three hot runs each of hill travel, storage delivery, and the corrected physical obstacle fixture all moved and passed with exactly one custom `path_set`/repath. Native `CBrain.getState()` remained `idle` for every observer sample: 12/12, 22/22, and 46/46 respectively.
+- Do not conclude: native `CBrain::idle` means the ordinary builder has no path or movement controller. It can mean the custom path deliberately cleared native state and is writing blob keys itself.
+- Workaround: report controller ownership explicitly (`custom BrainPath`, `native CBrain fallback`, or specialized direct keys). Diagnose custom waypoint/low-path state and blob input before investigating native `CBrain` state. Test native fallback only in an isolated fixture that withholds `node_map`; do not remove the production node map merely to make a test use native pathing.
+
+### Rules-side movement observers see Builder brain intent and horizontal motion on later samples
+
+- Reproduced on build 4762 (2026-07-15): in three identical hill hot restarts, the server Builder brain emitted custom `path_set` at game tick 6. The passive `CRules` observer first saw the destination and movement input at tick 7, then first saw observer-to-observer horizontal displacement at tick 8. Each run finished at elapsed tick 11 with 13.6 px net leftward movement and zero stalled-intent samples.
+- Native support: focused binding analysis maps `CBlob.setKeyPressed` to an immediate input-bit read/modify/write and `isKeyPressed` to a read of that same mask. The runtime lag is callback/physics ordering, not deferred property storage.
+- Do not conclude: no displacement in the rules callback carrying the same game-time value as an AI decision is a motion stall. New-blob `getOldPosition()` can also contain a spawn snapshot unsuitable for first-tick progress proof.
+- Reliable ordering for this configuration: rules observer at tick N; later Builder `CBrain.onTick` at tick N writes intent; the next rules sample observes that intent; horizontal movement is observable by the following sample. This is scoped to the tested server rules/brain/movement hooks, not all client/network callbacks.
+- Workaround: correlate intent with a one-to-two-sample future window and require horizontal or goal-directed displacement, not any position delta. Keep gravity settling separate from path progress.
 
 ### A path request is not evidence of progress
 
@@ -219,6 +277,64 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Do not conclude: a non-empty path means the goal is reachable or the movement controller is following it.
 - Reliable check: gym assertions must track displacement, distance-to-goal trend, state age, repeated jumps, replan count, and task-side effects.
 - Workaround: diagnose intent, motion, and outcome separately. Emit a bounded timeline around the first progress violation.
+- Reproduced test pitfall (2026-07-15): the former `pathing_obstacle_recovery` fixture, now named `pathing_reaches_obstacle_region`, previously accepted either physical entry into the obstacle region or a non-zero destination. Three hot runs passed at elapsed tick 2 with zero horizontal displacement and zero movement-intent samples; the only 0.4 px delta was vertical spawn settling. The fixture now requires physical entry and then passed three hot runs at elapsed tick 45 after 108.4 px net horizontal travel, with 43 intent ticks and zero stalls. It does not claim that a recovery branch ran.
+
+### A fallen log can retain a nominal path while making no physical progress
+
+- Symptom: after processing most logs from a felled tree, a builder targets a final log that has rolled or settled behind obstructing terrain. `BrainPath` continues returning a non-empty short route and obstruction recovery repeatedly replans it, but the builder does not approach or hit the log.
+- Reproduced on build 4762 (2026-07-15), official 8x_Gloryhill map hash `3142477075`: in `gloryhill_log_path_trace_001`, the builder acquired log 66 at game tick 1177, retained a three-waypoint route to `(174,316)`, and replanned every 21 ticks while staying near `(152,288)`. The gym latched a motion stall with only 6 px maximum displacement and zero interactions. The target was abandoned at tick 1478, 301 ticks after acquisition, and the worker then returned 190 wood.
+- Do not conclude: a live log target and a non-empty `BrainPath` route mean the log remains economically reachable, or that the pre-target tree-to-log spawn wait is responsible. This case begins only after the log entity exists and is selected.
+- Mitigation evidence: changing only the post-target log no-progress window from 300 to 90 ticks left the separate `find_log` spawn wait unchanged. In `gloryhill_log_watchdog_candidate_001`, an obstructed log acquired at tick 832 was abandoned at tick 923 after 91 ticks without an 8 px approach gain or a hit; the worker continued to another log and had collected/delivered 190 wood by episode tick 900, with zero latched failures at tick 1200. The control delivered the same 190 only at episode tick 1200 and latched one failure.
+- Full-cohort result: three exact-map 5,400-tick controls at 300 ticks collected an average of 630 wood; three 90-tick candidates averaged 546.667. Both sides had zero deaths and all three runs latched a failure. The candidate therefore failed the throughput/quality gate despite the focused timing improvement.
+- Subsequent route-recovery result: with the watchdog restored to 300, the current vertical-node/overhang candidate collected 800/550/550 wood (mean 633.333) against the retained 850/550/490 controls (mean 630). Deaths remained zero and failure-flagged runs improved from 3/3 to 0/3. `Tools/compare_aib_gym_results.ps1 -RequireImprovement` reported `AcceptancePassed=true`; the +3.333 throughput delta is marginal, while the reliability change is the material result.
+- Workaround: keep the log-specific post-target watchdog separate, reset it on meaningful approach progress or a successful hit, cool down only the unproductive log, and continue the tree episode. Production remains at 300 ticks because the 90-tick change itself lost its cohort; the later route win does not retroactively validate that timeout. Never shorten or reinterpret `AIB_LOG_WAIT`, because waiting for the engine to create the first log is intentional no-target time.
+
+### BrainPath can return a vertical node that ordinary runner keys cannot enact directly
+
+- Down-node symptom: `BrainPath` can repeatedly return a node directly below a supported runner. There is no useful ordinary `key_down` action in that state, so path keys and jump scaling can leave the runner balanced on the lip.
+- Reproduced on build 4762 (2026-07-15), official 8x_Gloryhill: `gloryhill_vertical_descent_trace_001` retained next node `(152,304)` from position `(152,288)` while targeting a log at `(174,316)` and finished with zero delivered material plus a motion-stall flag. The bounded lateral walk-off candidate crossed the lip, removed the log at tick 1094, delivered 240 wood at tick 1181, and finished without a failure. Later current-code diagnostics retained real open-drop events and delivered 250 wood by tick 1200.
+- Up-node symptom: in the central Gloryhill shaft, a path repeatedly requested approximately `(1048,368)` from a runner near `(1047,383)`. Generic jumping/replanning oscillated at the shaft bottom. A bounded up-plus-away controller that keys off the current left/right wall made sustained return progress and removed the focused failure, but the focused 3,900-tick run ended while the load was still in transit; treat its throughput effect as cohort evidence, not a standalone delivery claim.
+- Do not conclude: a vertical low-level node is a physically executable character action, or that suppressing `AIB_ScaleObstacles` is safe for every nominal down node.
+- Workaround: after confirmed obstruction, ordinary travel may temporarily own keys for a straight-down open walk-off or a straight-up wall-assisted climb. Dedicated stone-route movement, ladders, and water remain excluded. Direct ownership is bounded and emits change-only start/turn/release events; normal `BrainPath` keys and obstacle scaling resume outside those exact geometries.
+
+### A far-side wall can mean either a blocked ledge or a valid narrow drop
+
+- Blocked-ledged reproduction: while approaching a tree at `(1012,336)`, a runner near `(909,284)` received a nominal node around `(904,304)` and initially walked toward a two-high thickstone/bedrock wall. A probe that looked two tiles ahead rejected the required run-up entirely and stranded the worker at `(904,288)`, causing 21-tick replans and sequential tree abandonment. That version was rejected.
+- Current blocked-side evidence: the adjacent-body probe in `gloryhill_downclear_trace_003` emitted `path_downward_release reason=blocked_side` at tick 2784, corner recovery engaged 13 ticks later, and the runner crossed, felled the target tree, and processed its logs without a gym failure.
+- Narrow-drop reproduction: `gloryhill_verticalpath_candidate_1b_008` later stalled in `chop_log` near `(1289,336)` for a log at `(1303,401)`. The official map has an open adjacent drop at tile 162 and an opposite wall at tile 163, so treating every far-side solid sample as a blocked ledge suppresses the correct walk-off.
+- Workaround: release direct descent only when the adjacent side is blocked or lacks open body/below space. If the far probe is solid but the adjacent column fits the runner and remains open one tile below, retain bounded walk-off ownership as a narrow shaft. The first three current-code full episodes produced 800/550/550 with zero failure-flagged runs; no event-logged replay landed the identical deep log, so keep the exact narrow-shaft branch under future focused observation rather than claiming a matched replay.
+
+### An isolated upper diagonal can trap a runner without a solid sample directly overhead
+
+- Symptom: from `(40,255)`, Gloryhill repeatedly returned the rightward node `(56,256)` while the runner's head caught the upper-right diagonal. The old corner detector required `ceiling && upperDiagonal && !bodySide`, so it never recognized this diagonal-only shape and two log targets exhausted their 300-tick watchdogs.
+- Do not broaden the detector to symmetric headroom: tunnels with both upper sides solid are not one-sided escape corners.
+- Workaround and evidence: accept a diagonal-only overhang only when the opposite upper sample and the body-height escape side are open. The visible `stone_corner_escape_from_mirrored_upper_overhangs` fixture now builds mirrored diagonal-only castle traps and passed at tick 138 with both 36-tick drives, both 90-tick cooldown latches, at least one tile of displacement on each side, and intact traps. The prior ceiling-plus-diagonal geometry also passed under the same production code before the fixture was narrowed to this new case.
+
+### A resource worker with the player tag can capture a CTF flag by collision
+
+- Symptom: an AI builder following a resource route touches the enemy flag, becomes its carrier, and returns it to the friendly base even though it has no capture order.
+- Reproduced on build 4762 (2026-07-15), official 8x_Gloryhill: the user visibly observed the capture during `gloryhill_4b_scoped_baseline_002`; the fail-closed gym guard then emitted `AIBGYM|CONTAMINATION|kind=worker_flag_pickup|slot=2|worker=59|flag=48|restored=true` in `console-26-07-15-15-34-29.txt` and aborted the episode before a result row.
+- Cause: ordinary AI builders retain KAG's `player` tag for class behavior, so the shared CTF `canPickupFlag` collision predicate accepted them like human players.
+- Do not conclude: returning to base proves the worker intentionally selected the flag, or that a resource score collected during the contaminated episode is comparable.
+- Workaround and evidence: the mod override `Base/Entities/Special/CTF/CTF_FlagCommon.as` rejects `aibuilder` and `autobuilder` in `canPickupFlag` while leaving normal players unchanged. The gym independently restores the exact flag to its matching base and aborts if contamination ever recurs. Two full post-fix controls and all three full candidate episodes completed without contamination.
+
+### A stone miner needs its shaft controller after switching to return_wood
+
+- Symptom: a miner finishes a load underground, changes from `tunnel_to_stone` to `return_wood`, and then spends the rest of the episode near the bottom of its own two-wide shaft. A non-zero ordinary destination does not make that return physically executable.
+- Reproduced on build 4762 (2026-07-15), official 8x_Gloryhill: all three four-builder controls latched stone failures around `(63,327)` or `(58,280)`. Stone slots stopped after one delivery at 156 and 120 material. The initial return candidate also stalled at `(71,336)` because it demanded one-pixel horizontal centering before pressing up; a half-tile-only revision fell into the adjacent column because it did not hold wall direction and up together.
+- Cause: the production route deliberately uses a dedicated shaft/cross-tunnel controller only in state 10. Reaching quota changes to state 6 before the miner has climbed out, handing an open vertical shaft back to ordinary `BrainPath`.
+- Workaround: record the canonical surface entry column and height when `find_stone` commits to a route. During `return_wood`, drive horizontally through the already-open cross-tunnel, then hold both direction into the shaft wall and `key_up` until the runner is within the surface margin. Clear the anchor with every normal navigation/ownership handoff.
+- Evidence and remaining limitation: `gloryhill_4b_stone_return_candidate_trace_003` in `console-26-07-15-16-05-06.txt` recorded repeated `stone_return_direct`/`stone_return_exit` transitions from y=336/344 to y=281-290 and delivered 888 stone plus 80 gold by 2,400 ticks. The exact 3x3 full cohort increased mean delivery from 942.667 to 1,574.000 (+631.333, +67.0%) with zero deaths on both sides. All candidate runs still latched recoverable motion-stall windows during slow cross-tunnel returns, so the fix is a throughput win, not failure-free pathing.
+
+### A pre-behavior observer can mistake stationary chopping for a motion stall
+
+- Symptom: a builder is visibly hitting a tree and the tree is falling, but AIBTest aborts with `gym_progress_violation kind=motion_stall`, zero sampled interactions, and a still-populated approach destination.
+- Cause: `AIBG_Tick` runs before the AI behavior for that tick. Sampling action keys there can miss `key_action2` and `server_Hit` performed later in `AIB_ChopTree`; retaining the completed approach destination simultaneously looks like movement intent even though standing still is correct.
+- Reproduced on build 4762 (2026-07-15): `gym_tree_order_harvests_and_delivers_selected_tree` first failed after 184 scenario ticks while visibly chopping/felling the tree. After close-range tree/log branches ended the approach path and successful `AIB_HitTarget` calls explicitly recorded an interaction, the same visible KAG scenario passed at tick 1032 with the tree felled, logs processed, 350 wood acquired and delivered, and `gym_flags=none`.
+- The same observer gap applied to `AIB_MineTile`: the reusable-shaft fixture showed successful dirt/stone destruction but no explicit interaction record, producing a state-stall bit. Successful tile destruction now calls `AIBG_RecordInteraction`, and a motion-stall bit is removed only when the same window contains a confirmed interaction or material/plan outcome; independent jump-loop and path-thrash bits remain.
+- The same stale-intent class occurred at base storage: `carried_wood_returns_to_grounded_storage` reached the interaction radius and transferred/spent part of its material, but retained the approach destination and failed at tick 143 as a motion stall. Ending the path at the storage radius removed the false gym verdict; the corrected production fixture, `carried_wood_builds_grounded_storage_and_delivers`, then passed at tick 25 with a valid grounded workshop, a distinct grounded resource crate, and 40 wood delivered after storage costs.
+- Do not conclude: zero displacement while chopping, mining, building, or waiting for an engine-spawned object is a navigation failure.
+- Workaround: clear stale navigation intent at the interaction boundary, record successful production interactions explicitly, and exempt declared engine waits such as `find_log` before the log-spawn deadline. End-to-end tree tests must wait for the tree to fall, logs to appear, logs to be processed, and delivery to finish.
 
 ### A short corner escape can feed the worker straight back into the trap
 
@@ -227,18 +343,68 @@ This is the durable record of engine behavior that can make correct-looking KAG 
 - Do not conclude: detecting the correct escape direction proves recovery completed.
 - Workaround: the geometry-specific direct controller owns movement for 36 ticks to create a real run-up, followed by a 90-tick recovery cooldown. Judge success by displacement and eventual task progress, not by the escape event itself.
 
-### `CInventory.isFull()` can lag or disagree with item-specific capacity
+### Inventory fullness is asynchronous and `canPutItem` depends on candidate ownership
 
 - Symptom: a fixture loops on `!inventory.isFull()` while calling `server_PutInInventory`, queues more items than the configured slot count, then the visible localhost simulation freezes during replication.
 - Reproduced cases: a 3x3 crate accepted/queued 18 material blobs in one setup tick before the loop observed fullness; later, a crate with nine settled 1x1 entries still reported `isFull() == false` in `console-26-07-14-10-04-11.txt`.
-- Do not conclude: `isFull()` is a synchronous postcondition for queued mutations, or a reliable answer to whether one particular blob can fit.
-- Workaround: when constructing a deterministic fixture, use the configured slot count (nine for `Crate.cfg`), verify every item's configured inventory footprint, wait for `getItemsCount()` to settle, then call `canPutItem(prospectiveBlob)`. A `boulder` is one blob but occupies the full 3x3 crate footprint, so it cannot stand in for a one-slot filler. Production code should use the same item-specific predicate, judge each insertion result, and re-evaluate on later ticks.
+- Additional build-4762 evidence (2026-07-15): `stone_order_mines_exposed_stone_and_delivers` reached an alive, grounded, same-team, unpacked empty crate with a valid inventory and 24 stone still in the builder inventory. `crateInventory.canPutItem(stone)` returned false, so the preflight selector rejected the otherwise eligible crate for more than 600 ticks. Replacing that held-item preflight with the real remove/insert/restore transaction made the same scenario pass at tick 140 with all 24 stone in the crate. `full_crate_creates_grounded_overflow_storage` then passed at tick 23 with two grounded crates, 100 stone stored, the 150-wood cost paid, and material conservation intact.
+- Do not conclude: `isFull()` is a synchronous postcondition, or that `canPutItem(item)` predicts insertion while `item` is still owned by a different inventory.
+- Workaround: use the configured slot count and item footprints when constructing deterministic full fixtures, and let queued mutations settle before evaluating them. In production transfer code, take the exact material out of the source inventory, use the destination's `server_PutInInventory` return as the capacity decision, and restore the item to the source on failure. Temporarily tag a rejected crate and retry it after a cooldown so capacity freed by a player is discovered. A `boulder` is one blob but occupies the full 3x3 crate footprint, so it cannot stand in for a one-slot filler.
+
+### `server_Die()` is finalized after the current rules callback
+
+- Symptom: setup kills a tagged bootstrap worker and immediately still counts it as a live contaminating actor in the same callback; a query on the next tick finds no worker.
+- Reproduced on build 4762 (2026-07-15): the first two `gloryhill_r*_smoke` gym requests aborted as `contaminated_ai_actors`. TCPR then showed the tagged production-bootstrap builder was gone and both director modes were off. Splitting canonicalization and contamination validation across callbacks allowed `gloryhill_r3_smoke` to start and finish normally.
+- Do not conclude: calling `server_Die()` makes live-blob scans in that same callback authoritative post-death state.
+- Workaround: issue owned cleanup, return, and validate on a later tick. Only remove explicitly tagged fixture/bootstrap actors; reject remaining unowned AI contamination.
+
+### Clear volume plus solid ground does not prove a resource-worker spawn is connected
+
+- Symptom: a four-worker gym episode starts with four live actors, but one stable slot produces zero material because its nominally grounded spawn is inside a sealed shelf or pocket.
+- Reproduced on build 4762 (2026-07-15), official 8x_Gloryhill: the original four-builder control placed a stone worker near `(119,340)`. Static map inspection and the visible run showed a clear two-tile body volume with ground below but no route to the team's home-connected surface; that episode is invalid and must not enter a cohort.
+- Do not conclude: `!isTileSolid(body/head) && isTileSolid(below)` is a navigable spawn contract, or that four live worker blobs mean all four slots received an executable task.
+- Workaround and evidence: seed a conservative grounded-cell flood from the exact resource home, build deterministic per-slot candidate sets only from reachable cells, then backtrack the full spawn set so separation constraints cannot make an early greedy choice strand a later slot. Current Gloryhill episodes audit `positions=140,292;52,284;36,292;20,300`; all four slots were productive in every retained control and candidate result.
+
+### Engine pickup may move a material directly into inventory without a carried-blob observation
+
+- Symptom: a worker visibly harvests and later confirms hundreds of material delivered, but an acquisition hook that accepts only `getCarriedBlob() is resource` records zero collection.
+- Reproduced on build 4762 (2026-07-15): schema-v2 `gloryhill_control_1b_001` confirmed 1,120 wood delivered and 920 accessible stock while the carried-only collection field stayed zero. The production wood pickup path calls `server_Pickup`, after which KAG may expose the item through `isInInventory()` rather than as the carried blob. Schema v4 accepts either authoritative ownership state and reconciles confirmed per-worker delivery as a conservative collection lower bound; `gloryhill_control_1b_002` then recorded 850 collected and 850 delivered.
+- Do not conclude: failure to observe a carried attachment means the pickup failed, or that an empty worker inventory proves no resource was collected earlier in the episode.
+- Workaround: check both inventory ownership and carried attachment after pickup, tag counted material blobs to prevent double attribution, and keep gross collection, confirmed transfer, and final accessible stock as separate metrics.
+
+### A delayed runtime world fingerprint is audit evidence, not stable map identity
+
+- Symptom: repeated fresh loads of the same official map, dimensions, and team side emit different terrain/world manifest hashes, preventing any cohort if the complete delayed fingerprint is used as the grouping key.
+- Reproduced on build 4762 (2026-07-15): visible 8x_Gloryhill gym starts all reported map hash `3142477075` and `210x66`, while initial terrain hashes differed as normal CTF startup scripts and timing mutated transient state before arming.
+- Do not conclude: different delayed manifests necessarily mean a different map file, or that they may be pooled across different map names.
+- Workaround: group optimization scores by stable map hash/dimensions, team side, metric, actor configuration, and duration. Retain the full initial fingerprint and terrain hash on every raw record for stratification and freshness audits; never compare different map hashes or optimize mapcycle choice.
 
 ### Newly placed recovery structures may not immediately solve routing
 
 - Symptom: after the AI places a backwall/ladder chain, it keeps selecting the same mineable obstruction or replanning instead of traversing it.
-- Current status: the previous fixture accepted a mined plug, any nearby ladder, or merely reaching the far side independently, so it could not establish which recovery side effect helped. Production source now places paid missing backwalls in a separate simulation phase and refuses to spawn the ladder until `hasSupportAtPos` recognizes support. This revised AngelScript path has static coverage but is not yet runtime-compiled or evidence that KAG refreshes routing correctly.
+- Current status: the previous fixture accepted a mined plug, any nearby ladder, or merely reaching the far side independently, so it could not establish which recovery side effect helped. Production source now places paid missing backwalls in a separate simulation phase and refuses to spawn the ladder until `hasSupportAtPos` recognizes support. The revised AngelScript compiles on build 4762, but one focused run travelled 109.4 px and crossed the nominal far-side threshold without creating a recovery ladder or emitting a recovery replan; it failed after 224 observer samples. The intended ladder branch was never exercised, so this is still not evidence that KAG refreshes routing correctly.
 - Workaround: keep support and ladder creation separated by a simulation boundary. Charge only newly missing backwall cells so cache lag cannot double-charge the chain. The one-shot post-ladder probe records low/waypoint counts, next node, ray obstruction, the hypothetical `AIB_GetMineablePathBlock` result, and pathfinder acceptance. The focused fixture additionally requires actual crossing while the dirt plug remains intact; do not treat the probe or ladder alone as movement proof.
+
+### The runtime CTF flag blob is named `ctf_flag`, not `flag`
+
+- Symptom: a flag-relative planner appears to run, but its reported strategic anchor is the tent/resource home rather than the visible flag. On official Gloryhill the wrong path selected roughly `(12,35)` while the actual team-0 flag was `(43,38)`.
+- Reproduced on build 4762 (2026-07-15): the early physical-infrastructure diagnostics found no blob named `flag`; after switching to `ctf_flag`, `gloryhill_flag_gatehouse_diagnostic_006` reported the real flag at `(43,38)`, and the later left/right cohorts constructed around the mirrored real flags.
+- Do not conclude: a non-null strategic home proves the flag lookup worked. The director intentionally falls back to tent/hall, which makes this name error look superficially valid.
+- Workaround: use `getBlobsByName("ctf_flag", ...)` and spawn `ctf_flag` in CTF fixtures. Keep resource-home selection (`tent`, then `hall`) separate. The collision guard must also inspect the carried `ctf_flag` identity.
+
+### Uneven gatehouse terrain can create a foundation/access dependency cycle
+
+- Symptom: locally clear gatehouse candidates fail as `unsupported_tasks`, even though the intended access platform would support the rejected backing after construction. On Gloryhill, the original 7/10/13-tile offsets also overlapped no-build terrain or an uneven surface.
+- Reproduced on build 4762 (2026-07-15): `gloryhill_flag_gatehouse_diagnostic_009` isolated four top-row stone backwalls above access platforms as the unsupported foundation tasks. After moving those backing cells to the access phase and generating paid level foundation cells across the shell plus landings, diagnostic `_010` found valid sites from 16 tiles onward. Diagnostic `_012` then physically completed all 36 tasks at the 16-tile site.
+- Do not conclude: a cell that will be supported by a later phase is valid in an earlier phase, or that one fixed flag offset is portable across both sides and real maps.
+- Workaround: derive the gatehouse ground from the highest surface under the shell and one-tile landings, add only missing air cells as paid foundation, put platform-dependent backing in the access phase, and use a bounded deterministic offset list. The planner and executor must still validate the selected site normally.
+
+### Generic jumping can invalidate a level gate-passage probe
+
+- Symptom: a completed gatehouse has two healthy team doors and the friendly probe enters the rear door, but it climbs the internal ladder instead of exiting the front, producing a false traversal failure.
+- Reproduced on build 4762 (2026-07-15): `gloryhill_flag_gatehouse_diagnostic_011` built and archived 36/36 tasks but failed front exit after the probe's generic jump logic took the ladder. With level horizontal-only passage control, diagnostic `_012` crossed both doors in 43 ticks; all six retained left/right physical runs then passed.
+- Do not conclude: failure to reach the front x-coordinate proves the doors or ally permissions are broken when the probe was allowed to choose a different vertical route.
+- Workaround: give a level door-passage probe horizontal ownership without generic jump, and assert rear entry plus front exit separately. Use another explicit probe when vertical ladder traversal is the behavior under test.
 
 ## Evidence Rules For Future Entries
 

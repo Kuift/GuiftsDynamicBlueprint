@@ -1,0 +1,43 @@
+TCPR: client 127.0.0.1:15556 is now authenticated.
+Game has been running slow for too long. Skipping 2.000000 ticks worth of simulation.
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:15556 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:15556 :
+getRules().set_bool("aib event log enabled", false)
+RCON command from 127.0.0.1:15556 :
+getRules().set_u8("aib gym team", 0)
+RCON command from 127.0.0.1:15556 :
+getRules().set_u8("aib gym builder count", 4)
+RCON command from 127.0.0.1:15556 :
+getRules().set_string("aib gym resource order", "mixed")
+RCON command from 127.0.0.1:15556 :
+getRules().set_u32("aib gym duration ticks", 300)
+RCON command from 127.0.0.1:15556 :
+getRules().set_string("aib gym variant", "diagnostic")
+RCON command from 127.0.0.1:15556 :
+getRules().set_string("aib gym run id", "gloryhill_flagignore_compile_001")
+RCON command from 127.0.0.1:15556 :
+getRules().set_bool("aib gym stop requested", false)
+RCON command from 127.0.0.1:15556 :
+getRules().set_bool("aib gym request", true)
+[AIBGYM] SPAWN_SET requested=4 found=true reachable=12 actor_blocked=5 candidates=7 positions=140,292;52,284;36,292;20,300
+RCON command from 127.0.0.1:15556 :
+tcpr("AIBGYM|ARMED|run=gloryhill_flagignore_compile_001")
+AIBGYM|ARMED|run=gloryhill_flagignore_compile_001
+[AIBGYM] AIBGYM|START|run=gloryhill_flagignore_compile_001|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=300
+AIBGYM|START|run=gloryhill_flagignore_compile_001|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=300
+AIBGYM|PROGRESS|run=gloryhill_flagignore_compile_001|elapsed=150|collected=0|delivered=0|deaths=0
+[AIBACT] v=3 episode=1 batch=1 records=39 reason=interval data=AAAAE2VOuwEIADEAAAYLAAAAADIAAAFABTXkZAAcAQYAAAAAADMA/wJvuynvAAAAAAYAAAAAADQA/wKL4VAiAAAAAAMAADEAMgAAAWQAHAEIAAAxAD/6AFAAAAAAAAAAAAAEAAAxAAb03QD/AAAAAAQFADEAAhH+BAUAMQACCf8JAQAeAAAABgAAAAEAAbEAKAABABsABgAAAAAANQABAebwF6xcBhwBBAAAMQAIZAAgAQAABgAAAAAANgD/Am+7Ke9cBhwBBgAAAAAANwD/AovhUCJcBhwBBAQAMQACAwAGAwAAAAA4AP8CpP9WrgAAAAAEAgAxAAL8AAQFADEAAvYABAUAMQAC8wAEBQAxAALyAAQFADEAAu8ABAEAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAACQkAgQAAAAcAAAABAAGxACgABgADAAcAAAAAAAA1AAEB5vAXrHEGHAEGAQAAAAA5AAAB5vAXrIwAJAEGAAAAAAA6AAAB5vAXrDQAHAEGAAAAAAA7AAAB5vAXrCQAJAEGAAAAAAA8AAAB5vAXrBQALAEEFAAxAAhkACABAAAEHgAxAAhkACABAAAGHAAAAAA/AP8CpP9WrgAAAAAEAgAxAAhkACABAAAGCgAAAABAAP8Ci+FQIgAAAAAEFAAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+AIBGYM|PROGRESS|run=gloryhill_flagignore_compile_001|elapsed=300|collected=0|delivered=0|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_flagignore_compile_001 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1620624680 initial_fingerprint=w1-3142477075-210x66-1620624680-4871-3945193546-1025-52-1548143776-3220769513-2466050567 builders=4 live_builders=4 order=mixed duration=300 elapsed=300 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0 stock_delta_wood=0 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=0 idle_ticks=0 travel_px=1631.16 reason=duration_complete
+[AIBGYMR] schema=4 status=result run=gloryhill_flagignore_compile_001 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1620624680 initial_fingerprint=w1-3142477075-210x66-1620624680-4871-3945193546-1025-52-1548143776-3220769513-2466050567 builders=4 live_builders=4 order=mixed duration=300 elapsed=300 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0 stock_delta_wood=0 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=0 idle_ticks=0 travel_px=1631.16 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=1 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=1 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=2 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=2 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=3 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_flagignore_compile_001 slot=3 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+AIBGYM|RESULT|run=gloryhill_flagignore_compile_001|status=result|metric=resource_collection_smoke|collected=0|delivered=0|elapsed=300|deaths=0|failures=0|reason=duration_complete

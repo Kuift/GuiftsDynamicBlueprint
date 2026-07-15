@@ -1,0 +1,201 @@
+Checking is server modded...
+Using custom files
+**** This is a modded server ****
+Attempting mod verification
+CModVerify::readModRegFile error: file ./../Mods/GuiftsDynamicBlueprint_vDev//registration.json missing
+Mod ./../Mods/GuiftsDynamicBlueprint_vDev/ cannot be verified because it has no registration.json file
+At least one active mod has failed verification
+This is safe to ignore. If you are a modder, consider registering these mods through the API
+Whitelist inactive.
+Loading blacklist from Base/Security/blacklist.cfg
+Blacklist empty.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/ignorelist.cfg'
+Loading ignorelist from Base/Security/ignorelist.cfg
+Loading ignorelist failed - file missing or corrupt. A blank ignorelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/hidenamelist.cfg'
+Loading hidenamelist from Base/Security/hidenamelist.cfg
+Loading hidenamelist failed - file missing or corrupt. A blank hidenamelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/seclevs.cfg'
+Loading security levels from Base/Security/seclevs.cfg
+Loading default security levels
+Files have the same name! (rename for safety) ../Mods/GuiftsDynamicBlueprint_vDev/Rules/AIBTest/gamemode.cfg - ../Mods/GuiftsDynamicBlueprint_vDev/Rules/CTF/gamemode.cfg (during query 'gamemode.cfg')
+Files have the same name! (rename for safety) ../Mods/GuiftsDynamicBlueprint_vDev/Rules/AIBTest/gamemode.cfg - ../Mods/GuiftsDynamicBlueprint_vDev/Rules/CTF/gamemode.cfg (during query 'rules/ctf/gamemode.cfg')
+Loading game rules from Rules/CTF/gamemode.cfg...
+Loaded team 0 'Blue Team'
+Loaded team 1 'Red Team'
+Reloaded mapcycle 'Rules/CTF/mapcycle.cfg' (70 maps)
+Reloaded mapcycle 'Rules/CTF/mapcycle.cfg' (70 maps)
+File not found Maps/Official/CTF/8x_Gloryhill.png, searching matches...
+Best match Maps/Official/CTF/8x_Gloryhill2.png
+LOADING PNG MAP Maps/Official/CTF/8x_Gloryhill2.png
+
+WARNING Scripts/MapLoaders/BasePNGLoader.as:95:2: Function not considered for JIT compilation because it is too complex
+  94 |
+  95 |     void handlePixel(const SColor &in pixel, int offset)
+           ^ HERE
+  96 |     {
+  97 |         u8 alpha = pixel.getAlpha();
+Adding map script aib_gym_autostart
+Client created
+Connecting to 127.0.0.1:50301
+############ GAMEMODE CTF
+Files have the same name! (rename for safety) Maps/Official/CTF/TresFlags.png - Maps/CTF/Dormant/TresFlags.png (during query 'flag.png')
+Whitelist inactive.
+Loading blacklist from Base/Security/blacklist.cfg
+Blacklist empty.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/ignorelist.cfg'
+Loading ignorelist from Base/Security/ignorelist.cfg
+Loading ignorelist failed - file missing or corrupt. A blank ignorelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/hidenamelist.cfg'
+Loading hidenamelist from Base/Security/hidenamelist.cfg
+Loading hidenamelist failed - file missing or corrupt. A blank hidenamelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/seclevs.cfg'
+Loading security levels from Base/Security/seclevs.cfg
+Loading default security levels
+Compiling shader: hq2x
+Restarting rules script: Rules/CTF/Scripts/CTF.as
+Config file not found '../Cache/ChatCommands.cfg'
+Checking any holidays...
+Maps/DynamicBlueprints/blueprint_1619787124.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1628964185.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778379219.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778379220.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381130.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381131.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381506.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381587.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381591.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778451158.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1781996221.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1782005168.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1782161488.png blueprint has been found
+creating texture...
+Too many commands added (cmd clearBlueprintLayer on rules) - results will be bad!
+[AIBTELEMETRY] init gamemode=CTF policy_initialized=false default=true enabled=true policy_loaded=true file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBTelemetryPolicy.cfg
+Too many commands added (cmd SendChatMessage on rules) - results will be bad!
+TCPR: client 127.0.0.1:9703 connected.
+TCPR: client 127.0.0.1:9703 is now authenticated.
+RCON command from 127.0.0.1:9703 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:9703 :
+getRules().set_bool("aib event log enabled", false)
+RCON command from 127.0.0.1:9703 :
+getRules().set_u8("aib gym team", 0)
+RCON command from 127.0.0.1:9703 :
+getRules().set_u8("aib gym builder count", 1)
+RCON command from 127.0.0.1:9703 :
+getRules().set_string("aib gym resource order", "wood")
+Game has been running slow for too long. Skipping 15.000000 ticks worth of simulation.
+RCON command from 127.0.0.1:9703 :
+getRules().set_u32("aib gym duration ticks", 5400)
+Server uses mod: : (GuiftsDynamicBlueprint_vDev)
+Loading mod: GuiftsDynamicBlueprint_vDev
+New track added to mixer Sounds/Music/ambient_forest.ogg
+New track added to mixer Sounds/Music/ambient_mountain.ogg
+New track added to mixer Sounds/Music/ambient_cavern.ogg
+New track added to mixer Sounds/Music/KAGWorldIntroShortA.ogg
+New track added to mixer Sounds/Music/KAGWorld1-1a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-2a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-3a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-4a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-5a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-6a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-7a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-8a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-9a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-10a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-11a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-12a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-13.ogg
+New track added to mixer Sounds/Music/KAGWorld1-14.ogg
+New track added to mixer Sounds/Music/KAGWorld1-14outro.ogg
+Waiting for scripts...
+Waiting for scripts...
+Game has been running slow for too long. Skipping 3.000000 ticks worth of simulation.
+Map: 8x_Gloryhill
+[AIB] Privacy-bounded gameplay telemetry is enabled for AI evaluation. It excludes usernames, IP addresses, and chat.
+Guift (guift) has joined Blue Team
+guift connected as Guift
+Files have the same name! (rename for safety) Maps/Official/CTF/HearthPlains.png - Maps/CTF/HearthPlains.png (during query 'heart')
+Files have the same name! (rename for safety) Maps/Official/CTF/Oodle_Stonethrow.png - Maps/CTF/Returning/Oodle_Stonethrow.png (during query 'stone')
+RCON command from 127.0.0.1:9703 :
+getRules().set_string("aib gym variant", "control")
+RCON command from 127.0.0.1:9703 :
+getRules().set_string("aib gym run id", "gloryhill_logwatch_control_1b_003")
+Game has been running slow for too long. Skipping 5.000000 ticks worth of simulation.
+RCON command from 127.0.0.1:9703 :
+getRules().set_bool("aib gym stop requested", false)
+RCON command from 127.0.0.1:9703 :
+getRules().set_bool("aib gym request", true)
+RCON command from 127.0.0.1:9703 :
+tcpr("AIBGYM|ARMED|run=gloryhill_logwatch_control_1b_003")
+AIBGYM|ARMED|run=gloryhill_logwatch_control_1b_003
+Game has been running slow for too long. Skipping 8.000000 ticks worth of simulation.
+Files have the same name! (rename for safety) Maps/Official/CTF/JTG_NewGetisburgMines.png - Maps/CTF/Dormant/JTG_NewGetisburgMines.png (during query 'mine')
+Files have the same name! (rename for safety) Maps/Official/CTF/Mazey_Junctions.png - Maps/CTF/Dormant/Mazey_Junctions.png (during query 'junction')
+Game has been running slow for too long. Skipping 2.000000 ticks worth of simulation.
+[AIBGYM] AIBGYM|START|run=gloryhill_logwatch_control_1b_003|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=5400
+AIBGYM|START|run=gloryhill_logwatch_control_1b_003|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=5400
+Files have the same name! (rename for safety) Maps/Official/CTF/Potatobird_SharkRomance_v1.png - Maps/CTF/Dormant/Potatobird_SharkRomance_v1.png (during query 'shark')
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=150|collected=0|delivered=0|deaths=0
+[AIBACT] v=3 episode=1 batch=1 records=3 reason=interval data=AAAAE2VOuwEHADEAAAYTAAAAADIAAAHm8BesjAAkAQ==
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=300|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=450|collected=0|delivered=0|deaths=0
+[AIBACT] v=3 episode=1 batch=2 records=27 reason=interval data=BiMBAAAANAAAAYK39jNkABwBBgAAAAAANQD/Amj+lI0AAAAAAwAAMQA0AAADZAAcAQgAADEAPwAAAAAAAB4AAAAAAAQAADEADvTdAAAAAAAAZAAcAQAABAUAMQAC7PwEBQAxAALu/wQFADEAAu8ABA8AMQAIZAAgAQAABhwAAAAANgD/BFFRUT9aANcABgAAAAAANwD/BFFRUT9nANMABgAAAAAAOAD/BFFRUT91AM8ABgAAAAAAOQD/BFFRUT+CAMsABgAAAAAAOgD/BFFRUT+PAMcABwAAAAAAAAkA/wQQpChMTADYAAQCADEACGQAIAEAAAYJAAAAADwA/wJvuynvAAAAAAQVADEACGQAIAEAAAcbAAAAAAA2AP8EUVFRP1sA3AAEAwAxAAhkACABAAAEHgAxAAhkACABAAAHGwAAAAAANwD/BFFRUT9pANwABAMAMQAIZAAgAQAABB4AMQAIZAAgAQAABxsAAAAAADgA/wRRUVE/dgDcAAQDADEACGQAIAEAAAQeADEACGQAIAEAAA==
+[AIBGYM] v=1 t=637 b=50 tm=0 f=1 s=4 x=153 y=219 tx=0 ty=0 mv=6 j=0 rp=2 in=0 tg=0 out=0 inv=0 dx=162 dy=313 tb=57 bx=166 by=313
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=600|collected=0|delivered=0|deaths=0
+[AIBGYMW] data=ATIAAH0CAAABACpy/1cA2AAAAAAABAA3AHf/VwDYAAAAAAAEADgAfP9XANgAAAAAAAQAOACB/1cA2AAAAAAABAA4AIb/VwDYAAAAAAAEADgAi/9XANgAAAAAAAQAOACQ/1cA2AAAAAAABAA4AJX/VwDYAAAAAAAEADgAmv9XANgAAAAAAAQAOACf/1cA2AAAAAAABAA4AKT/VwDYAAAAAAAEADgAqf9XANgAAAAAAAQAOACu/1cA2AAAAAAABAA4ALP/WADVAAAAAAAEADkAuP9iANEAAAAAAAQAOQC9/28A2AAAAAAABAA5AML/fADYAAAAAAAEADkAx/+IANkAAAAAAAQAOQDM/5YA4AAAAAAABAA5ANH/mQDgAAAAAAAEADkA1v+ZAOAAAAAAAAQAOQDb/5kA4AAAAAAABAA5AOD/mQDgAAAAAAAEADkA5f+YANsAAAAAAAQAOQDq/5gA2gAAAAAABAA5AO//lwDgAAAAAAAEADkA9P+XAOAAAAAAAAQAOQD5/5gA3QAAAAAABAA5AP7/mQDZAAAAAAAEADkAAwCZAOAAAAAAAAQAOQAIAJoA4AAAAAAABAA5AA0AmgDfAAAAAAAEADkAEgCYANkAAAAAAAQAOQAXAJgA3gAAAAAABAA5ABwAmADgAAAAAAAEADkAIQCYAOAAAAAAAAQAOQAmAJcA2QAAAAAABAA5ACsAlgDcAAAAAAAEADkAMACWAOAAAAAAAAQAOQA1AJYA4AAAAAAABAA5ADoAlwDaAAAAAAAEADkAPwCYANsAAAAAAAQAOQA=
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=750|collected=0|delivered=0|deaths=0
+[AIBACT] v=3 episode=1 batch=3 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=900|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1050|collected=200|delivered=200|deaths=0
+[AIBACT] v=3 episode=1 batch=4 records=14 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhAAAAAAPQD/BBCkKExMANwABA4AMQAIZAAgAQAABwsAAAAAADoA/wRRUVE/sgA8AQQTADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAYFAAAAAD4AAAPsxa2Z3AA0AQYAAAAAAD8AAAVAml4XHAAkAQQZADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1200|collected=200|delivered=200|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1350|collected=200|delivered=200|deaths=0
+[AIBACT] v=3 episode=1 batch=5 records=18 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhkAAAAAQAD/BFFRUT/BAUwBBgAAAAAAQQD/BFFRUT/NAUUBBgAAAAAAQgD/BFFRUT/ZAT4BBgAAAAAAQwD/BFFRUT/lATgBBgAAAAAARAD/BFFRUT/xATEBBgAAAAAARQD/BFFRUT/+ASoBBwAAAAAAAA0A/wQQpChMtAFQAQYCAAAAAEcA/wJvuynvAAAAAAQDADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1500|collected=200|delivered=200|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1650|collected=200|delivered=200|deaths=0
+[AIBACT] v=3 episode=1 batch=6 records=16 reason=interval data=BB4AMQAIZAAgAQAABw8AAAAAAEAA/wRRUVE/wwFUAQQPADEACGQAIAEAAAQeADEACGQAIAEAAAcPAAAAAABBAP8EUVFRP7wBVAEEDwAxAAhkACABAAAEHgAxAAhkACABAAAHEgAAAAAAQgD/BFFRUT/cAUwBBAwAMQAIZAAgAQAABB4AMQAIZAAgAQAABxIAAAAAAEMA/wRRUVE/6AFMAQQMADEACGQAIAEAAAQeADEACGQAIAEAAAcSAAAAAABEAP8EUVFRP/QBTAEEDAAxAAhkACABAAAGAQAAAABJAP8Cb7sp7wAAAAA=
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1800|collected=200|delivered=200|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=1950|collected=200|delivered=200|deaths=0
+[AIBACT] v=3 episode=1 batch=7 records=13 reason=interval data=BB0AMQAIZAAgAQAABxMAAAAAAEUA/wRRUVE/AQJNAQQLADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAcEAAAAAAA5AP8EUVFRP6YAOQEEGgAxAAhkACABAAAGCwAAAABLAP8EEKQoTLQBVAEEEwAxAAhkACABAAA=
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=2100|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=2250|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=8 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=2400|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=2550|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=9 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=2700|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=2850|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=10 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3000|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3150|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=11 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3300|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3450|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=12 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3600|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3750|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=13 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=3900|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4050|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=14 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4200|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4350|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=15 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4500|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4650|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=16 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4800|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=4950|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=17 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=5100|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=5250|collected=550|delivered=550|deaths=0
+[AIBACT] v=3 episode=1 batch=18 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_logwatch_control_1b_003|elapsed=5400|collected=550|delivered=550|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_logwatch_control_1b_003 variant=control metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-2268345552-989-48-3013145457-731052703-2466050567 builders=1 live_builders=1 order=wood duration=5400 elapsed=5400 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550 stock_delta_wood=350 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=1 idle_ticks=0 travel_px=6186.92 reason=duration_complete
+[AIBGYMR] schema=4 status=result run=gloryhill_logwatch_control_1b_003 variant=control metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-2268345552-989-48-3013145457-731052703-2466050567 builders=1 live_builders=1 order=wood duration=5400 elapsed=5400 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550 stock_delta_wood=350 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=1 idle_ticks=0 travel_px=6186.92 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_logwatch_control_1b_003 slot=0 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550
+[AIBGYMB] schema=4 run=gloryhill_logwatch_control_1b_003 slot=0 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550
+AIBGYM|RESULT|run=gloryhill_logwatch_control_1b_003|status=result|metric=resource_collection_180s|collected=550|delivered=550|elapsed=5400|deaths=0|failures=1|reason=duration_complete

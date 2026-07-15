@@ -27,7 +27,7 @@ CBlob@ AIBDEV_GetWorker()
 
 CBlob@ AIBDEV_GetHome()
 {
-	string[] names = { "tent", "hall", "flag" };
+	string[] names = { "tent", "hall", "ctf_flag" };
 	for (uint n = 0; n < names.length; n++)
 	{
 		CBlob@[] homes;

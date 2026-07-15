@@ -26,8 +26,8 @@ u32 AIBT_canonical_hash = 0;
 
 string[] AIBT_SCENARIOS =
 {
-	"flat_harvest_delivers_to_tent",
-	"full_inventory_returns_to_tent",
+	"flat_harvest_processes_logs_and_delivers_to_base_storage",
+	"carried_wood_builds_grounded_storage_and_delivers",
 	"8x_gloryhill_leftmost_tree_uses_hill_route",
 	"selected_trees_override_distance",
 	"no_selected_trees_uses_home_priority",
@@ -37,7 +37,7 @@ string[] AIBT_SCENARIOS =
 	"enemy_safety_rejects_right_archer_open_threat",
 	"knight_fear_interrupts_work",
 	"wall_blocks_knight_fear",
-	"pathing_obstacle_recovery",
+	"pathing_reaches_obstacle_region",
 	"no_home_does_not_drop_locally",
 	"tree_selection_toggle_filtering",
 	"kag_path_moves_to_tree_over_hill",
@@ -47,9 +47,9 @@ string[] AIBT_SCENARIOS =
 	"strategic_auto_director_heartbeat_end_to_end",
 	"wood_builder_buys_nursery_seed_with_stone",
 	"wood_builder_builds_and_feeds_quarry_when_stone_unsafe",
-	"stone_builder_collects_quarry_output_when_tiles_unsafe",
+	"stone_builder_collects_loose_stone_near_quarry_when_tiles_unsafe",
 	"multiple_builders_store_resources_in_shared_crates",
-	"stone_job_retries_without_safe_stone",
+	"stone_job_stays_active_without_safe_stone",
 	"wood_builder_builds_nursery_buys_and_plants_tree",
 	"blueprint_team_isolation",
 	"strategic_human_ai_layers_preserved",
@@ -1902,9 +1902,11 @@ void AIBT_SetupScenario(const int index)
 		case 0:
 		{
 			AIBT_SpawnTent(54);
-			@bot = AIBT_SpawnBot(54);
-			AIBT_SpawnWood(56, 120);
-			AIBT_ForceState(bot, AIBT_FIND_WOOD);
+			@bot = AIBT_SpawnBot(60);
+			AIBT_DisableStarterMaterials(bot);
+			CBlob@ tree = AIBT_SpawnTree(78, false);
+			AIBT_SetBlob("aibt_expected", tree);
+			AIBT_StartHarvest(bot);
 			break;
 		}
 
@@ -1912,12 +1914,9 @@ void AIBT_SetupScenario(const int index)
 		{
 			AIBT_SpawnTent(54);
 			@bot = AIBT_SpawnBot(54);
-			CBlob@ selected = AIBT_SpawnTree(64, true);
-			AIB_LogEvent("test", "simulate_tree_target", AIBT_BlobRef(bot), "target=" + AIBT_BlobRef(selected));
-			AIB_LogEvent("test", "simulate_tree_cut", AIBT_BlobRef(bot), "target=" + AIBT_BlobRef(selected));
-			AIB_LogEvent("test", "simulate_log_cut", AIBT_BlobRef(bot), "item=mat_wood quantity=120");
-			AIBT_GiveWood(bot, 120);
-			AIBT_StartHarvest(bot);
+			AIBT_DisableStarterMaterials(bot);
+			AIBT_GiveWood(bot, 240);
+			AIBT_ForceState(bot, AIBT_RETURN_WOOD);
 			break;
 		}
 
@@ -1928,6 +1927,7 @@ void AIBT_SetupScenario(const int index)
 			@bot = AIBT_SpawnBot(158);
 			CBlob@ selected = AIBT_SpawnTreeAt(124, 61, true);
 			AIBT_SetBlob("aibt_expected", selected);
+			getRules().set_f32("aibt gloryhill initial tree health", selected is null ? 0.0f : selected.getHealth());
 			AIBT_StartHarvest(bot);
 			break;
 		}
@@ -2157,7 +2157,9 @@ void AIBT_SetupScenario(const int index)
 
 		case 20:
 		{
-			AIBT_ForceResourceBarrierAroundMap();
+			// This aib_suite sector has no stone/gold ore tiles. Do not cover the
+			// home with the barrier: base resources inside the strip are correctly
+			// inaccessible and would invalidate the quarry-fallback fixture itself.
 			AIBT_SpawnTent(54);
 			@bot = AIBT_SpawnBot(54);
 			AIBT_DisableStarterMaterials(bot);
@@ -2168,7 +2170,8 @@ void AIBT_SetupScenario(const int index)
 
 		case 21:
 		{
-			AIBT_ForceResourceBarrierAroundMap();
+			// Natural ore is absent here, so the local quarry stack is the only
+			// available stone source without violating the production barrier rule.
 			AIBT_SpawnTent(54);
 			@bot = AIBT_SpawnBot(54);
 			AIBT_DisableStarterMaterials(bot);
@@ -2568,20 +2571,21 @@ void AIBT_SetupScenario(const int index)
 					{
 						u16 type = tileY == AIBT_GROUND_Y ? CMap::tile_ground : CMap::tile_empty;
 						const bool anchor = trap == 0 ? tileX == centerX - 2 : tileX == centerX + 2;
-						const bool ceiling = tileY == y - 1 && (tileX == centerX ||
-							(trap == 0 ? tileX == centerX - 1 : tileX == centerX + 1));
-						if ((anchor && tileY >= y - 1) || ceiling) type = CMap::tile_castle;
+						const bool upperDiagonal = tileY == y - 1 &&
+							(trap == 0 ? tileX == centerX - 1 : tileX == centerX + 1);
+						if ((anchor && tileY >= y - 1) || upperDiagonal) type = CMap::tile_castle;
 						if (tileX == (trap == 0 ? centerX - 6 : centerX + 6) && tileY == y - 3) type = CMap::tile_stone;
 						AIBT_SetTemporaryTile(tileX, tileY, type);
 					}
 				}
 			}
 
-			// Real mirrored traps: a castle ceiling plus one castle upper
-			// diagonal, joined to a castle column down into the foundation.  These
-			// non-mineable cells cannot collapse or be accidentally dug during the
-			// few ticks needed to observe recovery.  Body-height escape space stays
-			// open, and no obstruction/recovery state is preloaded.
+			// Real mirrored diagonal-only traps: one castle upper diagonal joined
+			// to a castle column down into the foundation, with the sample directly
+			// overhead deliberately empty.  These non-mineable cells cannot collapse
+			// or be accidentally dug during the few ticks needed to observe recovery.
+			// Body-height escape space stays open, and no obstruction/recovery state
+			// is preloaded.
 			bot.setPosition(AIBT_Pos(x, y));
 			bot.set_u8("ai builder job", AIBT_JOB_STONE);
 			bot.set_u8("ai builder state", AIBT_TUNNEL_TO_STONE);
@@ -2788,7 +2792,7 @@ void AIBT_SetupScenario(const int index)
 			AIBT_SpawnTentTeam(340, 1);
 			@bot = AIBT_SpawnBotTeam(206, 0);
 			AIBT_DisableStarterMaterials(bot);
-			CBlob@ survivingFlag = AIBT_Spawn("flag", 3, AIBT_Pos(74, AIBT_GROUND_Y - 2));
+			CBlob@ survivingFlag = AIBT_Spawn("ctf_flag", 3, AIBT_Pos(74, AIBT_GROUND_Y - 2));
 			CBlob@ lostResourceHome = AIBT_SpawnTentTeam(90, 3);
 			CBlob@ resourceWorker = AIBT_Spawn("aibuilder", 3, AIBT_Pos(96, AIBT_GROUND_Y - 2));
 			AIBT_DisableStarterMaterials(resourceWorker);
@@ -2797,7 +2801,7 @@ void AIBT_SetupScenario(const int index)
 			CBlob@ strategicWorker = AIBT_Spawn("aibuilder", 4, AIBT_Pos(146, AIBT_GROUND_Y - 2));
 			AIBT_DisableStarterMaterials(strategicWorker);
 			AIBT_SetBlob("aibt_strategic_home_loss_worker", strategicWorker);
-			CBlob@ stockFlag = AIBT_Spawn("flag", 5, AIBT_Pos(408, AIBT_GROUND_Y - 2));
+			CBlob@ stockFlag = AIBT_Spawn("ctf_flag", 5, AIBT_Pos(408, AIBT_GROUND_Y - 2));
 			CBlob@ stockHome = AIBT_SpawnTentTeam(410, 5);
 			CBlob@ secondaryHome = AIBT_SpawnTentTeam(300, 5);
 			CBlob@ stockRunner = AIBT_Spawn("aibuilder", 5, AIBT_Pos(302, AIBT_GROUND_Y - 2));
@@ -2901,6 +2905,7 @@ void AIBT_SetupScenario(const int index)
 			// contract used in normal CTF play.
 			CBlob@ crate = AIBT_Spawn("crate", 0, AIBT_Pos(homeX - 7, AIBT_GROUND_Y - 2));
 			if (crate !is null) crate.Tag("aibuilder resource crate");
+			AIBT_SetBlob("aibt_expected", crate);
 			@bot = AIBT_SpawnBot(homeX + 10);
 			AIBT_DisableStarterMaterials(bot);
 			AIBT_SetTemporaryTile(stoneX, stoneY, CMap::tile_stone);
@@ -3244,22 +3249,31 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 	{
 		case 0:
 		{
-			if (tent !is null && AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f) > 0)
+			CRules@ rules = getRules();
+			AIBT_RecordHarvestSceneDelta(bot, expected, tent);
+			if (expected !is null && bot.get_netid("ai builder target") == expected.getNetworkID())
+				rules.set_bool("aibt flat tree targeted", true);
+			if (expected is null || expected.hasTag("dead") || expected.hasTag("felldown") ||
+				bot.get_u8("ai builder state") == AIBT_FIND_LOG || bot.get_u8("ai builder state") == AIBT_CHOP_LOG)
+				rules.set_bool("aibt flat tree felled", true);
+			if (AIBT_HasLiveLog()) rules.set_bool("aibt flat log observed", true);
+			if (AIBT_CountInventoryMaterial(bot, "mat_wood") > 0 || bot.get_u8("ai builder state") == AIBT_RETURN_WOOD)
+				rules.set_bool("aibt flat wood acquired", true);
+			const u16 stored = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f);
+			if (rules.get_bool("aibt flat tree targeted") && rules.get_bool("aibt flat tree felled") &&
+				rules.get_bool("aibt flat log observed") && rules.get_bool("aibt flat wood acquired") &&
+				stored > 0 && AIBT_CountInventoryMaterial(bot, "mat_wood") == 0)
 			{
-				string shopDetails;
-				if (!AIBT_HasValidGroundedBuilderShop(tent, shopDetails))
-				{
-					failure = "invalid_storage_workshop " + shopDetails;
-					return true;
-				}
-				details = "wood_in_crates=" + AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f) +
-					" crates=" + AIBT_CountBlobsNear("crate", tent.getPosition(), 140.0f) +
-					" buildershops=" + AIBT_CountBlobsNear("buildershop", tent.getPosition(), 140.0f) + " " + shopDetails;
+				details = "tree_targeted=true tree_felled=true log_observed=true logs_processed=true wood_acquired=true wood_delivered=" + stored;
 				return true;
 			}
-			if (elapsed > 900)
+			if (elapsed > 1800)
 			{
-				failure = "timeout " + AIBT_DescribeBuilder(bot);
+				failure = "flat_harvest_pipeline_timeout targeted=" + (rules.get_bool("aibt flat tree targeted") ? "true" : "false") +
+					" felled=" + (rules.get_bool("aibt flat tree felled") ? "true" : "false") +
+					" log=" + (rules.get_bool("aibt flat log observed") ? "true" : "false") +
+					" acquired=" + (rules.get_bool("aibt flat wood acquired") ? "true" : "false") +
+					" stored=" + stored + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;
@@ -3267,22 +3281,23 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 1:
 		{
-			if (tent !is null && AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f) > 0 && AIBT_CountInventoryMaterial(bot, "mat_wood") == 0)
+			CBlob@ crate = AIBT_GetGroundedProductionResourceCrate(tent);
+			const u16 stored = crate is null ? 0 : AIBT_CountInventoryMaterial(crate, "mat_wood");
+			if (crate !is null && stored > 0 && AIBT_CountInventoryMaterial(bot, "mat_wood") == 0)
 			{
 				string shopDetails;
 				if (!AIBT_HasValidGroundedBuilderShop(tent, shopDetails))
 				{
-					failure = "invalid_storage_workshop " + shopDetails;
+					failure = "invalid_production_storage_workshop " + shopDetails;
 					return true;
 				}
-				details = "wood_in_crates=" + AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f) +
-					" crates=" + AIBT_CountBlobsNear("crate", tent.getPosition(), 140.0f) +
-					" buildershops=" + AIBT_CountBlobsNear("buildershop", tent.getPosition(), 140.0f) + " " + shopDetails;
+				details = "workshop_built=true grounded_resource_crate_built=true carried_wood_delivered=true stored_wood=" + stored + " " + shopDetails;
 				return true;
 			}
-			if (elapsed > 900)
+			if (elapsed > 600)
 			{
-				failure = "timeout " + AIBT_DescribeBuilder(bot);
+				failure = "grounded_storage_delivery_timeout crate=" + AIBT_BlobRef(crate) +
+					" stored=" + stored + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;
@@ -3290,26 +3305,36 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 2:
 		{
+			CRules@ rules = getRules();
 			CBlob@ target = getBlobByNetworkID(bot.get_netid("ai builder target"));
-			if (target !is null && elapsed >= 3)
+			if (target !is null && elapsed >= 3 && !rules.get_bool("aibt gloryhill path accepted"))
 			{
 				if (target !is expected)
 				{
 					failure = "wrong_gloryhill_tree_target expected=" + AIBT_BlobRef(expected) + " actual=" + AIBT_BlobRef(target);
+					return true;
 				}
 				else if (bot.get_bool("ai builder justgo"))
 				{
 					failure = "gloryhill_uphill_route_used_direct_shortcut " + AIBT_DescribeBuilder(bot);
+					return true;
 				}
 				else
 				{
-					details = "target=" + AIBT_BlobRef(target) + " pathfinder_route=true";
+					rules.set_bool("aibt gloryhill path accepted", true);
 				}
+			}
+			const bool treeHit = expected is null || expected.hasTag("dead") || expected.hasTag("felldown") ||
+				(expected.getHealth() < rules.get_f32("aibt gloryhill initial tree health"));
+			if (rules.get_bool("aibt gloryhill path accepted") && treeHit)
+			{
+				details = "target=" + AIBT_BlobRef(expected) + " pathfinder_route=true physical_tree_hit=true";
 				return true;
 			}
-			if (elapsed > 60)
+			if (elapsed > 1800)
 			{
-				failure = "timeout_gloryhill_route " + AIBT_DescribeBuilder(bot);
+				failure = "timeout_gloryhill_route path_accepted=" + (rules.get_bool("aibt gloryhill path accepted") ? "true" : "false") +
+					" tree_hit=" + (treeHit ? "true" : "false") + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;
@@ -3377,7 +3402,10 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 11:
 		{
 			CBlob@ target = getBlobByNetworkID(bot.get_netid("ai builder target"));
-			if (target is expected && (bot.getPosition().x > 318 * 8 || bot.get_Vec2f("ai builder destination") != Vec2f_zero))
+			// A destination is controller intent, not movement evidence.  The old
+			// alternative passed at elapsed tick 2 before the first horizontal key
+			// sample.  Require the runner to enter the obstacle region physically.
+			if (target is expected && bot.getPosition().x > 318 * 8)
 			{
 				details = "reached_obstacle_area=true " + AIBT_DescribeBuilder(bot);
 				return true;
@@ -3392,16 +3420,17 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 12:
 		{
-			if (bot.get_u8("ai builder state") == AIBT_RETURN_WOOD)
+			if (elapsed >= 90)
 			{
 				const u16 wood = AIBT_CountInventoryMaterial(bot, "mat_wood");
-				if (wood >= 120)
+				const bool waiting = bot.get_u32("ai builder status wait touched") + 1 >= getGameTime();
+				if (bot.get_u8("ai builder state") == AIBT_RETURN_WOOD && wood >= 120 && waiting)
 				{
-					details = "resource_retained=true waiting_for_home=true inv_wood=" + wood;
+					details = "resource_retained=true sustained_wait=true waiting_for_home=true inv_wood=" + wood;
 				}
 				else
 				{
-					failure = "resource_was_dropped_or_lost " + AIBT_DescribeBuilder(bot);
+					failure = "no_home_wait_contract_failed waiting=" + (waiting ? "true" : "false") + " " + AIBT_DescribeBuilder(bot);
 				}
 				return true;
 			}
@@ -3444,19 +3473,24 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 14:
 		{
+			CRules@ rules = getRules();
 			CBlob@ target = getBlobByNetworkID(bot.get_netid("ai builder target"));
-			if (target is expected && elapsed >= 10)
+			if (target is expected) rules.set_bool("aibt hill path target observed", true);
+			if (expected is null || expected.hasTag("dead") || expected.hasTag("felldown") ||
+				bot.get_u8("ai builder state") == AIBT_FIND_LOG || bot.get_u8("ai builder state") == AIBT_CHOP_LOG)
+				rules.set_bool("aibt hill path tree felled", true);
+			if (AIBT_HasLiveLog()) rules.set_bool("aibt hill path log observed", true);
+			if (rules.get_bool("aibt hill path target observed") && rules.get_bool("aibt hill path tree felled") &&
+				rules.get_bool("aibt hill path log observed"))
 			{
-				const f32 startX = 158 * 8 + 4;
-				if (bot.getPosition().x < startX - 12.0f && bot.get_Vec2f("ai builder destination") != Vec2f_zero)
-				{
-					details = "moved_toward_hill_tree=true " + AIBT_DescribeBuilder(bot);
-					return true;
-				}
+				details = "hill_tree_reached=true tree_felled=true log_observed=true " + AIBT_DescribeBuilder(bot);
+				return true;
 			}
-			if (elapsed > 360)
+			if (elapsed > 1800)
 			{
-				failure = "timeout_hill_movement " + AIBT_DescribeBuilder(bot);
+				failure = "timeout_hill_tree_outcome target=" + (rules.get_bool("aibt hill path target observed") ? "true" : "false") +
+					" felled=" + (rules.get_bool("aibt hill path tree felled") ? "true" : "false") +
+					" log=" + (rules.get_bool("aibt hill path log observed") ? "true" : "false") + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;
@@ -3567,13 +3601,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				details = "late_blueprint_target_acquired=true " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
-			if (rules !is null && rules.get_u8("aibt_pipeline_stage") == 1 &&
-				elapsed >= 40 && bot.get_u8("ai builder state") == AIBT_FIND_BLUEPRINT_BLOCK)
-			{
-				details = "late_blueprint_waiting_for_scan=true " + AIBT_DescribeBuilder(bot);
-				return true;
-			}
-			if (elapsed > 120)
+			if (elapsed > 240)
 			{
 				failure = "timeout_late_blueprint " + AIBT_DescribeBuilder(bot);
 				return true;
@@ -3735,9 +3763,10 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 23:
 		{
-			if (elapsed >= 20 && bot.get_u8("ai builder state") == AIBT_FIND_STONE && bot.get_Vec2f("ai builder tile target") == Vec2f_zero)
+			if (elapsed >= 90 && bot.get_u8("ai builder state") == AIBT_FIND_STONE &&
+				bot.get_Vec2f("ai builder tile target") == Vec2f_zero && bot.get_bool("ai builder job active"))
 			{
-				details = "stone_job_still_retrying=true " + AIBT_DescribeBuilder(bot);
+				details = "stone_job_remained_active=true no_safe_target=true sustained_ticks=90 " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			if (elapsed > 120)
@@ -3917,11 +3946,11 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				rules.get_bool("aibt right corner cycle complete");
 			CMap@ map = getMap();
 			const int y = AIBT_GROUND_Y - 2;
-			const bool trapTilesIntact = map.isTileCastle(map.getTile(AIBT_Pos(320, y - 1)).type) &&
+			const bool trapTilesIntact = !map.isTileSolid(AIBT_Pos(320, y - 1)) &&
 				map.isTileCastle(map.getTile(AIBT_Pos(319, y - 1)).type) &&
 				map.isTileCastle(map.getTile(AIBT_Pos(318, y - 1)).type) &&
 				map.isTileCastle(map.getTile(AIBT_Pos(318, AIBT_GROUND_Y)).type) &&
-				map.isTileCastle(map.getTile(AIBT_Pos(336, y - 1)).type) &&
+				!map.isTileSolid(AIBT_Pos(336, y - 1)) &&
 				map.isTileCastle(map.getTile(AIBT_Pos(337, y - 1)).type) &&
 				map.isTileCastle(map.getTile(AIBT_Pos(338, y - 1)).type) &&
 				map.isTileCastle(map.getTile(AIBT_Pos(338, AIBT_GROUND_Y)).type) &&
@@ -3930,8 +3959,8 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			if (rules.get_bool("aibt left corner escape observed") && rules.get_bool("aibt right corner escape observed") &&
 				cyclesComplete && leftMoved && rightMoved && trapTilesIntact)
 			{
-				details = "mirrored_corner_escape=true full_escape_cycle=true cooldown_latched=true obstruction_preload=false " +
-					"one_tile_displacement=true castle_traps_preserved=true";
+				details = "mirrored_corner_escape=true diagonal_only=true full_escape_cycle=true cooldown_latched=true " +
+					"obstruction_preload=false one_tile_displacement=true castle_traps_preserved=true";
 				return true;
 			}
 			if (elapsed > 150)
@@ -4302,7 +4331,18 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				details = "selected_stone_targeted=true real_tile_mined=true stone_acquired=true delivered_to_crate=" + stored + " gym_flags=none";
 				return true;
 			}
-			if (elapsed > 180)
+			if (rules.get_bool("aibt exposed stone acquired") && stored == 0 &&
+				bot.get_u8("ai builder state") == AIBT_RETURN_WOOD && bot.get_Vec2f("ai builder destination") == Vec2f_zero)
+			{
+				if (rules.get_u32("aibt exposed storage wait start") == 0)
+					rules.set_u32("aibt exposed storage wait start", getGameTime());
+				else if (getGameTime() - rules.get_u32("aibt exposed storage wait start") > 90)
+				{
+					failure = "exposed_stone_storage_rejected " + AIBT_DescribeResourceCrateEligibility(expected, tent, bot) + " " + AIBT_DescribeBuilder(bot);
+					return true;
+				}
+			}
+			if (elapsed > 600)
 			{
 				failure = "exposed_stone_pipeline_timeout targeted=" + (rules.get_bool("aibt exposed stone targeted") ? "true" : "false") +
 					" mined=" + (rules.get_bool("aibt exposed stone mined") ? "true" : "false") +
@@ -4321,10 +4361,12 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			if (expected is null || expected.hasTag("dead") || expected.hasTag("felldown") ||
 				bot.get_u8("ai builder state") == AIBT_FIND_LOG || bot.get_u8("ai builder state") == AIBT_CHOP_LOG)
 				rules.set_bool("aibt selected tree felled", true);
+			if (AIBT_HasLiveLog()) rules.set_bool("aibt selected tree log observed", true);
 			if (AIBT_CountInventoryMaterial(bot, "mat_wood") > 0 || bot.get_u8("ai builder state") == AIBT_RETURN_WOOD)
 				rules.set_bool("aibt selected tree wood acquired", true);
 			const u16 stored = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f);
 			if (rules.get_bool("aibt selected tree targeted") && rules.get_bool("aibt selected tree felled") &&
+				rules.get_bool("aibt selected tree log observed") &&
 				rules.get_bool("aibt selected tree wood acquired") && stored > 0 && AIBT_CountInventoryMaterial(bot, "mat_wood") == 0)
 			{
 				details = "accepted_tree_order=true selected_tree_targeted=true tree_felled=true logs_processed=true wood_acquired=true wood_delivered=" + stored + " gym_flags=none";
@@ -4334,6 +4376,7 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			{
 				failure = "gym_tree_pipeline_timeout targeted=" + (rules.get_bool("aibt selected tree targeted") ? "true" : "false") +
 					" felled=" + (rules.get_bool("aibt selected tree felled") ? "true" : "false") +
+					" log=" + (rules.get_bool("aibt selected tree log observed") ? "true" : "false") +
 					" acquired=" + (rules.get_bool("aibt selected tree wood acquired") ? "true" : "false") + " stored=" + stored + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
@@ -4873,6 +4916,70 @@ u16 AIBT_CountAllLiveMaterial(const string &in name)
 		total += material.getQuantity();
 	}
 	return u16(Maths::Min(total, 65535));
+}
+
+bool AIBT_HasLiveLog()
+{
+	CBlob@[] logs;
+	getBlobsByName("log", @logs);
+	for (uint i = 0; i < logs.length; i++)
+	{
+		CBlob@ log = logs[i];
+		if (log !is null && !log.hasTag("dead")) return true;
+	}
+	return false;
+}
+
+CBlob@ AIBT_GetGroundedProductionResourceCrate(CBlob@ home)
+{
+	if (home is null) return null;
+	CBlob@[] crates;
+	getBlobsByName("crate", @crates);
+	for (uint i = 0; i < crates.length; i++)
+	{
+		CBlob@ crate = crates[i];
+		if (crate is null || crate.hasTag("dead") || !crate.hasTag("aibuilder resource crate")) continue;
+		if (crate.getTeamNum() != home.getTeamNum() || crate.isAttached() || crate.isInInventory() || crate.exists("packed")) continue;
+		if (!crate.isOnGround() || crate.getInventory() is null) continue;
+		if ((crate.getPosition() - home.getPosition()).Length() > 140.0f) continue;
+		return crate;
+	}
+	return null;
+}
+
+string AIBT_DescribeResourceCrateEligibility(CBlob@ crate, CBlob@ home, CBlob@ bot)
+{
+	if (crate is null) return "crate=null";
+	Vec2f storage = AIBR_FindBaseStoragePoint(home);
+	CInventory@ crateInventory = crate.getInventory();
+	const bool inventory = crateInventory !is null;
+	const bool baseEligible = AIBR_IsBaseResourceCrate(crate, home, storage);
+	bool canTake = false;
+	if (crateInventory !is null && bot !is null)
+	{
+		CBlob@ carried = bot.getCarriedBlob();
+		if (carried !is null && carried.getName().substr(0, 4) == "mat_")
+			canTake = crateInventory.canPutItem(carried);
+		CInventory@ botInventory = bot.getInventory();
+		for (uint i = 0; !canTake && botInventory !is null && i < botInventory.getItemsCount(); i++)
+		{
+			CBlob@ item = botInventory.getItem(i);
+			if (item !is null && item.getName().substr(0, 4) == "mat_") canTake = crateInventory.canPutItem(item);
+		}
+	}
+	return "crate=" + AIBT_BlobRef(crate) +
+		" team=" + crate.getTeamNum() +
+		" dead=" + (crate.hasTag("dead") ? "true" : "false") +
+		" attached=" + (crate.isAttached() ? "true" : "false") +
+		" in_inventory=" + (crate.isInInventory() ? "true" : "false") +
+		" packed=" + (crate.exists("packed") ? "true" : "false") +
+		" grounded=" + (crate.isOnGround() ? "true" : "false") +
+		" inventory=" + (inventory ? "true" : "false") +
+		" base_eligible=" + (baseEligible ? "true" : "false") +
+		" can_take_while_held=" + (canTake ? "true" : "false") +
+		" crate_pos=" + AIB_EventPos(crate.getPosition()) +
+		" storage_pos=" + AIB_EventPos(storage) +
+		" storage_distance=" + (crate.getPosition() - storage).Length();
 }
 
 void AIBT_RecordSupportSceneDelta(CBlob@ bot, const int x, const int targetY, const int supportY)

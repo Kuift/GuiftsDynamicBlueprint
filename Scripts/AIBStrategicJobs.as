@@ -194,7 +194,7 @@ void AIBS_CollectBootstrapBlockers(array<Vec2f> &out blockerMins, array<Vec2f> &
 		if (other is null || other.hasTag("dead") || other.isInInventory()) continue;
 		const string name = other.getName();
 		const bool important = other.hasTag("building") || other.hasTag("player") || other.hasTag("flesh") ||
-			other.hasTag("vehicle") || other.isCollidable() || name == "flag" || name == "tent" || name == "hall" ||
+			other.hasTag("vehicle") || other.isCollidable() || name == "ctf_flag" || name == "tent" || name == "hall" ||
 			name == "crate" || name == "buildershop" || name == "aibuildershop";
 		if (!important) continue;
 

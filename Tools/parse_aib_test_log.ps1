@@ -46,11 +46,8 @@ $allScenarioPasses = $bootMatchesRequest -and $starts.Count -eq $requestedExpect
     $passes.Count -eq $requestedExpected -and $sequenceMatchesRequest
 
 if ($fails.Count -eq 0 -and $compileErrors.Count -eq 0 -and $configurationErrors.Count -eq 0 -and
-    (($done -and $doneCountsMatch) -or (!$done -and $allScenarioPasses))) {
+    $done -and $doneCountsMatch) {
     Write-Host "AIB tests passed: $($passes.Count) passed, 0 failed"
-    if (!$done) {
-        Write-Host "Note: missing [AIBTEST] DONE; all declared scenarios passed before KAG stopped advancing."
-    }
     Write-Host "Fresh log: $LogPath"
     exit 0
 }

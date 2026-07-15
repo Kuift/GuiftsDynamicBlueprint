@@ -12,10 +12,36 @@ void AIBS_AddTask(AIBPlanCandidate@ candidate, const int x, const int y, const u
 	candidate.tasks.push_back(BlueprintTask(u16(x), u16(y), block, phase == 255 ? AIBP_BlockPhase(block) : phase));
 }
 
+u16 AIBS_GatehouseGroundAt(const int anchorX)
+{
+	// Place the access floor at the highest surface across the shell plus one
+	// landing tile on each side.  Using only the center surface leaves either
+	// door unsupported on ordinary uneven CTF terrain.
+	u16 ground = AIBS_SurfaceAt(anchorX - 4);
+	for (int x = anchorX - 3; x <= anchorX + 4; x++) ground = Maths::Min(ground, AIBS_SurfaceAt(x));
+	return ground;
+}
+
+bool AIBS_GatehouseNeedsFoundationCell(const int x, const int y)
+{
+	CMap@ map = getMap();
+	if (map is null || x < 0 || y < 0 || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
+	return !map.isTileSolid(map.getTile(center).type);
+}
+
 AIBPlanCandidate@ AIBS_GatehouseTemplate(const int anchorX, const int groundY)
 {
 	AIBPlanCandidate@ c = AIBPlanCandidate();
 	c.intent = AIBStrategyIntent::flag_gatehouse; c.templateName = "flag_gatehouse"; c.anchor = Vec2f(anchorX, groundY);
+	// Existing terrain is already a legal floor.  Fill only the air cells needed
+	// to make a level nine-tile foundation/approach; these tasks remain part of
+	// the published production plan and may grow normal backwall dependencies.
+	for (int x = -4; x <= 4; x++)
+	{
+		if (AIBS_GatehouseNeedsFoundationCell(anchorX + x, groundY))
+			AIBS_AddTask(c, anchorX + x, groundY, AIBP_STONE_BLOCK, AIBP_Phase::foundation);
+	}
 	for (int x = -3; x <= 3; x++) AIBS_AddTask(c, anchorX + x, groundY - 5, AIBP_STONE_BLOCK, AIBP_Phase::shell);
 	for (int y = 3; y <= 4; y++)
 	{
@@ -33,7 +59,11 @@ AIBPlanCandidate@ AIBS_GatehouseTemplate(const int anchorX, const int groundY)
 	AIBS_AddTask(c, anchorX, groundY - 4, AIBP_EncodeBlock(AIBP_LADDER, 0), AIBP_Phase::access);
 	for (int y = 1; y <= 4; y++)
 	{
-		for (int x = -2; x <= 2; x++) AIBS_AddTask(c, anchorX + x, groundY - y, AIBP_STONE_BACKWALL, AIBP_Phase::foundation);
+		// The y=3 row is occupied by access-phase platforms/ladders.  Backwall
+		// directly above that row cannot be a foundation dependency without a
+		// phase cycle on maps whose air has no pre-existing background support.
+		const u8 phase = y == 4 ? AIBP_Phase::access : AIBP_Phase::foundation;
+		for (int x = -2; x <= 2; x++) AIBS_AddTask(c, anchorX + x, groundY - y, AIBP_STONE_BACKWALL, phase);
 	}
 	return c;
 }
@@ -143,11 +173,14 @@ void AIBS_GenerateCandidates(AIBWorldState@ world, array<AIBPlanCandidate@> &out
 	const int emergencyX = homeX + world.enemyDirection * 6;
 	const int highX = AIBS_FindHighGroundX(towerX, 10);
 	const int chokeX = AIBS_FindChokepointX(frontlineX, 12);
-	const int[] gateOffsets = { 0, -3, 3 };
+	// Start close to the flag, then search outward far enough to clear real CTF
+	// no-build sectors. Gloryhill's first legal terrain-adaptive gatehouse is 16
+	// tiles toward the enemy; 7/10/13 are legitimately blocked.
+	const int[] gateOffsets = { 0, -3, 3, 6, 9, 12 };
 	for (uint i = 0; i < gateOffsets.length; i++)
 	{
 		const int x = gateX + world.enemyDirection * gateOffsets[i];
-		candidates.push_back(AIBS_GatehouseTemplate(x, AIBS_SurfaceAt(x)));
+		candidates.push_back(AIBS_GatehouseTemplate(x, AIBS_GatehouseGroundAt(x)));
 	}
 	int[] tacticalAnchors = { chokeX, towerX, frontlineX - world.enemyDirection * 8 };
 	// Real CTF terrain can make all three semantic samples fail for unrelated

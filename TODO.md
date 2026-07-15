@@ -7,16 +7,16 @@ This file is the active backlog. Completed historical notes and old investigatio
 - Runtime-validate the remaining dirt-plug recovery route (registered as `kag_path_builds_supported_ladder_chain`).
   - Production now pays for and places only missing support backwalls, returns to simulation, and creates the ladder only after the engine recognizes support on a later tick.
   - A bounded one-shot probe records the post-ladder low-level node, hypothetical `AIB_GetMineablePathBlock` result, ray obstruction, and pathfinder acceptance.
-  - The focused scenario now requires the connected support tick to precede ladder creation, then requires a post-placement path and actual crossing while every dirt-plug tile remains intact. `Tools/test_aib_recovery_ladder_contract.ps1` pins the source ordering, but visible KAG evidence remains required.
+  - The focused scenario requires the connected support tick to precede ladder creation, then a post-placement path and actual crossing while every dirt-plug tile remains intact. The current arena crosses without creating a ladder, so it must be redesigned and rerun visibly in KAG.
 
 - Runtime-validate the production crate-storage lifecycle.
   - Grounded two-sided storage/workshop search, no-build/barrier/building rejection, and bounded same-base existing-workshop selection are implemented. The workshop fixture now keeps an unrelated remote same-team shop alive and requires the production selector to reject it in favor of a local shop.
-  - Overflow funding now counts only spendable builder inventory, confirms the builder payment leg before home storage, and refunds it if the home leg unexpectedly fails. `Tools/test_aib_overflow_storage_contract.ps1` pins this ordering and the exact conservation verdict.
+  - Overflow funding now counts only spendable builder inventory, confirms the builder payment leg before home storage, and refunds it if the home leg unexpectedly fails. Prove this ordering and exact conservation with the focused KAG outcome.
   - Run `full_crate_creates_grounded_overflow_storage` and require the corrected lightweight full-crate fixture to create/use distinct grounded secondary storage without material loss.
   - Rerun `blueprint_collects_home_materials` after the storage-selector change and require actual wood/stone withdrawal, both production placements, and exact material conservation.
 
 - Runtime-validate multiplayer AI state used by HUD and overseer UI.
-  - Authoritative job/state/active mutations sync immediately, creation force-publishes the trio, and the server brain republishes it on a network-ID-staggered five-second heartbeat. `Tools/test_aib_public_state_sync.ps1` pins those paths without claiming a real late join occurred.
+  - Authoritative job/state/active mutations sync immediately, creation force-publishes the trio, and the server brain republishes it on a network-ID-staggered five-second heartbeat. A real mid-match client join is required.
   - Join an active multiplayer match after builders have entered different wood/stone/blueprint states and verify the resource counters converge within five seconds without requiring another job transition.
   - Keep the canonical `"ai builder job"` enum as the resource role while its three values remain unambiguous; add a separate synced role only if future job semantics can no longer represent the HUD categories.
 
@@ -62,8 +62,8 @@ The current blueprint/editor code works, but it is too coupled and fragile. Most
 
 - Runtime-validate and finish authoritative live editing and AI-visible blueprint publication.
   - The server owns accepted add/remove/prefab/clear mutations, validates the active command player and overseer permission, rate-limits edits, updates the human/compatibility layers, and emits authoritative action boundaries. Same-value single-tile packets are now no-ops rather than version/telemetry churn.
-  - Tile deltas and full display snapshots use targeted rules commands for same-team players and spectators; enemy clients no longer receive another team's blueprint contents and merely discard them locally. `Tools/test_aib_editor_delta_authority.ps1` pins recipient, authority, rate, version, and HUD-defense paths.
-  - Blueprint saves use a committed rectangle independent of tree/stone/overseer gestures, reject save-before-selection, and retain inclusive 1x1/asymmetric dimensions through memory, PNG, packet, and authoritative-placement paths. `Tools/test_aib_blueprint_selection_roundtrip.ps1` pins the source contract.
+  - Tile deltas and full display snapshots use targeted rules commands for same-team players and spectators; validate recipient, authority, rate, version, and HUD defense with two teams plus a spectator.
+  - Blueprint saves use a committed rectangle independent of tree/stone/overseer gestures, reject save-before-selection, and retain inclusive 1x1/asymmetric dimensions through memory, PNG, packet, and authoritative-placement paths. Validate with a real save, KAG exit/restart, reload, and exact footprint comparison.
   - Live-test two teams plus a spectator: same-team and spectator clients must receive add/remove/prefab/clear updates, the enemy must not, and the AI-visible compatibility grid must match after every mutation and after AI consumption.
   - Runtime-save an asymmetric selection, restart KAG, reload its PNG, and verify the exact dimensions, orientation, rotation, preview footprint, and authoritative placement.
   - Add a physical fixture for a live ghost blueprint block being accepted and completed by an AI builder.

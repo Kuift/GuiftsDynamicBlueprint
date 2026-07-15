@@ -1,0 +1,44 @@
+AIBGYM|ARMED|run=gloryhill_4b_mixed_control_001
+AIBGYM|START|run=gloryhill_4b_mixed_control_001|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=150|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=300|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=450|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=600|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=750|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=900|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1050|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1200|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1350|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1500|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1650|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1800|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=1950|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=2100|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=2250|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=2400|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=2550|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=2700|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=2850|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3000|collected=590|delivered=590|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3150|collected=640|delivered=640|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3300|collected=684|delivered=684|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3450|collected=684|delivered=684|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3600|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3750|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=3900|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4050|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4200|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4350|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4500|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4650|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4800|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=4950|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=5100|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=5250|collected=724|delivered=724|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_mixed_control_001|elapsed=5400|collected=724|delivered=724|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_mixed_control_001 variant=control metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1620624680 initial_fingerprint=w1-3142477075-210x66-1620624680-4871-3945193546-1025-52-3948545759-3220769513-2466050567 builders=4 live_builders=4 order=mixed duration=5400 elapsed=5400 collected_wood=590 collected_stone=74 collected_gold=60 collected_total=724 delivered_wood=590 delivered_stone=74 delivered_gold=60 delivered_total=724 stock_delta_wood=190 stock_delta_stone=74 stock_delta_gold=60 deaths=0 failure_flags=1 idle_ticks=0 travel_px=31260.5 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_mixed_control_001 slot=0 collected_wood=320 collected_stone=0 collected_gold=0 collected_total=320 delivered_wood=320 delivered_stone=0 delivered_gold=0 delivered_total=320
+[AIBGYMB] schema=4 run=gloryhill_4b_mixed_control_001 slot=1 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_4b_mixed_control_001 slot=2 collected_wood=270 collected_stone=0 collected_gold=0 collected_total=270 delivered_wood=270 delivered_stone=0 delivered_gold=0 delivered_total=270
+[AIBGYMB] schema=4 run=gloryhill_4b_mixed_control_001 slot=3 collected_wood=0 collected_stone=74 collected_gold=60 collected_total=134 delivered_wood=0 delivered_stone=74 delivered_gold=60 delivered_total=134
+AIBGYM|RESULT|run=gloryhill_4b_mixed_control_001|status=result|metric=resource_collection_180s|collected=724|delivered=724|elapsed=5400|deaths=0|failures=1|reason=duration_complete

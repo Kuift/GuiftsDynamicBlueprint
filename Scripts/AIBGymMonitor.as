@@ -151,6 +151,16 @@ void AIBG_RecordRepath(CBlob@ blob)
 	blob.set_u16("aib gym repath count", blob.get_u16("aib gym repath count") + 1);
 }
 
+// The passive monitor runs before AIBuilderBrain's behavior for the current
+// tick. Engine input sampling can therefore miss action keys pressed later in
+// that callback. Production interaction helpers report successful actions
+// explicitly so stationary work is not misclassified as a movement stall.
+void AIBG_RecordInteraction(CBlob@ blob)
+{
+	if (blob is null) return;
+	blob.set_u16("aib gym interaction ticks", blob.get_u16("aib gym interaction ticks") + 1);
+}
+
 void AIBG_RecordInvalidBuild(CBlob@ blob, const string &in reason)
 {
 	if (blob is null) return;
@@ -261,10 +271,16 @@ void AIBG_Tick(CBrain@ brain, CBlob@ blob, const u8 state, const bool monitorabl
 	const u16 movementTicks = blob.get_u16("aib gym movement intent ticks");
 	const u8 jumps = blob.get_u8("aib gym jump attempts");
 	const f32 maxMove = blob.get_f32("aib gym max displacement");
-	u16 flags = AIBG_ClassifyWindow(movementTicks, maxMove, jumps, replans);
 	const u16 interactions = blob.get_u16("aib gym interaction ticks");
 	const u8 targetChanges = blob.get_u8("aib gym target changes");
 	const u8 outcomes = blob.get_u8("aib gym outcome changes");
+	u16 flags = AIBG_ClassifyWindow(movementTicks, maxMove, jumps, replans);
+	// Standing still while successfully mining/chopping/building is productive,
+	// not a movement failure. Keep independent loop/thrash bits, but remove the
+	// motion-only bit when the same window contains a confirmed interaction or
+	// inventory/plan outcome.
+	if ((flags & AIBG_FAILURE_MOTION_STALL) != 0 && (interactions > 0 || outcomes > 0))
+		flags -= AIBG_FAILURE_MOTION_STALL;
 	const u16 invalidAttempts = blob.get_u16("aib gym invalid build count") - blob.get_u16("aib gym invalid build baseline");
 	const bool activeIdle = state == AIBuilderState::idle && blob.get_bool("ai builder job active");
 	const u32 waitTouched = blob.get_u32("ai builder status wait touched");
@@ -306,10 +322,16 @@ void AIBG_Tick(CBrain@ brain, CBlob@ blob, const u8 state, const bool monitorabl
 		if (rules !is null && rules.gamemode_name == "CTF")
 		{
 			const Vec2f tile = blob.get_Vec2f("ai builder tile target");
+			const Vec2f destination = blob.get_Vec2f("ai builder destination");
+			const u16 targetID = blob.get_netid("ai builder target");
+			CBlob@ targetBlob = getBlobByNetworkID(targetID);
+			const Vec2f targetPos = targetBlob is null ? Vec2f_zero : targetBlob.getPosition();
 			print("[AIBGYM] v=1 t=" + now + " b=" + blob.getNetworkID() + " tm=" + blob.getTeamNum() +
 				" f=" + flags + " s=" + state + " x=" + int(blob.getPosition().x) + " y=" + int(blob.getPosition().y) +
 				" tx=" + int(tile.x) + " ty=" + int(tile.y) + " mv=" + int(maxMove) + " j=" + jumps +
-				" rp=" + replans + " in=" + interactions + " tg=" + targetChanges + " out=" + outcomes + " inv=" + invalidAttempts);
+				" rp=" + replans + " in=" + interactions + " tg=" + targetChanges + " out=" + outcomes + " inv=" + invalidAttempts +
+				" dx=" + int(destination.x) + " dy=" + int(destination.y) + " tb=" + targetID +
+				" bx=" + int(targetPos.x) + " by=" + int(targetPos.y));
 		}
 	}
 

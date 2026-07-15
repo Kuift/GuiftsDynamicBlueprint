@@ -34,7 +34,7 @@ CBlob@ AIBW_ArmNearestHome(const u8 team, const string &in name, Vec2f from)
 
 CBlob@ AIBW_ArmTeamHome(const u8 team)
 {
-	CBlob@ home = AIBW_ArmNearestHome(team, "flag", Vec2f_zero);
+	CBlob@ home = AIBW_ArmNearestHome(team, "ctf_flag", Vec2f_zero);
 	if (home !is null) return home;
 	@home = AIBW_ArmNearestHome(team, "tent", Vec2f_zero);
 	return home !is null ? home : AIBW_ArmNearestHome(team, "hall", Vec2f_zero);
@@ -42,7 +42,7 @@ CBlob@ AIBW_ArmTeamHome(const u8 team)
 
 CBlob@ AIBW_ArmEnemyHome(const u8 team, Vec2f from)
 {
-	string[] names = { "flag", "tent", "hall" };
+	string[] names = { "ctf_flag", "tent", "hall" };
 	for (uint n = 0; n < names.length; n++)
 	{
 		CBlob@[] homes;
@@ -231,6 +231,89 @@ bool AIB_HandleTelemetryCommand(CRules@ rules, const string &in text, CPlayer@ p
 	return true;
 }
 
+bool AIB_HandleGymCommand(CRules@ rules, const string &in text, CPlayer@ player)
+{
+	if (rules is null || player is null) return false;
+	string[]@ tokens = text.split(" ");
+	if (tokens.length == 0 || tokens[0] != "!aib_gym") return false;
+	if (!player.isMod())
+	{
+		SendChatMessage(rules, player, "[AIB Gym] moderator access required", SColor(255, 255, 80, 80));
+		return true;
+	}
+	if (tokens.length == 2 && tokens[1] == "status")
+	{
+		const bool infrastructure = rules.get_bool("aib infrastructure active") || rules.get_bool("aib infrastructure request");
+		SendChatMessage(rules, player, infrastructure ?
+			("[AIB Gym] " + rules.get_string("aib infrastructure status") + "; run=" + rules.get_string("aib infrastructure run id")) :
+			("[AIB Gym] " + rules.get_string("aib gym status") + "; run=" + rules.get_string("aib gym run id")),
+			SColor(255, 100, 210, 255));
+		return true;
+	}
+	if (tokens.length == 2 && tokens[1] == "stop")
+	{
+		if (rules.get_bool("aib infrastructure active") || rules.get_bool("aib infrastructure request"))
+			rules.set_bool("aib infrastructure stop requested", true);
+		else rules.set_bool("aib gym stop requested", true);
+		SendChatMessage(rules, player, "[AIB Gym] stop requested", SColor(255, 100, 210, 255));
+		return true;
+	}
+	if (tokens.length == 2 && tokens[1] == "infrastructure")
+	{
+		const s8 infrastructureTeam = player.getTeamNum();
+		if (infrastructureTeam < 0 || infrastructureTeam >= 8)
+		{
+			SendChatMessage(rules, player, "[AIB Gym] join a playing team before starting infrastructure", SColor(255, 255, 80, 80));
+			return true;
+		}
+		if (rules.get_bool("aib gym active") || rules.get_bool("aib gym request") ||
+			rules.get_bool("aib infrastructure active") || rules.get_bool("aib infrastructure request"))
+		{
+			SendChatMessage(rules, player, "[AIB Gym] another episode is active", SColor(255, 255, 80, 80));
+			return true;
+		}
+		rules.set_u8("aib infrastructure team", u8(infrastructureTeam));
+		rules.set_string("aib infrastructure variant", "manual");
+		rules.set_string("aib infrastructure run id", "manual_infrastructure_" + getGameTime());
+		rules.set_u32("aib infrastructure readiness deadline", 0);
+		rules.set_bool("aib infrastructure stop requested", false);
+		rules.set_bool("aib infrastructure request", true);
+		SendChatMessage(rules, player, "[AIB Gym] physical flag-gatehouse episode requested", SColor(255, 100, 210, 255));
+		return true;
+	}
+	if (tokens.length < 4 || tokens.length > 5 || tokens[1] != "resources")
+	{
+		SendChatMessage(rules, player, "[AIB Gym] usage: !aib_gym resources 1|4 wood|stone|mixed [10-180 seconds] | infrastructure | status | stop", SColor(255, 255, 220, 80));
+		return true;
+	}
+	const s8 team = player.getTeamNum();
+	const int builders = parseInt(tokens[2]);
+	const string order = tokens[3];
+	const int seconds = tokens.length == 5 ? parseInt(tokens[4]) : 180;
+	if (team < 0 || team >= 8 || (builders != 1 && builders != 4) ||
+		(order != "wood" && order != "stone" && order != "mixed") || (order == "mixed" && builders != 4) ||
+		seconds < 10 || seconds > 180)
+	{
+		SendChatMessage(rules, player, "[AIB Gym] invalid request; mixed requires four builders and duration must be 10-180 seconds", SColor(255, 255, 80, 80));
+		return true;
+	}
+	if (rules.get_bool("aib gym active") || rules.get_bool("aib gym request"))
+	{
+		SendChatMessage(rules, player, "[AIB Gym] another episode is active", SColor(255, 255, 80, 80));
+		return true;
+	}
+	rules.set_u8("aib gym team", u8(team));
+	rules.set_u8("aib gym builder count", u8(builders));
+	rules.set_string("aib gym resource order", order);
+	rules.set_u32("aib gym duration ticks", u32(seconds * 30));
+	rules.set_string("aib gym variant", "manual");
+	rules.set_string("aib gym run id", "manual_" + getGameTime());
+	rules.set_bool("aib gym stop requested", false);
+	rules.set_bool("aib gym request", true);
+	SendChatMessage(rules, player, "[AIB Gym] map-scoped " + seconds + "s resource episode requested for " + builders + " builder(s)", SColor(255, 100, 210, 255));
+	return true;
+}
+
 bool onServerProcessChat(CRules@ this, const string& in text_in, string& out text_out, CPlayer@ player)
 {
 	//--------MAKING CUSTOM COMMANDS-------//
@@ -327,6 +410,7 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 		return false;
 	}
 	if (AIB_HandleTelemetryCommand(this, text_in, player)) return false;
+	if (AIB_HandleGymCommand(this, text_in, player)) return false;
 
 	CBlob@ blob = player.getBlob(); // now, when the code references "blob," it means the player who called the command
 

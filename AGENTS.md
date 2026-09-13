@@ -1,5 +1,10 @@
 # GuiftsDynamicBlueprint_vDev Agent Notes
 
+New contributor/agent entry point: [START_HERE.md](START_HERE.md). It consolidates
+setup, code ownership, current priorities, evidence limits, and a starter prompt.
+Use [GOAL_HANDOFF.md](GOAL_HANDOFF.md) for the active queue; older dated notes below
+are not current acceptance claims. Runtime remains paused until explicitly resumed.
+
 Read `KAG_ENGINE_QUIRKS.md` before changing runtime, camera, pathing, test-launch, or handoff behavior. Add newly reproduced quirks there with reliable evidence and a workaround so later agents do not repeat the same failed assumption.
 
 The active map-scoped optimization resume point is `GOAL_HANDOFF.md`. Read it before continuing resource, infrastructure, traversal, workshop, or adversarial-survival work.
@@ -126,7 +131,7 @@ Automatic assignment requires an active plan with pending tasks and a non-empty 
 
 Active-plan invalidation may retain an already-matching completed task, but pending repairable damage must pass the current barrier-side, no-build, and protected-building gates before repairability can preserve the plan. A new live restriction must invalidate unsafe repair work rather than being skipped by the same-team damaged occupant. Safe damaged fronts must still retain plan identity. Validate safe retention and every live restriction through focused KAG scenarios.
 
-Generic obstruction recovery stages unsupported ladders in two paid phases. It places and charges only missing support backwalls, returns to simulation, and creates the ladder only after `hasSupportAtPos` recognizes the target on a later tick. Do not collapse this back into same-tick ladder-first creation or charge again for an existing backwall chain. The one-shot ladder path probe records the next low-level node, hypothetical mineable obstruction, and pathfinder acceptance; actual traversal remains the outcome proof. `kag_path_builds_supported_ladder_chain` must require support-before-spawn, a post-placement path probe, crossing the preserved dirt plug, and no partial-side-effect pass. The current fixture does not force ladder creation and must be redesigned before it can provide that evidence.
+Generic obstruction recovery stages unsupported ladders in two paid phases. It places and charges only missing support backwalls, returns to simulation, and creates the ladder only after `hasSupportAtPos` recognizes the target on a later tick. Do not collapse this back into same-tick ladder-first creation or charge again for an existing backwall chain. The one-shot ladder path probe records the next low-level node, hypothetical mineable obstruction, and pathfinder acceptance; actual traversal remains the outcome proof. `kag_path_builds_supported_ladder_chain` must require support-before-spawn, a post-placement path probe, crossing the preserved dirt plug, and no partial-side-effect pass. The redesigned seven-tile fixture passed the historical 65-scenario baseline with support-before-spawn, a later accepted probe, and physical crossing; see `AIB_TEST_AUDIT.md` and `KAG_ENGINE_QUIRKS.md`. That earlier pass does not validate the current unaccepted stone-reentry experiment.
 
 ### Stone mining
 

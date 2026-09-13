@@ -1,5 +1,11 @@
 # KAG Engine Research
 
+Project entry point: [START_HERE.md](../START_HERE.md). Follow
+[GOAL_HANDOFF.md](../GOAL_HANDOFF.md) for the runtime pause and current priorities.
+The source/contract-check goal below is historical: source-text behavioral tests
+were retired. [RUNTIME_TESTING.md](../RUNTIME_TESTING.md) owns current evidence
+policy; offline tests validate tools, and AngelScript requires visible KAG.
+
 This directory contains clean-room tooling and derived observations used to
 make Builder-AI development faster and more measurable. It must not contain a
 copy of `KAG.exe`, a companion debug file, bulk strings, disassembly, or bulk

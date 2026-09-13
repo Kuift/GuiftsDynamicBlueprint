@@ -1,5 +1,9 @@
 # AI Builder Pathing Plan
 
+Historical investigation. Current movement ownership and open route failures are
+mapped in [START_HERE.md](START_HERE.md), [GOAL_HANDOFF.md](GOAL_HANDOFF.md), and
+[the build-4762 pathing report](research/notes/BUILD_4762_BUILDER_PATHING_MAP.md).
+
 ## Problem Case
 
 On `8x_Gloryhill`, the leftmost tree sits above the team tent. The useful route is not a direct jump toward the tree: the builder has to move farther left, climb the hill, then approach the tree from the higher ground.

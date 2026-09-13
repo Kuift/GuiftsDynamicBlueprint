@@ -1,5 +1,10 @@
 # AI Blueprint Director Implementation Status
 
+Historical implementation/evidence ledger. For current status and next steps,
+read [START_HERE.md](START_HERE.md), [GOAL_HANDOFF.md](GOAL_HANDOFF.md), and
+[AIB_TEST_AUDIT.md](AIB_TEST_AUDIT.md). The current source has 78 scenarios,
+no complete current-suite pass, and an unaccepted stone-reentry experiment.
+
 Updated: 2026-07-14
 
 ## Executive Status

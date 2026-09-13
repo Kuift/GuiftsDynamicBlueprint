@@ -1,6 +1,11 @@
 # TODO
 
-This file is the active backlog. Completed historical notes and old investigation logs have been removed; keep only work that still needs to be done.
+This is a secondary editor/refactor backlog with historical runtime items.
+Read [START_HERE.md](START_HERE.md) and [GOAL_HANDOFF.md](GOAL_HANDOFF.md) for the
+active queue. The recovery-ladder redesign and storage fixes below gained later
+focused evidence; use [AIB_TEST_AUDIT.md](AIB_TEST_AUDIT.md) to establish the
+current proof before repeating them. The current stone-reentry experiment remains
+unaccepted, and the current 78-scenario source has no complete passing suite.
 
 ## AI Builder
 

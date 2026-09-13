@@ -1,5 +1,12 @@
 # Testing Methodology Planning
 
+Historical test design, not the current launch policy. The headless guidance,
+13-scenario count, simulated harvest shortcuts, and log-only stall interpretation
+below are superseded. Read [START_HERE.md](START_HERE.md),
+[RUNTIME_TESTING.md](RUNTIME_TESTING.md), and [AIB_TEST_AUDIT.md](AIB_TEST_AUDIT.md).
+Runtime is paused; when resumed, KAG runs must be visible and follow the active
+exact-map priority in [GOAL_HANDOFF.md](GOAL_HANDOFF.md).
+
 ## Current Implementation Status
 
 Implemented in this mod:

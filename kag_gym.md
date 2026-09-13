@@ -1,5 +1,9 @@
 # KAG Gym Plan
 
+Start with [START_HERE.md](START_HERE.md) and [GOAL_HANDOFF.md](GOAL_HANDOFF.md).
+This document retains the gym architecture and historical execution/evidence
+trail; its older queue items and passes are not current-source acceptance.
+
 ## Purpose
 
 KAG Gym is a deterministic, server-authoritative evaluation system for AI builders and the strategic blueprint director. Its job is to turn failures such as “does nothing,” “jumps in place,” “cannot mine,” “cannot build,” or “chooses a harmful plan” into short reproducible episodes with a machine-readable diagnosis.

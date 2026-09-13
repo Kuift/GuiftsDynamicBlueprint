@@ -1,5 +1,9 @@
 # AI Blueprint Direction
 
+Onboarding: [START_HERE.md](START_HERE.md). This document retains the product
+mission and architectural direction. Its dated immediate-work/evidence sections
+are superseded by [GOAL_HANDOFF.md](GOAL_HANDOFF.md) for the active resume order.
+
 ## Mission
 
 Build a public-test-ready RTS-style builder system in which a strategic director observes the KAG world, publishes safe and useful construction plans, provisions and coordinates AI builders, and improves from deterministic gym evidence plus privacy-bounded public player demonstrations.

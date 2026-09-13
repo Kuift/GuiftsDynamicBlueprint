@@ -2,6 +2,12 @@
 
 Updated: 2026-07-20
 
+Packaging note (2026-09-13): [START_HERE.md](START_HERE.md) is the consolidated
+onboarding guide. Branch `handoff/astra-2026-09-13`, source snapshot `af1f6cd`,
+preserves this paused state and its retained artifacts. All ten offline tool
+regressions passed during packaging; no KAG launch or new runtime verdict occurred.
+The active priority order and runtime pause below remain in force.
+
 ## Status
 
 The optimization goal is still active; it is not complete or blocked. Protected class-workshop construction, friendly physical access, the stone-door gatehouse treatment, the two-column workshop enemy wall, the 48-trial adversarial survival matrix, the supported-quarry/refined stone-return milestone, and the redesigned recovery-ladder fixture are accepted. The `untitled.png` underground-retarget deadlock is fixed by the bounded continue-or-return policy described below, and the later return-corner routing lock is fixed by centered two-column shaft rejoin plus bounded vertical ownership. This continuation also preserves a live stone-route rejection across same-job delivery, fixes the reproduced unsupported shaft/cross-tunnel handoff loop with directional progress plus a seam-only bound, and fixes a newly isolated stone-return latch/release loop by making progress phase-directional and wall samples topology-stable. On an identical complete Gloryhill fingerprint, the longest completed underground return fell from 2,655 ticks to 115; this is causal routing evidence, not a throughput claim. EventLog confirms that the open `(220,308)` destination is the exact local base `buildershop`; two forced probes reached their selected shop, so a blanket shop-center/siting change is not justified and the original terminal pocket remains an independent open case. The last green complete regression is `../../Logs/console-26-07-18-18-49-07.txt` with `[AIBTEST] DONE passed=65 failed=0`, but the working tree now contains an explicitly unaccepted stone-reentry experiment described immediately below. KAG is closed, no KAG process remains, and startup is CTF with a blank mapcycle and all AIBTest scenario selectors blank.

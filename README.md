@@ -1,4 +1,12 @@
-# CONTROLS :
+# GuiftsDynamicBlueprint
+
+**Taking over development? Read [START_HERE.md](START_HERE.md).** It contains the
+checkout/setup instructions, code map, current blockers, reading order, and a
+copy-paste agent prompt. The handoff branch is `handoff/astra-2026-09-13`.
+This is an unfinished development checkpoint; the current 78-scenario source
+has no complete passing runtime run. See [GOAL_HANDOFF.md](GOAL_HANDOFF.md).
+
+## Controls
 
 Project direction: `ai_blueprint_direction.md`. Detailed deterministic gym architecture and current execution queue: `kag_gym.md`. Runtime map-scoped score semantics: `AIB_GYM_METRICS.md`. The current resumable optimization checkpoint is `GOAL_HANDOFF.md`.
 
@@ -79,7 +87,7 @@ An active plan retains ordinary same-team damaged tiles for repair, but only whi
 
 For paired in-engine pressure trials on a fresh map with the match actively running (not staging), moderators can run `!aib_wave <seed> control [knight|archer|bomb|mixed]` and `!aib_wave <seed> plan [knight|archer|bomb|mixed]`. Use the same seed and scenario on separately restarted maps. The harness aborts `match_not_running` before measurement capture if KAG is still staging. Its deterministic direct controller measures actual forward displacement, uses bounded jump holds when that progress stalls, and releases all synthetic controls when the trial finishes. A run with no crossing, death, flag approach, or tracked structure damage aborts `no_pressure_outcome` instead of emitting a comparable result. Strategy event logging records breach timing, crossings, deaths, flag approaches, completion and damage timing, structure lifetime, builder travel/idle time, reservation conflicts, replans, route preservation, and estimated absorbed cost.
 
-After collecting both variants, compare the result logs with `Tools/compare_aib_wave_results.ps1 -LogPath <log paths>`. Records identify fixture id/version, team, left/right side, scenario, seed, canonical pre-warm-up fingerprint, and post-warm-up measurement fingerprint. Fixture version 3 uses one shared `w1` world manifest at both boundaries, including terrain, no-build coverage, blobs/inventories, barriers, blueprint layers, and task state. Pairing occurs only inside that complete fixture/team identity, requires exactly one control and one plan, and defaults to at least three distinct seeds per cohort. All wave types vary deterministic spawn cadence and formation with the seed. No live paired dataset is currently recorded. `Tools/test_compare_aib_wave_results.ps1` tests only the offline comparator; the AngelScript identity/fingerprint hooks require fresh paired KAG runs.
+Compare paired result logs with `Tools/compare_aib_wave_results.ps1 -LogPath <log paths> -RequireAcceptanceGates`. The current fixture is version 4: it measures a local grounded corridor with at most one production worker plus seven attackers, exact fixture/team/side/scenario/seed identity, and canonical/measurement fingerprints. The retained `Artifacts/aib_gym/wave_v4_bombsafe_20260718_*.tcpr.txt` dataset contains 48 trials and 24 accepted control/plan pairs across both sides, four scenarios, and three seeds. It validates that named historical fixture, not every map or the current workshop geometry. See [GOAL_HANDOFF.md](GOAL_HANDOFF.md) and [AIB_GYM_METRICS.md](AIB_GYM_METRICS.md) for exact evidence limits; offline comparator tests alone do not validate KAG behavior.
 
 Generate the required two-side, four-scenario, three-seed control/plan collection manifest with `Tools/new_aib_wave_matrix.ps1 -FixtureId <id> -OutputPath <matrix.ndjson>`. The default is exactly 48 ordered trials / 24 pairs, and every record requires a fresh canonical reset. This manifest prevents omissions and duplicate sampling; it does not perform the KAG reset or run the trial itself. Its regression is `Tools/test_new_aib_wave_matrix.ps1`.
 
@@ -108,7 +116,11 @@ KAG can still stop advancing during visible localhost runs. The last complete ba
 # INSTALLATION FOR HOST
 Enable this mod and add `CustomRenderer.as` to the applicable gamemode script list through this mod's override under `Rules`. Do not edit `King Arthur's Gold/Base`; files in this mod override matching base-game files.
 
-## TODO:
+## Historical editor wishlist
+
+These older ideas are not the current implementation checklist; several have
+since been implemented. Use [START_HERE.md](START_HERE.md) for active priorities
+and [TODO.md](TODO.md) for the secondary editor backlog.
 ### Live editor todo:
 * make selection actually select the right area
 * make it possible to rotate 2d sprite larger than 8x8
@@ -153,3 +165,5 @@ Enable this mod and add `CustomRenderer.as` to the applicable gamemode script li
     - kind of an addon/gamemode where there's one overseer per team that tell the team what to do
 
 ## Code structure
+
+See the [code map in START_HERE.md](START_HERE.md#where-the-code-lives).

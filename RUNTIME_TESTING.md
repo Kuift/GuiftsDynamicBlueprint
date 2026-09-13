@@ -1,5 +1,12 @@
 # Runtime testing policy
 
+Current entry point: [START_HERE.md](START_HERE.md). Runtime remains paused under
+[GOAL_HANDOFF.md](GOAL_HANDOFF.md); the commands below are reference instructions,
+not authorization to resume. The first resumed validation is fresh visible
+normal CTF on official `Ferrezinhre_Totally_Transcendent`. Older references below
+to the "current full suite" mean the historical 65-scenario baseline; no complete
+78-scenario pass exists for this checkpoint.
+
 AngelScript behavior and compilation are validated inside a visible KAG process. The local TCPR bridge carries compiler diagnostics, authoritative scenario acknowledgements, progress metrics, and final verdicts. Do not recreate source-text/regex “contract tests” as substitutes for loading and exercising the code in KAG.
 
 `AIB_TEST_AUDIT.md` records the claim strength and runtime status of every current scenario. Keep focused passes, source-inspected assertions, and unresolved weak fixtures distinct.

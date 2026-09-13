@@ -1,5 +1,10 @@
 # AI Blueprint Director Handoff
 
+Historical design and session ledger. Begin with [START_HERE.md](START_HERE.md)
+and follow [GOAL_HANDOFF.md](GOAL_HANDOFF.md) for current work and runtime-pause
+instructions. Older launch permissions, test counts, and next-step lists in this
+file do not override that checkpoint or prove the current source is green.
+
 > The deterministic director prototype is implemented, and normal CTF now runs it in autonomous mode by default. Production-heartbeat coverage proves plan selection with no builder, guarded first-worker provisioning, deterministic assignment, task reservation, and physical completion of director-authored work. Strategic quality across representative maps and attacks is still unproven.
 >
 > Overall progress: **82%**. Treat `AI_BLUEPRINT_DIRECTOR_IMPLEMENTATION_STATUS.md` as the authoritative current checkpoint, evidence record, remaining acceptance gates, and future-agent resume guide. This document remains the design contract.

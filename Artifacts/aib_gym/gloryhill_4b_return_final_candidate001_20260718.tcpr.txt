@@ -1,0 +1,44 @@
+AIBGYM|ARMED|run=gloryhill_4b_return_final_candidate001_20260718
+AIBGYM|START|run=gloryhill_4b_return_final_candidate001_20260718|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=150|collected=50|delivered=50|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=300|collected=78|delivered=78|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=450|collected=138|delivered=138|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=600|collected=138|delivered=138|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=750|collected=138|delivered=138|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=900|collected=456|delivered=456|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1050|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1200|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1350|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1500|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1650|collected=936|delivered=936|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1800|collected=1188|delivered=1188|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=1950|collected=1458|delivered=1458|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=2100|collected=1458|delivered=1458|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=2250|collected=1458|delivered=1458|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=2400|collected=1542|delivered=1542|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=2550|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=2700|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=2850|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3000|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3150|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3300|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3450|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3600|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3750|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=3900|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4050|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4200|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4350|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4500|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4650|collected=1628|delivered=1628|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4800|collected=1698|delivered=1698|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=4950|collected=1698|delivered=1698|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=5100|collected=1698|delivered=1698|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=5250|collected=1698|delivered=1698|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_final_candidate001_20260718|elapsed=5400|collected=1698|delivered=1698|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_return_final_candidate001_20260718 variant=candidate metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-1784350196-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=5400 elapsed=5400 collected_wood=680 collected_stone=938 collected_gold=80 collected_total=1698 delivered_wood=680 delivered_stone=938 delivered_gold=80 delivered_total=1698 stock_delta_wood=480 stock_delta_stone=888 stock_delta_gold=80 deaths=0 failure_flags=1 idle_ticks=0 travel_px=26542.3 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_return_final_candidate001_20260718 slot=0 collected_wood=300 collected_stone=0 collected_gold=0 collected_total=300 delivered_wood=300 delivered_stone=0 delivered_gold=0 delivered_total=300
+[AIBGYMB] schema=4 run=gloryhill_4b_return_final_candidate001_20260718 slot=1 collected_wood=0 collected_stone=506 collected_gold=48 collected_total=554 delivered_wood=0 delivered_stone=506 delivered_gold=48 delivered_total=554
+[AIBGYMB] schema=4 run=gloryhill_4b_return_final_candidate001_20260718 slot=2 collected_wood=380 collected_stone=0 collected_gold=0 collected_total=380 delivered_wood=380 delivered_stone=0 delivered_gold=0 delivered_total=380
+[AIBGYMB] schema=4 run=gloryhill_4b_return_final_candidate001_20260718 slot=3 collected_wood=0 collected_stone=432 collected_gold=32 collected_total=464 delivered_wood=0 delivered_stone=432 delivered_gold=32 delivered_total=464
+AIBGYM|RESULT|run=gloryhill_4b_return_final_candidate001_20260718|status=result|metric=resource_collection_180s|collected=1698|delivered=1698|elapsed=5400|deaths=0|failures=1|reason=duration_complete

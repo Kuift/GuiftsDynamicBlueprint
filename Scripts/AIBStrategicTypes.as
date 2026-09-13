@@ -8,8 +8,82 @@ namespace AIBStrategyIntent
 		frontline_tower,
 		emergency_barrier,
 		archer_perch,
-		access_route
+		access_route,
+		protected_workshops,
+		guide_flag_room,
+		guide_home_tunnel,
+		guide_quarry_storage,
+		guide_front_tunnel
 	}
+}
+
+// Chapter 1 structures are an ordered production curriculum, not merely score
+// suggestions competing with the older experimental templates.  Keep the
+// stable intent values above for archived telemetry while mapping them onto the
+// current guide sequence here.
+namespace AIBGuideStage
+{
+	enum stage
+	{
+		home_core = 0,
+		frontline_tower,
+		protected_shops,
+		home_tunnel,
+		front_tunnel,
+		quarry_storage,
+		count,
+		none = 255
+	}
+}
+
+const u8 AIBS_GUIDE_POLICY_VERSION = 2;
+
+u8 AIBS_GuideStageForIntent(const u8 intent)
+{
+	if (intent == AIBStrategyIntent::guide_flag_room) return AIBGuideStage::home_core;
+	if (intent == AIBStrategyIntent::frontline_tower) return AIBGuideStage::frontline_tower;
+	if (intent == AIBStrategyIntent::protected_workshops) return AIBGuideStage::protected_shops;
+	if (intent == AIBStrategyIntent::guide_home_tunnel) return AIBGuideStage::home_tunnel;
+	if (intent == AIBStrategyIntent::guide_front_tunnel) return AIBGuideStage::front_tunnel;
+	if (intent == AIBStrategyIntent::guide_quarry_storage) return AIBGuideStage::quarry_storage;
+	return AIBGuideStage::none;
+}
+
+string AIBS_GuideStageName(const u8 stage)
+{
+	if (stage == AIBGuideStage::home_core) return "home core";
+	if (stage == AIBGuideStage::frontline_tower) return "frontline tower";
+	if (stage == AIBGuideStage::protected_shops) return "protected shops";
+	if (stage == AIBGuideStage::home_tunnel) return "home tunnel";
+	if (stage == AIBGuideStage::front_tunnel) return "front tunnel";
+	if (stage == AIBGuideStage::quarry_storage) return "quarry storage";
+	return "";
+}
+
+string AIBS_GuideStageKey(const u8 team, const u8 stage)
+{
+	return "aib guide completed " + AIBS_GuideStageName(stage) + " team " + int(team);
+}
+
+bool AIBS_GuideStageComplete(CRules@ rules, const u8 team, const u8 stage)
+{
+	return rules !is null && stage < AIBGuideStage::count && rules.get_bool(AIBS_GuideStageKey(team, stage));
+}
+
+u8 AIBS_FirstIncompleteGuideStage(CRules@ rules, const u8 team)
+{
+	for (u8 stage = 0; stage < AIBGuideStage::count; stage++)
+	{
+		if (!AIBS_GuideStageComplete(rules, team, stage)) return stage;
+	}
+	return AIBGuideStage::none;
+}
+
+bool AIBS_IsLegacyProductionIntent(const u8 intent)
+{
+	return intent == AIBStrategyIntent::flag_gatehouse ||
+		intent == AIBStrategyIntent::archer_perch ||
+		intent == AIBStrategyIntent::access_route;
 }
 
 class BlueprintTask
@@ -71,6 +145,7 @@ class AIBWorldState
 	u16 friendlyFlags;
 	u16 friendlyTents;
 	u16 friendlyHalls;
+	u16 friendlyQuarries;
 	u16 enemyFlags;
 	u16 enemyTents;
 	u16 enemyHalls;
@@ -80,6 +155,7 @@ class AIBWorldState
 	f32 recentAttacks;
 	u16 storedWood;
 	u16 storedStone;
+	u16 storedGold;
 	u16 planPending;
 	u16 planCompleted;
 	u16 planDamaged;

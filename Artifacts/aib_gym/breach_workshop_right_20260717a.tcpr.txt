@@ -1,0 +1,17 @@
+AIBGYMI|WORKSHOP_SITES|run=breach_workshop_right_20260717a|resource_home=197,35|sites=14@183,29:rise0:valid
+AIBGYMI|START|run=breach_workshop_right_20260717a|metric=workshops_breach|tasks=69|anchor=183,29
+AIBGYMI|ARMED|run=breach_workshop_right_20260717a
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=team_settle_requested|class=none|x=0|y=0
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=team_holder_stable|class=builder|x=1580|y=288.301
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=home_route_started|class=builder|x=1556|y=300
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=home_landing_reached|class=builder|x=1552.32|y=216.318
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=knight_shop_overlap|class=builder|x=1528.36|y=224.31
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=knight_shop_used|class=knight|x=1521.56|y=224.3
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=archer_shop_overlap|class=knight|x=1464.91|y=224.3
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=archer_shop_used|class=archer|x=1456.23|y=224.3
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=enemy_team_settle_requested|class=none|x=0|y=0
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=enemy_team_holder_stable|class=builder|x=100|y=288.301
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=enemy_builder_bound|class=builder|x=1396|y=228
+AIBGYMI|PROBE|run=breach_workshop_right_20260717a|boundary=enemy_input_started|class=builder|x=1396|y=228
+[AIBGYMI] schema=4 status=result run=breach_workshop_right_20260717a variant=diagnostic metric=protected_class_workshops_enemy_breach_physical fixture_id=map_3142477075_210x66 fixture_version=3 team=1 enemy_team=0 team_side=right map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=3623195224 initial_fingerprint=w1-3142477075-210x66-3623195224-4870-3945193546-1025-56-2269208034-1298017017-2466050567 template=protected_workshops anchor_x=183 ground_y=29 enemy_direction=-1 plan_id=3 plan_version=2 tasks=69 initial_matches=0 physical_matches=69 completed=69 pending=0 reservations=0 work_tiles=0 pre_attack_physical_matches=69 pre_attack_foundation_matches=45 pre_attack_access_matches=0 pre_attack_shell_matches=23 pre_attack_plan_complete=true archived_complete=true physical_matches_final=68 foundation_matches_final=45 access_matches_final=0 shell_matches_final=22 friendly_validated=true ally_home_entered=true ally_home_exited=true ally_traversal_ticks=909 ally_final_x=1540.82 ally_final_y=224.3 enemy_probe_real=true enemy_class=builder enemy_attack_kind=pickaxe enemy_player_bound=true enemy_attack_origin=client_existing_pickaxe_command enemy_movement_controller=server_bounded_velocity enemy_pickaxe_commands=2 enemy_contact=true enemy_damage_observed=true enemy_entered=false enemy_crossed=false enemy_initial_blockers=4 enemy_final_blockers=3 enemy_initial_blocker_health=5 enemy_final_blocker_health=5 enemy_first_command_ticks=0 enemy_last_command_ticks=12 enemy_first_contact_ticks=1 enemy_first_damage_ticks=1 enemy_entry_ticks=0 enemy_crossing_ticks=0 enemy_probe_ticks=900 enemy_outcome=invalid enemy_final_x=1520.3 enemy_final_y=312.3 completion_tick=2096 elapsed=4589 ai_actor_cap=8 managed_actor_peak=2 passed=false reason=enemy_probe_no_valid_damage_interaction
+AIBGYMI|RESULT|run=breach_workshop_right_20260717a|passed=false|reason=enemy_probe_no_valid_damage_interaction

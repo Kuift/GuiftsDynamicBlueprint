@@ -10,197 +10,10 @@
 #include "AutoBuilderCommon.as";
 #include "AIBDirectorPolicy.as";
 #include "AIBTelemetryPolicy.as";
-#include "AIBWorldFingerprint.as";
 #include "AIBManualOrderCommon.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
 const uint ChatCommandDelay = 3 * 30; // Cooldown in seconds
-
-CBlob@ AIBW_ArmNearestHome(const u8 team, const string &in name, Vec2f from)
-{
-	CBlob@[] blobs;
-	getBlobsByName(name, @blobs);
-	CBlob@ best = null;
-	f32 bestDistance = 99999999.0f;
-	for (uint i = 0; i < blobs.length; i++)
-	{
-		CBlob@ candidate = blobs[i];
-		if (candidate is null || candidate.hasTag("dead") || candidate.getTeamNum() != team) continue;
-		const f32 distance = (candidate.getPosition() - from).LengthSquared();
-		if (distance < bestDistance) { bestDistance = distance; @best = candidate; }
-	}
-	return best;
-}
-
-CBlob@ AIBW_ArmTeamHome(const u8 team)
-{
-	CBlob@ home = AIBW_ArmNearestHome(team, "ctf_flag", Vec2f_zero);
-	if (home !is null) return home;
-	@home = AIBW_ArmNearestHome(team, "tent", Vec2f_zero);
-	return home !is null ? home : AIBW_ArmNearestHome(team, "hall", Vec2f_zero);
-}
-
-CBlob@ AIBW_ArmEnemyHome(const u8 team, Vec2f from)
-{
-	string[] names = { "ctf_flag", "tent", "hall" };
-	for (uint n = 0; n < names.length; n++)
-	{
-		CBlob@[] homes;
-		getBlobsByName(names[n], @homes);
-		CBlob@ best = null;
-		f32 bestDistance = 99999999.0f;
-		for (uint i = 0; i < homes.length; i++)
-		{
-			CBlob@ candidate = homes[i];
-			if (candidate is null || candidate.hasTag("dead") || candidate.getTeamNum() == team || candidate.getTeamNum() >= 100) continue;
-			const f32 distance = (candidate.getPosition() - from).LengthSquared();
-			if (distance < bestDistance) { bestDistance = distance; @best = candidate; }
-		}
-		if (best !is null) return best;
-	}
-	return null;
-}
-
-u16 AIBW_ArmStoredMaterial(const u8 team, const string &in material)
-{
-	u32 total = 0;
-	string[] names = { "tent", "hall", "crate", "buildershop", "aibuilder" };
-	for (uint n = 0; n < names.length; n++)
-	{
-		CBlob@[] blobs;
-		getBlobsByName(names[n], @blobs);
-		for (uint i = 0; i < blobs.length; i++)
-		{
-			CBlob@ storage = blobs[i];
-			if (storage is null || storage.hasTag("dead") || storage.getTeamNum() != team) continue;
-			CInventory@ inventory = storage.getInventory();
-			if (inventory !is null) total += inventory.getCount(material);
-		}
-	}
-	return u16(Maths::Min(total, 65535));
-}
-
-bool AIBW_CaptureArmState(CRules@ rules, const u8 team)
-{
-	if (rules is null) return false;
-	rules.set_bool("aib wave initial captured", false);
-	rules.set_string("aib wave initial fingerprint", "");
-	CMap@ map = getMap();
-	if (map is null || map.tilemapwidth == 0 || map.tilemapheight == 0) return false;
-	CBlob@ home = AIBW_ArmTeamHome(team);
-	CBlob@ enemyHome = home is null ? null : AIBW_ArmEnemyHome(team, home.getPosition());
-	if (home is null || enemyHome is null) return false;
-
-	const u32 mapHash = u32(map.getMapName().getHash());
-	u32 terrainHash = 0;
-	u32 solidTiles = 0;
-	u32 noBuildHash = 0;
-	u32 noBuildTiles = 0;
-	u32 manifestBlobCount = 0;
-	u32 manifestBlobHash = 0;
-	u32 manifestInventoryHash = 0;
-	u32 manifestStrategyHash = 0;
-
-	u16 friendlyUnits = 0;
-	u16 enemyUnits = 0;
-	u16 aiBuilders = 0;
-	u16 normalAIBuilderCount = 0;
-	u16 autoBuilderCount = 0;
-	u32 aiBuilderTypePositionHash = 0;
-	CBlob@[] all;
-	getBlobs(@all);
-	for (uint i = 0; i < all.length; i++)
-	{
-		CBlob@ candidate = all[i];
-		if (candidate is null || candidate.hasTag("dead")) continue;
-		const string name = candidate.getName();
-		const bool combatUnit = name == "builder" || name == "aibuilder" || name == "autobuilder" || name == "knight" || name == "archer";
-		if (!combatUnit) continue;
-		if (candidate.getTeamNum() == team)
-		{
-			friendlyUnits++;
-			if (name == "aibuilder" || name == "autobuilder")
-			{
-				aiBuilders++;
-				if (name == "autobuilder") autoBuilderCount++; else normalAIBuilderCount++;
-				const u32 workerX = u32(Maths::Max(0, int(candidate.getPosition().x / map.tilesize)));
-				const u32 workerY = u32(Maths::Max(0, int(candidate.getPosition().y / map.tilesize)));
-				aiBuilderTypePositionHash += u32(name.getHash()) ^ (workerX * 73856093) ^ (workerY * 19349663);
-			}
-		}
-		else if (candidate.getTeamNum() < 100) enemyUnits++;
-	}
-
-	CBlob@[] trees;
-	getBlobsByTag("tree", @trees);
-	u16 treeCount = 0;
-	u32 treeHash = 0;
-	for (uint i = 0; i < trees.length; i++)
-	{
-		CBlob@ tree = trees[i];
-		if (tree is null || tree.hasTag("dead") || tree.hasTag("felldown")) continue;
-		treeCount++;
-		const u32 tx = u32(Maths::Max(0, int(tree.getPosition().x / map.tilesize)));
-		const u32 ty = u32(Maths::Max(0, int(tree.getPosition().y / map.tilesize)));
-		treeHash += ((tx + 1) * 73856093) ^ ((ty + 1) * 19349663) ^ u32(tree.get_u8("grown_times"));
-	}
-
-	const s32 homeX = s32(home.getPosition().x / map.tilesize);
-	const s32 homeY = s32(home.getPosition().y / map.tilesize);
-	const s32 enemyHomeX = s32(enemyHome.getPosition().x / map.tilesize);
-	const s32 enemyHomeY = s32(enemyHome.getPosition().y / map.tilesize);
-	const u8 autoBuilderSpeedLevel = AIBU_GetSpeedLevel(team);
-	const string fixtureID = "map_" + mapHash + "_" + map.tilemapwidth + "x" + map.tilemapheight;
-	const u16 fixtureVersion = 3;
-	const string teamSide = homeX <= enemyHomeX ? "left" : "right";
-	const u16 initialWood = AIBW_ArmStoredMaterial(team, "mat_wood");
-	const u16 initialStone = AIBW_ArmStoredMaterial(team, "mat_stone");
-	const u16 initialPlanID = rules.get_u16(AIBP_PlanKey(team, "id"));
-	const u8 initialPlanStatus = rules.get_u8(AIBP_PlanKey(team, "status"));
-	const u16 initialPlanPending = rules.get_u16(AIBP_PlanKey(team, "pending"));
-	const u16 initialPlanCompleted = rules.get_u16(AIBP_PlanKey(team, "completed"));
-	const string fingerprint = AIBWF_CaptureWorldManifest(rules, map, terrainHash, solidTiles, noBuildHash, noBuildTiles,
-		manifestBlobCount, manifestBlobHash, manifestInventoryHash, manifestStrategyHash);
-	if (fingerprint == "") return false;
-
-	rules.set_string("aib wave initial fingerprint", fingerprint);
-	rules.set_string("aib wave fixture id", fixtureID);
-	rules.set_u16("aib wave fixture version", fixtureVersion);
-	rules.set_string("aib wave team side", teamSide);
-	rules.set_string("aib wave measurement fingerprint", "");
-	rules.set_u32("aib wave initial map hash", mapHash);
-	rules.set_u32("aib wave initial terrain hash", terrainHash);
-	rules.set_u16("aib wave initial map width", map.tilemapwidth);
-	rules.set_u16("aib wave initial map height", map.tilemapheight);
-	rules.set_u32("aib wave initial solid tiles", solidTiles);
-	rules.set_u32("aib wave initial no build hash", noBuildHash);
-	rules.set_u32("aib wave initial no build tiles", noBuildTiles);
-	rules.set_u32("aib wave initial manifest blob count", manifestBlobCount);
-	rules.set_u32("aib wave initial manifest blob hash", manifestBlobHash);
-	rules.set_u32("aib wave initial manifest inventory hash", manifestInventoryHash);
-	rules.set_u32("aib wave initial manifest strategy hash", manifestStrategyHash);
-	rules.set_s32("aib wave initial home x", homeX);
-	rules.set_s32("aib wave initial home y", homeY);
-	rules.set_s32("aib wave initial enemy home x", enemyHomeX);
-	rules.set_s32("aib wave initial enemy home y", enemyHomeY);
-	rules.set_u16("aib wave initial ai builders", aiBuilders);
-	rules.set_u16("aib wave initial normal ai builders", normalAIBuilderCount);
-	rules.set_u16("aib wave initial autobuilders", autoBuilderCount);
-	rules.set_u32("aib wave initial ai builder type position hash", aiBuilderTypePositionHash);
-	rules.set_u8("aib wave initial autobuilder speed level", autoBuilderSpeedLevel);
-	rules.set_u16("aib wave initial friendly units", friendlyUnits);
-	rules.set_u16("aib wave initial enemy units", enemyUnits);
-	rules.set_u16("aib wave initial trees", treeCount);
-	rules.set_u32("aib wave initial tree hash", treeHash);
-	rules.set_u16("aib wave initial wood", initialWood);
-	rules.set_u16("aib wave initial stone", initialStone);
-	rules.set_u16("aib wave initial plan id", initialPlanID);
-	rules.set_u8("aib wave initial plan status", initialPlanStatus);
-	rules.set_u16("aib wave initial plan pending", initialPlanPending);
-	rules.set_u16("aib wave initial plan completed", initialPlanCompleted);
-	rules.set_bool("aib wave initial captured", true);
-	return true;
-}
 
 void onInit(CRules@ this)
 {
@@ -258,8 +71,15 @@ bool AIB_HandleGymCommand(CRules@ rules, const string &in text, CPlayer@ player)
 		SendChatMessage(rules, player, "[AIB Gym] stop requested", SColor(255, 100, 210, 255));
 		return true;
 	}
-	if (tokens.length == 2 && tokens[1] == "infrastructure")
+	if ((tokens.length == 2 || tokens.length == 3) && tokens[1] == "infrastructure")
 	{
+		const string infrastructureMetric = tokens.length == 3 ? tokens[2] : "gatehouse";
+		if (infrastructureMetric != "gatehouse" && infrastructureMetric != "workshops" &&
+			infrastructureMetric != "gatehouse_breach" && infrastructureMetric != "workshops_breach")
+		{
+			SendChatMessage(rules, player, "[AIB Gym] infrastructure metric must be gatehouse, workshops, gatehouse_breach, or workshops_breach", SColor(255, 255, 80, 80));
+			return true;
+		}
 		const s8 infrastructureTeam = player.getTeamNum();
 		if (infrastructureTeam < 0 || infrastructureTeam >= 8)
 		{
@@ -273,17 +93,18 @@ bool AIB_HandleGymCommand(CRules@ rules, const string &in text, CPlayer@ player)
 			return true;
 		}
 		rules.set_u8("aib infrastructure team", u8(infrastructureTeam));
+		rules.set_string("aib infrastructure metric", infrastructureMetric);
 		rules.set_string("aib infrastructure variant", "manual");
 		rules.set_string("aib infrastructure run id", "manual_infrastructure_" + getGameTime());
 		rules.set_u32("aib infrastructure readiness deadline", 0);
 		rules.set_bool("aib infrastructure stop requested", false);
 		rules.set_bool("aib infrastructure request", true);
-		SendChatMessage(rules, player, "[AIB Gym] physical flag-gatehouse episode requested", SColor(255, 100, 210, 255));
+		SendChatMessage(rules, player, "[AIB Gym] physical " + infrastructureMetric + " episode requested", SColor(255, 100, 210, 255));
 		return true;
 	}
 	if (tokens.length < 4 || tokens.length > 5 || tokens[1] != "resources")
 	{
-		SendChatMessage(rules, player, "[AIB Gym] usage: !aib_gym resources 1|4 wood|stone|mixed [10-180 seconds] | infrastructure | status | stop", SColor(255, 255, 220, 80));
+		SendChatMessage(rules, player, "[AIB Gym] usage: !aib_gym resources 1|4 wood|stone|mixed [10-180 seconds] | infrastructure [gatehouse|workshops|gatehouse_breach|workshops_breach] | status | stop", SColor(255, 255, 220, 80));
 		return true;
 	}
 	const s8 team = player.getTeamNum();
@@ -513,29 +334,25 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 	{
 		const string scenario = tokens.length >= 4 ? tokens[3] : "mixed";
 		const bool validScenario = scenario == "knight" || scenario == "archer" || scenario == "bomb" || scenario == "mixed";
-		if(!player.isMod() || tokens.length < 3 || (tokens[2] != "control" && tokens[2] != "plan") || !validScenario)
+		if(!player.isMod() || team < 0 || team > 1 || tokens.length < 3 ||
+			(tokens[2] != "control" && tokens[2] != "plan") || !validScenario)
 		{
 			SendChatMessage(this, player, "[AIB] usage: !aib_wave <seed> control|plan [knight|archer|bomb|mixed] (fresh map)", SColor(255, 255, 220, 80));
 			return false;
 		}
 		const u32 seed = parseInt(tokens[1]);
-		const bool withPlan = tokens[2] == "plan";
-		if(!AIBW_CaptureArmState(this, u8(team)))
+		if(this.get_bool("aib wave request") || this.get_bool("aib wave enabled") || this.get_bool("aib wave running"))
 		{
-			SendChatMessage(this, player, "[AIB] wave not armed: map and both team homes must be ready", SColor(255, 255, 80, 80));
+			SendChatMessage(this, player, "[AIB] another wave request or episode is active", SColor(255, 255, 80, 80));
 			return false;
 		}
-		this.set_u8("aib wave team", u8(team));
-		this.set_u32("aib wave seed", seed);
-		this.set_string("aib wave variant", tokens[2]);
-		this.set_string("aib wave scenario", scenario);
-		this.set_u8(AIBP_ModeKey(u8(team)), withPlan ? AIBP_StrategyMode::auto_mode : AIBP_StrategyMode::off);
-		if(withPlan) AIBM_ReleaseTeamManualControl(u8(team));
-		this.set_bool("aib strategy event log enabled", true);
-		this.set_u32("aib wave arm tick", getGameTime() + 900);
-		this.set_bool("aib wave enabled", true);
-		this.set_bool("aib wave running", false);
-		SendChatMessage(this, player, "[AIB] " + scenario + " wave armed; use a fresh map for the paired variant", SColor(255, 100, 210, 255));
+		this.set_u8("aib wave request team", u8(team));
+		this.set_u32("aib wave request seed", seed);
+		this.set_string("aib wave request variant", tokens[2]);
+		this.set_string("aib wave request scenario", scenario);
+		this.set_string("aib wave request run id", "");
+		this.set_bool("aib wave request", true);
+		SendChatMessage(this, player, "[AIB] " + scenario + " wave requested; use a fresh sv_test CTF map for the paired variant", SColor(255, 100, 210, 255));
 		return false;
 	}
 	// commands that don't rely on sv_test being on (sv_test = 1)

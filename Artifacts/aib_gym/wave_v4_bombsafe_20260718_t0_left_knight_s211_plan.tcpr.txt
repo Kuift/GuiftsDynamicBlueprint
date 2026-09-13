@@ -1,0 +1,183 @@
+TCPR: client 127.0.0.1:8143 is now authenticated.
+RCON command from 127.0.0.1:8143 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:8143 :
+getRules().set_u8("aib wave request team", 0)
+RCON command from 127.0.0.1:8143 :
+getRules().set_u32("aib wave request seed", 211)
+RCON command from 127.0.0.1:8143 :
+getRules().set_string("aib wave request variant", "plan")
+RCON command from 127.0.0.1:8143 :
+getRules().set_string("aib wave request scenario", "knight")
+RCON command from 127.0.0.1:8143 :
+getRules().set_string("aib wave request run id", "wave_v4_bombsafe_20260718_t0_left_knight_s211_plan")
+RCON command from 127.0.0.1:8143 :
+getRules().set_bool("aib wave request", true)
+[AIBEVT] t=145 seq=1 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=53,43 reason=no_build
+[AIBEVT] t=145 seq=2 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=50,40 reason=no_build
+[AIBEVT] t=145 seq=3 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=56,42 reason=no_build
+[AIBWEIGHTS] loaded=true version=1 file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBStrategyWeights.cfg
+[AIBEVT] t=145 seq=4 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=72,43 reason=unreachable_tasks details={unreachable_task=74,38,block=1,phase=2,seeds=1,visited=6,nearest=69,42,distance2=41}
+[AIBEVT] t=145 seq=5 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=63,42 reason=unreachable_tasks details={unreachable_task=65,36,block=1,phase=2,seeds=2,visited=12,nearest=66,42,distance2=37}
+[AIBEVT] t=145 seq=6 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=55,43 reason=no_build
+[AIBEVT] t=145 seq=7 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=67,43 reason=occupied_terrain
+[AIBEVT] t=145 seq=8 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=71,43 reason=unreachable_tasks details={unreachable_task=73,37,block=1,phase=2,seeds=2,visited=8,nearest=78,41,distance2=41}
+[AIBEVT] t=145 seq=9 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=75,53 reason=occupied_terrain
+[AIBEVT] t=145 seq=10 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=79,42 reason=unreachable_tasks details={unreachable_task=77,36,block=1,phase=2,seeds=2,visited=10,nearest=74,42,distance2=45}
+[AIBEVT] t=145 seq=11 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=63,42 reason=unsupported
+[AIBEVT] t=145 seq=12 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=58,42 reason=unsupported
+[AIBEVT] t=145 seq=13 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=63,42 reason=unsupported
+[AIBEVT] t=145 seq=14 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=72,43 reason=unsupported
+AIBWAVE|ARMED|run=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan|template=emergency_barrier|anchor=65,42
+RCON command from 127.0.0.1:8143 :
+tcpr("AIBWAVE|REQUESTED|run=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan")
+AIBWAVE|REQUESTED|run=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan
+Game has been running slow for too long. Skipping 4.000000 ticks worth of simulation.
+[AIBEVT] t=150 seq=15 scenario=manual source=strategy action=mode actor=team:0 from=0 to=2
+[AIBWEIGHTS] loaded=true version=1 file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBStrategyWeights.cfg
+[AIBEVT] t=150 seq=16 scenario=manual source=strategy action=publish actor=team:0 plan=1 version=1 template=emergency_barrier tasks=9 active=true
+[AIBEVT] t=150 seq=17 scenario=manual source=strategy action=provision actor=team:0 builder=53 source=home pos=52,284 one_time=true
+[AIBEVT] t=150 seq=18 scenario=manual source=strategy action=assign actor=team:0 builder=53 job=0 state=1
+[AIBEVT] t=150 seq=19 scenario=manual source=ai action=target actor=aibuilder:53 target=tree_pine:9 state=chop_tree pos=52,284 climb_penalty=104
+[AIBEVT] t=150 seq=20 scenario=manual source=ai action=state actor=aibuilder:53 from=find_tree to=chop_tree reason=tree target acquired pos=52,284
+Game has been running slow for too long. Skipping 11.000000 ticks worth of simulation.
+[AIBEVT] t=151 seq=21 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=72,208 waypoints=3 low=1 low0=56,288 way0=56,288
+[AIBEVT] t=204 seq=22 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=72,208 next=48,280 low=0 waypoints=0
+[AIBEVT] t=205 seq=23 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=72,208 waypoints=3 low=1 low0=56,280 way0=56,280
+[AIBEVT] t=230 seq=24 scenario=manual source=ai action=path_downward_steer actor=aibuilder:53 pos=65,270 next=64,280 destination=72,208 direction=right narrow_drop=false
+[AIBEVT] t=246 seq=25 scenario=manual source=ai action=path_upward_steer actor=aibuilder:53 pos=37,271 next=32,264 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBACT] v=3 episode=1 batch=1 records=31 reason=interval data=AAAAE2VOuwEIADEAAAYLAAAAADIAAAFABTXkZAAcAQYAAAAAADMA/wJvuynvAAAAAAYAAAAAADQA/wKL4VAiAAAAAAMAADEAMgAAAWQAHAEIAAAxAD/6AFAAAAAAAAAAAAAEAAAxAAb03QD/AAAAAAQFADEAAhD+BAUAMQACBf8EAQAxAAhkACABAAAEBAAxAAIAAAQFADEAAvwABAUAMQAC9wAEBQAxAAL0AAQFADEAAvMABAUAMQAC8AAEAQAxAAhkACABAAAEBAAxAALvAAQaADEACGQAIAEAAAQeADEACGQAIAEAAAkeAJYAAAAGAAAAAQAAQQAqAAIACQAGAAAAAAA1AAAB5vAXrDQAHAEEAAAxAAhkACABAAAGAAAAAAA2AP8Cb7sp7zQAHAEGAAAAAAA3AP8Ci+FQIjQAHAEEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+[AIBEVT] t=362 seq=26 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=72,208 waypoints=3 low=1 low0=40,216 way0=40,216
+[AIBEVT] t=481 seq=27 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_tree to=find_log reason=tree felled or gone pos=50,216
+[AIBEVT] t=482 seq=28 scenario=manual source=ai action=target actor=aibuilder:53 target=log:57 state=chop_log pos=50,216
+[AIBEVT] t=482 seq=29 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=50,216
+[AIBEVT] t=483 seq=30 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=86,216 waypoints=3 low=1 low0=48,216 way0=48,216
+[AIBEVT] t=541 seq=31 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=70,216
+[AIBEVT] t=542 seq=32 scenario=manual source=ai action=target actor=aibuilder:53 target=log:58 state=chop_log pos=70,216
+[AIBEVT] t=542 seq=33 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=70,216
+[AIBEVT] t=543 seq=34 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=101,220 waypoints=3 low=1 low0=72,216 way0=72,216
+[AIBACT] v=3 episode=1 batch=2 records=17 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgEAAAAAOQD/BFFRUT9aANcABgAAAAAAOgD/BFFRUT9nANMABgAAAAAAOwD/BFFRUT91AM8ABgAAAAAAPAD/BFFRUT+CAMsABgAAAAAAPQD/BFFRUT+PAMcABwAAAAAAAAkA/wQQpChMTADYAAQdADEACGQAIAEAAAQeADEACGQAIAEAAAcAAAAAAAA5AP8EUVFRP1sA3AAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+[AIBEVT] t=601 seq=35 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=88,216
+[AIBEVT] t=602 seq=36 scenario=manual source=ai action=target actor=aibuilder:53 target=log:59 state=chop_log pos=88,216
+[AIBEVT] t=602 seq=37 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=88,216
+[AIBEVT] t=661 seq=38 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=88,216
+[AIBEVT] t=662 seq=39 scenario=manual source=ai action=target actor=aibuilder:53 target=log:60 state=chop_log pos=88,216
+[AIBEVT] t=662 seq=40 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=88,216
+[AIBEVT] t=663 seq=41 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=5 low=1 low0=88,216 way0=88,216
+[AIBEVT] t=697 seq=42 scenario=manual source=ai action=path_downward_steer actor=aibuilder:53 pos=154,224 next=152,240 destination=162,313 direction=right narrow_drop=false
+[AIBEVT] t=718 seq=43 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=162,313 next=152,240 low=0 waypoints=0
+[AIBEVT] t=719 seq=44 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=4 low=1 low0=160,216 way0=160,216
+[AIBEVT] t=741 seq=45 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=162,313 next=152,240 low=0 waypoints=0
+[AIBEVT] t=742 seq=46 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=4 low=1 low0=160,232 way0=160,232
+[AIBEVT] t=757 seq=47 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=819 seq=48 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=155,289
+[AIBEVT] t=820 seq=49 scenario=manual source=ai action=target actor=aibuilder:53 target=log:61 state=chop_log pos=155,289
+[AIBEVT] t=820 seq=50 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=155,289
+[AIBEVT] t=821 seq=51 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=160,288 way0=160,288
+[AIBEVT] t=830 seq=52 scenario=manual source=ai action=path_downward_steer actor=aibuilder:53 pos=157,274 next=152,304 destination=174,316 direction=right narrow_drop=false
+[AIBEVT] t=890 seq=53 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=161,312
+[AIBEVT] t=891 seq=54 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=return_wood reason=no logs left and wood held pos=161,312
+[AIBEVT] t=892 seq=55 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=28,292 waypoints=5 low=1 low0=160,312 way0=160,312
+[AIBACT] v=3 episode=1 batch=3 records=15 reason=interval data=BwAAAAAAADoA/wRRUVE/aQDcAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAcAAAAAAAA7AP8EUVFRP3YA3AAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAGBgAAAAA/AP8Cb7sp7wAAAAAEGAAxAAhkACABAAAEHgAxAAhkACABAAAHCAAAAAAAPAD/BFFRUT+mADkBBBYAMQAIZAAgAQAABB4AMQAIZAAgAQAABxMAAAAAAD0A/wRRUVE/sgA8AQQLADEACGQAIAEAAA==
+[AIBEVT] t=962 seq=56 scenario=manual source=ai action=path_downward_steer actor=aibuilder:53 pos=59,268 next=64,288 destination=28,292 direction=left narrow_drop=false
+[AIBEVT] t=965 seq=57 scenario=manual source=ai action=build_storage_shop actor=aibuilder:53 shop=buildershop:65 pos=220,308
+[AIBEVT] t=965 seq=58 scenario=manual source=ai action=buy_storage_crate actor=aibuilder:53 shop=buildershop:65 crate=crate:66 pos=28,292
+[AIBEVT] t=968 seq=59 scenario=manual source=ai action=store_resources actor=aibuilder:53 home=tent:43 wood=350 stone=50 gold=0 pos=100,284
+[AIBEVT] t=968 seq=60 scenario=manual source=ai action=state actor=aibuilder:53 from=return_wood to=find_tree reason=wood delivered pos=52,280
+[AIBEVT] t=990 seq=61 scenario=manual source=strategy action=assign actor=team:0 builder=53 job=2 state=12
+[AIBEVT] t=990 seq=62 scenario=manual source=ai action=state actor=aibuilder:53 from=collect_blueprint_resources to=find_blueprint_block reason=blueprint resources ready pos=52,280
+[AIBEVT] t=991 seq=63 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=65 y=41 builder=53 phase=0
+[AIBEVT] t=991 seq=64 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=520,328 block=5
+[AIBEVT] t=991 seq=65 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=52,280
+[AIBEVT] t=992 seq=66 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=516,332 waypoints=17 low=1 low0=56,280 way0=56,280
+[AIBEVT] t=1020 seq=67 scenario=manual source=strategy action=assign_deferred actor=team:0 builder=53 current_job=2 current_state=14 pending_job=0 pending_state=1
+[AIBEVT] t=1200 seq=68 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=53,43 reason=no_build
+[AIBEVT] t=1200 seq=69 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=50,40 reason=no_build
+[AIBEVT] t=1200 seq=70 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=56,42 reason=no_build
+[AIBEVT] t=1200 seq=71 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=72,43 reason=unreachable_tasks details={unreachable_task=74,38,block=1,phase=2,seeds=1,visited=6,nearest=69,42,distance2=41}
+[AIBEVT] t=1200 seq=72 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=63,42 reason=unreachable_tasks details={unreachable_task=65,36,block=1,phase=2,seeds=2,visited=12,nearest=66,42,distance2=37}
+[AIBEVT] t=1200 seq=73 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=55,43 reason=no_build
+[AIBEVT] t=1200 seq=74 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=67,43 reason=occupied_terrain
+[AIBEVT] t=1200 seq=75 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=71,43 reason=unreachable_tasks details={unreachable_task=73,37,block=1,phase=2,seeds=2,visited=8,nearest=78,41,distance2=41}
+[AIBEVT] t=1200 seq=76 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=75,53 reason=occupied_terrain
+[AIBEVT] t=1200 seq=77 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=79,42 reason=unreachable_tasks details={unreachable_task=77,36,block=1,phase=2,seeds=2,visited=10,nearest=74,42,distance2=45}
+[AIBEVT] t=1200 seq=78 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=63,42 reason=unsupported
+[AIBEVT] t=1200 seq=79 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=58,42 reason=unsupported
+[AIBEVT] t=1200 seq=80 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=63,42 reason=unsupported
+[AIBEVT] t=1200 seq=81 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=72,43 reason=unsupported
+[AIBACT] v=3 episode=1 batch=4 records=14 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgUAAAAAQQAAA+zFrZncADQBBgAAAAAAQgAABUCaXhccACQBBBkAMQAIZAAgAQAACQIA3wMAAAgCNQABAABBACkABQAAAAQcADEACGQAIAEAAAQeADEACGQAIAEAAAYBAAAAAEMA/wQQpChMTADcAAQdADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+[AIBEVT] t=1248 seq=82 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=65 y=41
+[AIBEVT] t=1248 seq=83 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=494,328
+[AIBEVT] t=1249 seq=84 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=65 y=40 builder=53 phase=0
+[AIBEVT] t=1249 seq=85 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=520,320 block=5
+[AIBEVT] t=1249 seq=86 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=497,328
+[AIBEVT] t=1256 seq=87 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=65 y=40
+[AIBEVT] t=1256 seq=88 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=503,328
+[AIBEVT] t=1257 seq=89 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=64 y=41 builder=53 phase=1
+[AIBEVT] t=1257 seq=90 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=512,328 block=16390
+[AIBEVT] t=1257 seq=91 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=503,328
+[AIBEVT] t=1264 seq=92 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=64 y=41
+[AIBEVT] t=1264 seq=93 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=503,328
+[AIBEVT] t=1265 seq=94 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=65 y=39 builder=53 phase=1
+[AIBEVT] t=1265 seq=95 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=520,312 block=9
+[AIBEVT] t=1265 seq=96 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=503,328
+[AIBEVT] t=1272 seq=97 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=65 y=39
+[AIBEVT] t=1272 seq=98 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=503,328
+[AIBEVT] t=1273 seq=99 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=66 y=41 builder=53 phase=1
+[AIBEVT] t=1273 seq=100 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=528,328 block=16390
+[AIBEVT] t=1273 seq=101 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=503,328
+[AIBEVT] t=1280 seq=102 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=66 y=41
+[AIBEVT] t=1280 seq=103 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=503,328
+[AIBEVT] t=1281 seq=104 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=64 y=40 builder=53 phase=2
+[AIBEVT] t=1281 seq=105 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=512,320 block=4
+[AIBEVT] t=1281 seq=106 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=503,328
+[AIBEVT] t=1288 seq=107 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=64 y=40
+[AIBEVT] t=1288 seq=108 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=503,328
+[AIBEVT] t=1289 seq=109 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=64 y=39 builder=53 phase=2
+[AIBEVT] t=1289 seq=110 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=512,312 block=4
+[AIBEVT] t=1289 seq=111 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=503,328
+[AIBEVT] t=1296 seq=112 scenario=manual source=strategy action=complete actor=team:0 plan=1 x=64 y=39
+[AIBEVT] t=1296 seq=113 scenario=manual source=ai action=state actor=aibuilder:53 from=build_blueprint_block to=find_blueprint_block reason=placed blueprint tile pos=503,328
+[AIBEVT] t=1297 seq=114 scenario=manual source=ai action=corner_escape actor=aibuilder:53 direction=-1 state=find_blueprint_block pos=503,328
+[AIBEVT] t=1333 seq=115 scenario=manual source=strategy action=reserve actor=team:0 plan=1 x=66 y=40 builder=53 phase=2
+[AIBEVT] t=1333 seq=116 scenario=manual source=ai action=blueprint_target actor=aibuilder:53 tile=528,320 block=4
+[AIBEVT] t=1333 seq=117 scenario=manual source=ai action=state actor=aibuilder:53 from=find_blueprint_block to=build_blueprint_block reason=blueprint target acquired pos=432,336
+[AIBEVT] t=1334 seq=118 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=524,324 waypoints=3 low=1 low0=432,336 way0=432,336
+[AIBEVT] t=1345 seq=119 scenario=manual source=strategy action=wave_start actor=team:0 run_id=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan seed=211 variant=plan scenario=knight pending=2 completed=7 cost=119 route_preserved=true fixture_id=map_3142477075_210x66 fixture_version=4 team=0 team_side=left driver=grounded_candidate_corridor_v4_exclusive_spawn_outcomes fixture_template=emergency_barrier fixture_anchor_x=65 fixture_anchor_y=42 fixture_direction=1 fixture_tasks=9 fixture_task_hash=2174325190 fixture_corridor_hash=21181382 approach_start_x=580 approach_start_y=340 breach_target_x=484 breach_target_y=332 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-49-2200846065-409819029-2466050567 measurement_fingerprint=w1-3142477075-210x66-4124411848-4874-1620503246-1031-57-4214202358-2169976508-12166047 initial_map_hash=3142477075 initial_terrain_hash=1570756837 initial_map_width=210 initial_map_height=66 initial_solid_tiles=4872 initial_no_build_hash=3945193546 initial_no_build_tiles=1025 initial_manifest_blob_count=49 initial_manifest_blob_hash=2200846065 initial_manifest_inventory_hash=409819029 initial_manifest_strategy_hash=2466050567 measurement_terrain_hash=4124411848 measurement_no_build_hash=1620503246 measurement_blob_hash=4214202358 measurement_inventory_hash=2169976508 measurement_strategy_hash=12166047 initial_home_x=43 initial_home_y=38 initial_enemy_home_x=166 initial_enemy_home_y=38 initial_ai_builders=0 initial_normal_ai_builders=0 initial_autobuilders=0 initial_ai_builder_type_position_hash=0 initial_autobuilder_speed_level=0 initial_friendly_units=1 initial_enemy_units=0 initial_trees=8 initial_tree_hash=2141613160 initial_wood=0 initial_stone=0 initial_plan_id=0 initial_plan_status=0 initial_plan_pending=0 initial_plan_completed=0
+[AIBEVT] t=1376 seq=120 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=5 low=1 low0=456,328 way0=456,328
+[AIBEVT] t=1397 seq=121 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=4 low=1 low0=440,320 way0=440,320
+[AIBEVT] t=1410 seq=122 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=62,39 reason=unreachable_tasks details={unreachable_task=59,34,block=1,phase=2,seeds=2,visited=21,nearest=59,41,distance2=49}
+[AIBEVT] t=1410 seq=123 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=65,39 reason=unreachable_tasks details={unreachable_task=62,34,block=1,phase=2,seeds=1,visited=20,nearest=62,41,distance2=49}
+[AIBEVT] t=1410 seq=124 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=64,39 reason=unreachable_tasks details={unreachable_task=66,35,block=1,phase=2,seeds=1,visited=6,nearest=63,41,distance2=45}
+[AIBEVT] t=1410 seq=125 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=63,42 reason=occupied_terrain
+[AIBEVT] t=1410 seq=126 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=64,39 reason=unsupported
+[AIBEVT] t=1410 seq=127 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=63,42 reason=occupied_terrain
+[AIBEVT] t=1410 seq=128 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=64,39 reason=unsupported
+[AIBEVT] t=1423 seq=129 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1443 seq=130 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1446 seq=131 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=532,324 next=416,336 low=0 waypoints=0
+[AIBEVT] t=1447 seq=132 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1466 seq=133 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1485 seq=134 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBACT] v=3 episode=1 batch=5 records=35 reason=interval data=BhQAAAAARAD/Am+7Ke8AAAAABgAAAAAARQD/AovhUCIAAAAACAAAMQADXgFuAAcAAAAAAABFAP8Ci+FQIgAAAAAECgAxAAhkACABAAAJEwDgBAAACQI1AAEAAEEAKQAFAAIACQEA4QQAAAgCNQABAABBACgABQAAAAkHAOgEAAAJAjUAAQAAQQAoAAUAAgAJAQDpBAAACAI1AAEAAEAAKQAGQAEABAIAMQAIZAAgAQAABgQAAAAARgAABdTmwAwEAkwBCQEA8AQAAAkCNQABAABAACkABkAeAAkBAPEEAAAIAjUAAQAAQQAnAAkAAQAGBgAAAABHAP8FT4ftLwwCPAEJAQD4BAAACQI1AAEAAEEAJwAJAA8ACQEA+QQAAAgCNQABAABCACkABkABAAYGAAAAAEgAAAXU5sAMFAJMAQkBAAAFAAAJAjUAAQAAQgApAAZAHgAJAQABBQAACAI1AAEAAEAAKAAEAAIACQcACAUAAAkCNQABAABAACgABAAKAAkBAAkFAAAIAjUAAQAAQAAnAAQAAgAEAAAxAAhkACABAAAJBwAQBQAACQI1AAEAAEAAJwAEAAoABBcAMQAIZAAgAQAACQ4ANQUAAAgCNQABAABCACgABAACAAYMAAAAAEkAAQE89bvfRAJMAQQEADEACGQAIAEAAAQeADEACGQAIAEAAAYIAAAAAEoAAQE89bvfRAJMAQQWADEACGQAIAEAAAYUAAAAAEwAAQE89bvfRAJQAQQKADEACGQAIAEAAAQeADEACGQAIAEAAAYCAAAAAE0AAQE89bvfRAJMAQQcADEACGQAIAEAAA==
+[AIBEVT] t=1502 seq=135 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1503 seq=136 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=532,324 next=416,336 low=0 waypoints=0
+[AIBEVT] t=1504 seq=137 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1523 seq=138 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1542 seq=139 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=400,336 way0=400,336
+[AIBEVT] t=1558 seq=140 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1559 seq=141 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=532,324 next=416,336 low=0 waypoints=0
+[AIBEVT] t=1560 seq=142 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1576 seq=143 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=5 low=1 low0=400,336 way0=400,336
+[AIBEVT] t=1599 seq=144 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1603 seq=145 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=532,324 next=416,336 low=0 waypoints=0
+[AIBEVT] t=1604 seq=146 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1620 seq=147 scenario=manual source=strategy action=reject actor=team:0 template=emergency_barrier anchor=45,40 reason=no_build
+[AIBEVT] t=1622 seq=148 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1641 seq=149 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1656 seq=150 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1660 seq=151 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=532,324 next=416,336 low=0 waypoints=0
+[AIBEVT] t=1661 seq=152 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=532,324 waypoints=6 low=1 low0=392,336 way0=392,336
+[AIBEVT] t=1663 seq=153 scenario=manual source=strategy action=wave_result actor=team:0 run_id=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan pressure_valid=true seed=211 variant=plan scenario=knight elapsed=318 breached=true first_breach=66 crossings=7 enemy_deaths=0 builder_deaths=0 outcomes_resolved=7 outcome_contract=exclusive_spawn_index_v1 duplicate_death_callbacks=0 post_cross_deaths=0 duplicate_bomb_callbacks=0 flag_approaches=0 pressure_approaches=7 attack_ticks=457 archers_spawned=0 bomb_carriers=0 arrows_fired=0 bombs_thrown=0 bombs_detonated=0 bomb_origin=server_wave_throw_with_real_explosion minimum_target_distance=23.0752 spawned=7 plan_completed_delta=0 plan_pending=2 plan_damaged=0 damage_events=0 damage_absorbed_cost=0 plan_cost=119 completion_tick=0 first_damage_tick=0 structure_lifetime=0 builder_travel=518.574 builder_idle_ticks=0 reservation_conflicts=0 replans=0 measured_plan_id=1 final_plan_id=1 ai_actor_cap=8 spawn_limit=7 route_preserved=true friendly_route_penalty=0 fixture_id=map_3142477075_210x66 fixture_version=4 team=0 team_side=left driver=grounded_candidate_corridor_v4_exclusive_spawn_outcomes fixture_template=emergency_barrier fixture_anchor_x=65 fixture_anchor_y=42 fixture_direction=1 fixture_tasks=9 fixture_task_hash=2174325190 fixture_corridor_hash=21181382 approach_start_x=580 approach_start_y=340 breach_target_x=484 breach_target_y=332 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-49-2200846065-409819029-2466050567 measurement_fingerprint=w1-3142477075-210x66-4124411848-4874-1620503246-1031-57-4214202358-2169976508-12166047 initial_map_hash=3142477075 initial_terrain_hash=1570756837 initial_map_width=210 initial_map_height=66 initial_solid_tiles=4872 initial_no_build_hash=3945193546 initial_no_build_tiles=1025 initial_manifest_blob_count=49 initial_manifest_blob_hash=2200846065 initial_manifest_inventory_hash=409819029 initial_manifest_strategy_hash=2466050567 measurement_terrain_hash=4124411848 measurement_no_build_hash=1620503246 measurement_blob_hash=4214202358 measurement_inventory_hash=2169976508 measurement_strategy_hash=12166047 initial_home_x=43 initial_home_y=38 initial_enemy_home_x=166 initial_enemy_home_y=38 initial_ai_builders=0 initial_normal_ai_builders=0 initial_autobuilders=0 initial_ai_builder_type_position_hash=0 initial_autobuilder_speed_level=0 initial_friendly_units=1 initial_enemy_units=0 initial_trees=8 initial_tree_hash=2141613160 initial_wood=0 initial_stone=0 initial_plan_id=0 initial_plan_status=0 initial_plan_pending=0 initial_plan_completed=0
+[AIBEVT] t=1663 seq=153 scenario=manual source=strategy action=wave_result actor=team:0 run_id=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan pressure_valid=true seed=211 variant=plan scenario=knight elapsed=318 breached=true first_breach=66 crossings=7 enemy_deaths=0 builder_deaths=0 outcomes_resolved=7 outcome_contract=exclusive_spawn_index_v1 duplicate_death_callbacks=0 post_cross_deaths=0 duplicate_bomb_callbacks=0 flag_approaches=0 pressure_approaches=7 attack_ticks=457 archers_spawned=0 bomb_carriers=0 arrows_fired=0 bombs_thrown=0 bombs_detonated=0 bomb_origin=server_wave_throw_with_real_explosion minimum_target_distance=23.0752 spawned=7 plan_completed_delta=0 plan_pending=2 plan_damaged=0 damage_events=0 damage_absorbed_cost=0 plan_cost=119 completion_tick=0 first_damage_tick=0 structure_lifetime=0 builder_travel=518.574 builder_idle_ticks=0 reservation_conflicts=0 replans=0 measured_plan_id=1 final_plan_id=1 ai_actor_cap=8 spawn_limit=7 route_preserved=true friendly_route_penalty=0 fixture_id=map_3142477075_210x66 fixture_version=4 team=0 team_side=left driver=grounded_candidate_corridor_v4_exclusive_spawn_outcomes fixture_template=emergency_barrier fixture_anchor_x=65 fixture_anchor_y=42 fixture_direction=1 fixture_tasks=9 fixture_task_hash=2174325190 fixture_corridor_hash=21181382 approach_start_x=580 approach_start_y=340 breach_target_x=484 breach_target_y=332 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-49-2200846065-409819029-2466050567 measurement_fingerprint=w1-3142477075-210x66-4124411848-4874-1620503246-1031-57-4214202358-2169976508-12166047 initial_map_hash=3142477075 initial_terrain_hash=1570756837 initial_map_width=210 initial_map_height=66 initial_solid_tiles=4872 initial_no_build_hash=3945193546 initial_no_build_tiles=1025 initial_manifest_blob_count=49 initial_manifest_blob_hash=2200846065 initial_manifest_inventory_hash=409819029 initial_manifest_strategy_hash=2466050567 measurement_terrain_hash=4124411848 measurement_no_build_hash=1620503246 measurement_blob_hash=4214202358 measurement_inventory_hash=2169976508 measurement_strategy_hash=12166047 initial_home_x=43 initial_home_y=38 initial_enemy_home_x=166 initial_enemy_home_y=38 initial_ai_builders=0 initial_normal_ai_builders=0 initial_autobuilders=0 initial_ai_builder_type_position_hash=0 initial_autobuilder_speed_level=0 initial_friendly_units=1 initial_enemy_units=0 initial_trees=8 initial_tree_hash=2141613160 initial_wood=0 initial_stone=0 initial_plan_id=0 initial_plan_status=0 initial_plan_pending=0 initial_plan_completed=0
+AIBWAVE|RESULT|run=wave_v4_bombsafe_20260718_t0_left_knight_s211_plan

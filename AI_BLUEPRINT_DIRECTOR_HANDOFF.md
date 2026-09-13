@@ -44,7 +44,7 @@ Public-control/config checkpoint: `../../Logs/console-26-07-14-07-27-34.txt` rec
 
 Player-facing manual-ownership checkpoint: `../../Logs/console-26-07-14-08-04-46.txt` uses a temporary same-team worker/workshop placed through local TCPR, then the real workshop chair, overseer drag-selection, `Harvest wood` button, and Director OFF/ON UI. The accepted order at tick 28620 remained `manual=true assigned=false pending=false job=0 active=true` through tick 30380 while auto mode stayed enabled. OFF at tick 33467 preserved that player-owned active job; ON at tick 35407 cleared the manual latch without aborting the safe wood-return episode. KAG was closed immediately after the verdict.
 
-The current source defines **65 scenarios**, but there is no full current-suite pass. Keep the old full-44 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
+The current source defines **78 scenarios**, but there is no full current-suite pass. Keep the old full-44/full-65 evidence, focused scenario evidence, normal-CTF evidence, compile evidence, AIBTest stalls, and genuine failures distinct.
 
 ### Final no-popup checkpoint for the next agent
 
@@ -52,7 +52,7 @@ This was the deliberate stopping point from the 2026-07-10 session. KAG was not 
 
 Do not mistake that checkpoint for broad KAG runtime acceptance. Telemetry schema v3 and the shared strategy-weight loader are now live-verified. The additions still needing focused visible evidence are broader telemetry producers and moderator transition/notice UX, canonical reset/representative planner scenarios, and the expanded gym monitor plus `[AIBGYM]`/`[AIBGYMW]` emission. The compact diagnostic window uses numeric arrays plus binary/base64 packing; its source contracts pass, but runtime behavior remains incomplete.
 
-When runtime windows are allowed, continue in this order and stop on the first compile failure: (1) one short focused AIBTest compile that exercises the gym monitor/window path, (2) the corrected overflow scenario, (3) the known overhang return-route reproduction, (4) the mirrored/shortage/pressure/damaged-front representative range, (5) the uneven-edge and general full selected-plan completion scenarios, (6) the sealed-bootstrap and blocked-site/round-reset scenarios, (7) the no-build/occupied/barrier fallback trio, and (8) only then the full 65-scenario suite and the generated 48-trial paired wave matrix. Keep timeouts proportional to observed scenario duration and use the 25-second stale detector; never spend 120 seconds waiting for a three-second check.
+When runtime windows are allowed, continue in this order and stop on the first compile failure: (1) one short focused AIBTest compile that exercises the gym monitor/window path, (2) the corrected overflow scenario, (3) the known overhang return-route reproduction, (4) the mirrored/shortage/pressure/damaged-front representative range, (5) the uneven-edge and general full selected-plan completion scenarios, (6) the sealed-bootstrap and blocked-site/round-reset scenarios, (7) the no-build/occupied/barrier fallback trio, and (8) only then the full current 78-scenario suite and the generated 48-trial paired wave matrix. Keep timeouts proportional to observed scenario duration and use the 25-second stale detector; never spend 120 seconds waiting for a three-second check.
 
 ### What this work session focused on
 
@@ -125,7 +125,7 @@ Add a strategic AI that decides what structures the team needs, chooses suitable
 - KAG documentation is sparse; inspect existing working scripts when an API is uncertain.
 - KAG must be launched visibly and left running for gameplay testing unless the user explicitly requests a compile-only check.
 - `AIB_DEBUG` in `AIBuilderBrain.as` must remain `false` outside focused testing.
-- The current source defines 63 automated AIB scenarios. The live KAG process may stall before every scenario runs in one process, so retain per-scenario evidence and do not infer a full-suite pass from a focused or partial log.
+- At this historical checkpoint the source defined 63 automated AIB scenarios. The live KAG process may stall before every scenario runs in one process, so retain per-scenario evidence and do not infer a full-suite pass from a focused or partial log.
 
 ## Relevant Existing Code
 

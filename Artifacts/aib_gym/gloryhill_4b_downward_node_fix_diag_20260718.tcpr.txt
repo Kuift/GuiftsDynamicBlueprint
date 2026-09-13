@@ -1,0 +1,741 @@
+TCPR: client 127.0.0.1:30664 is now authenticated.
+RCON command from 127.0.0.1:30664 :
+getRules().SetCurrentState(GAME)
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:30664 :
+getRules().set_bool("aib event log enabled", true)
+RCON command from 127.0.0.1:30664 :
+getRules().set_u8("aib gym team", 0)
+RCON command from 127.0.0.1:30664 :
+getRules().set_u8("aib gym builder count", 4)
+[AIBEVT] t=80 seq=1 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=72,208 next=40,280 low=0 waypoints=0
+[AIBEVT] t=81 seq=2 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=72,208 waypoints=3 low=1 low0=48,280 way0=48,280
+RCON command from 127.0.0.1:30664 :
+getRules().set_string("aib gym resource order", "mixed")
+RCON command from 127.0.0.1:30664 :
+getRules().set_u32("aib gym duration ticks", 3000)
+RCON command from 127.0.0.1:30664 :
+getRules().set_string("aib gym variant", "diagnostic")
+RCON command from 127.0.0.1:30664 :
+getRules().set_string("aib gym run id", "gloryhill_4b_downward_node_fix_diag_20260718")
+RCON command from 127.0.0.1:30664 :
+getRules().set_bool("aib gym stop requested", false)
+RCON command from 127.0.0.1:30664 :
+getRules().set_bool("aib gym request", true)
+[AIBEVT] t=123 seq=3 scenario=manual source=strategy action=archive actor=team:0 plan=1 reason=round_reset
+[AIBEVT] t=123 seq=4 scenario=manual source=strategy action=round_reset actor=team:0 previous_plan=1 live_layers_cleared=true
+[AIBEVT] t=123 seq=5 scenario=manual source=strategy action=archive actor=team:1 plan=2 reason=round_reset
+[AIBEVT] t=123 seq=6 scenario=manual source=strategy action=round_reset actor=team:1 previous_plan=2 live_layers_cleared=true
+[AIBEVT] t=123 seq=7 scenario=manual source=strategy action=round_reset actor=team:2 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=123 seq=8 scenario=manual source=strategy action=round_reset actor=team:3 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=123 seq=9 scenario=manual source=strategy action=round_reset actor=team:4 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=123 seq=10 scenario=manual source=strategy action=round_reset actor=team:5 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=123 seq=11 scenario=manual source=strategy action=round_reset actor=team:6 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=123 seq=12 scenario=manual source=strategy action=round_reset actor=team:7 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=13 scenario=manual source=strategy action=round_reset actor=team:0 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=14 scenario=manual source=strategy action=round_reset actor=team:1 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=15 scenario=manual source=strategy action=round_reset actor=team:2 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=16 scenario=manual source=strategy action=round_reset actor=team:3 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=17 scenario=manual source=strategy action=round_reset actor=team:4 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=18 scenario=manual source=strategy action=round_reset actor=team:5 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=19 scenario=manual source=strategy action=round_reset actor=team:6 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=124 seq=20 scenario=manual source=strategy action=round_reset actor=team:7 previous_plan=0 live_layers_cleared=true
+[AIBGYM] SPAWN_SET requested=4 found=true reachable=12 actor_blocked=5 candidates=7 positions=140,292;52,284;36,292;20,300
+RCON command from 127.0.0.1:30664 :
+tcpr("AIBGYM|ARMED|run=gloryhill_4b_downward_node_fix_diag_20260718")
+AIBGYM|ARMED|run=gloryhill_4b_downward_node_fix_diag_20260718
+[AIBEVT] t=139 seq=21 scenario=manual source=player action=command actor=aibuilder:59 command=harvest_wood pos=141,288
+[AIBEVT] t=139 seq=22 scenario=manual source=player action=command actor=aibuilder:60 command=mine_stone pos=42,280
+[AIBEVT] t=139 seq=23 scenario=manual source=player action=command actor=aibuilder:61 command=harvest_wood pos=30,288
+[AIBEVT] t=139 seq=24 scenario=manual source=player action=command actor=aibuilder:62 command=mine_stone pos=10,296
+[AIBGYM] AIBGYM|START|run=gloryhill_4b_downward_node_fix_diag_20260718|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=3000
+AIBGYM|START|run=gloryhill_4b_downward_node_fix_diag_20260718|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=3000
+[AIBEVT] t=139 seq=25 scenario=manual source=ai action=target actor=aibuilder:59 target=tree_pine:9 state=chop_tree pos=141,288 climb_penalty=0
+[AIBEVT] t=139 seq=26 scenario=manual source=ai action=state actor=aibuilder:59 from=find_tree to=chop_tree reason=tree target acquired pos=141,288
+[AIBEVT] t=139 seq=27 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=139 seq=28 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone to=find_stone_mat reason=quarry or loose stone available pos=42,280
+[AIBEVT] t=139 seq=29 scenario=manual source=ai action=target actor=aibuilder:61 target=tree_pine:9 state=chop_tree pos=30,288 climb_penalty=0
+[AIBEVT] t=139 seq=30 scenario=manual source=ai action=state actor=aibuilder:61 from=find_tree to=chop_tree reason=tree target acquired pos=30,288
+[AIBEVT] t=139 seq=31 scenario=manual source=ai action=reject_resource actor=aibuilder:62 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=139 seq=32 scenario=manual source=ai action=state actor=aibuilder:62 from=find_stone to=find_stone_mat reason=quarry or loose stone available pos=10,296
+[AIBEVT] t=140 seq=33 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=80,208 waypoints=4 low=1 low0=144,288 way0=144,288
+[AIBEVT] t=140 seq=34 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=64,284 waypoints=2 low=1 low0=40,280 way0=40,280
+[AIBEVT] t=140 seq=35 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=3 low=1 low0=32,288 way0=32,288
+[AIBEVT] t=140 seq=36 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=64,284 waypoints=3 low=1 low0=8,296 way0=8,296
+[AIBEVT] t=149 seq=37 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone_mat to=return_wood reason=local stone depleted pos=50,274
+[AIBEVT] t=149 seq=38 scenario=manual source=ai action=state actor=aibuilder:62 from=find_stone_mat to=find_stone reason=loose stone missing pos=20,289
+[AIBEVT] t=150 seq=39 scenario=manual source=strategy action=stop actor=team:0 mode=off
+[AIBEVT] t=150 seq=40 scenario=manual source=strategy action=mode actor=team:0 from=2 to=0
+[AIBEVT] t=150 seq=41 scenario=manual source=strategy action=stop actor=team:1 mode=off
+[AIBEVT] t=150 seq=42 scenario=manual source=strategy action=mode actor=team:1 from=2 to=0
+[AIBEVT] t=150 seq=43 scenario=manual source=strategy action=stop actor=team:2 mode=off
+[AIBEVT] t=150 seq=44 scenario=manual source=strategy action=mode actor=team:2 from=2 to=0
+[AIBEVT] t=150 seq=45 scenario=manual source=strategy action=stop actor=team:3 mode=off
+[AIBEVT] t=150 seq=46 scenario=manual source=strategy action=mode actor=team:3 from=2 to=0
+[AIBEVT] t=150 seq=47 scenario=manual source=strategy action=stop actor=team:4 mode=off
+[AIBEVT] t=150 seq=48 scenario=manual source=strategy action=mode actor=team:4 from=2 to=0
+[AIBEVT] t=150 seq=49 scenario=manual source=strategy action=stop actor=team:5 mode=off
+[AIBEVT] t=150 seq=50 scenario=manual source=strategy action=mode actor=team:5 from=2 to=0
+[AIBEVT] t=150 seq=51 scenario=manual source=strategy action=stop actor=team:6 mode=off
+[AIBEVT] t=150 seq=52 scenario=manual source=strategy action=mode actor=team:6 from=2 to=0
+[AIBEVT] t=150 seq=53 scenario=manual source=strategy action=stop actor=team:7 mode=off
+[AIBEVT] t=150 seq=54 scenario=manual source=strategy action=mode actor=team:7 from=2 to=0
+[AIBEVT] t=150 seq=55 scenario=manual source=ai action=store_resources_loose actor=aibuilder:60 home=tent:43 reason=no_initial_crate wood=0 stone=50 gold=0 pos=28,292
+[AIBEVT] t=150 seq=56 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:62 anchor=28,288 target=88,248 route_corner=24,248 measured_anchor=28,288 reused_surface=false
+[AIBEVT] t=150 seq=57 scenario=manual source=ai action=target actor=aibuilder:62 target=stone_tile state=tunnel_to_stone tile=88,248 route_corner=24,248 route_dirt=5 pos=20,288
+[AIBEVT] t=150 seq=58 scenario=manual source=ai action=state actor=aibuilder:62 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=20,288
+[AIBEVT] t=151 seq=59 scenario=manual source=ai action=corner_escape actor=aibuilder:61 direction=-1 state=chop_tree pos=50,264
+[AIBEVT] t=151 seq=60 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=ascend entry_x=3 target=88,248 pos=21,288
+[AIBEVT] t=153 seq=61 scenario=manual source=ai action=store_resources actor=aibuilder:60 home=tent:43 wood=0 stone=50 gold=0 pos=100,284
+[AIBEVT] t=153 seq=62 scenario=manual source=ai action=state actor=aibuilder:60 from=return_wood to=find_stone reason=resources delivered pos=57,280
+[AIBEVT] t=153 seq=63 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=28,284 waypoints=2 low=1 low0=24,288 way0=24,288
+[AIBEVT] t=154 seq=64 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:60 anchor=68,280 target=88,248 route_corner=64,248 measured_anchor=68,280 reused_surface=false
+[AIBEVT] t=154 seq=65 scenario=manual source=ai action=target actor=aibuilder:60 target=stone_tile state=tunnel_to_stone tile=88,248 route_corner=64,248 route_dirt=1 pos=58,280
+[AIBEVT] t=154 seq=66 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=58,280
+[AIBEVT] t=155 seq=67 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,248 surface_entry_changed=false target=72,240 route_corner=64,240
+[AIBEVT] t=155 seq=68 scenario=manual source=ai action=target actor=aibuilder:60 target=visible_gold_tile state=tunnel_to_stone tile=72,240 pos=59,280
+[AIBEVT] t=155 seq=69 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=72,240 pos=59,280
+[AIBEVT] t=155 seq=70 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=ascend entry_x=3 target=88,248 pos=23,288
+[AIBEVT] t=157 seq=71 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:62 from=28,288 anchor=68,288 corner_from=24,248 surface_entry_changed=true target=72,240 route_corner=64,240
+[AIBEVT] t=157 seq=72 scenario=manual source=ai action=target actor=aibuilder:62 target=visible_gold_tile state=tunnel_to_stone tile=72,240 pos=25,287
+[AIBEVT] t=157 seq=73 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=68,284 waypoints=3 low=1 low0=24,288 way0=24,288
+[AIBEVT] t=171 seq=74 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=ascend entry_x=8 target=72,240 pos=54,280
+[AIBEVT] t=174 seq=75 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=80,208 next=128,256 low=0 waypoints=0
+[AIBEVT] t=175 seq=76 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=80,208 waypoints=3 low=1 low0=120,280 way0=120,280
+[AIBEVT] t=187 seq=77 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=4 low=1 low0=0,296 way0=0,296
+[AIBEVT] t=192 seq=78 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:62 from=68,288 anchor=68,288 corner_from=64,240 surface_entry_changed=false target=96,248 route_corner=64,248
+[AIBEVT] t=192 seq=79 scenario=manual source=ai action=target actor=aibuilder:62 target=visible_gold_cluster_tile state=tunnel_to_stone tile=96,248 pos=71,280
+[AIBEVT] t=193 seq=80 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,240 surface_entry_changed=false target=96,248 route_corner=64,248
+[AIBEVT] t=193 seq=81 scenario=manual source=ai action=target actor=aibuilder:60 target=visible_gold_cluster_tile state=tunnel_to_stone tile=96,248 pos=62,280
+[AIBEVT] t=197 seq=82 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=10,295 next=16,288 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=204 seq=83 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=24,288 next=24,272 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=207 seq=84 scenario=manual source=ai action=corner_escape actor=aibuilder:60 direction=-1 state=tunnel_to_stone pos=78,260
+[AIBEVT] t=213 seq=85 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=79,255 next=72,248 destination=80,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=213 seq=86 scenario=manual source=ai action=path_replan actor=aibuilder:61 reason=obstruction destination=72,208 next=24,272 low=0 waypoints=0
+[AIBEVT] t=214 seq=87 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=4 low=1 low0=16,288 way0=16,288
+[AIBEVT] t=215 seq=88 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=71,255
+[AIBEVT] t=236 seq=89 scenario=manual source=ai action=path_replan actor=aibuilder:61 reason=obstruction destination=72,208 next=24,272 low=0 waypoints=0
+[AIBEVT] t=237 seq=90 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=3 low=1 low0=24,288 way0=24,288
+[AIBEVT] t=242 seq=91 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=24,288 next=32,280 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=243 seq=92 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,292 waypoints=3 low=1 low0=16,288 way0=16,288
+[AIBEVT] t=251 seq=93 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=72,208 waypoints=4 low=1 low0=8,296 way0=8,296
+[AIBEVT] t=264 seq=94 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=16,296 next=24,288 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=264 seq=95 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=68,292 waypoints=3 low=1 low0=80,288 way0=80,288
+[AIBEVT] t=267 seq=96 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=96,248 pos=52,272
+[AIBEVT] t=267 seq=97 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=ascend entry_x=8 target=96,248 pos=79,288
+[AIBEVT] t=273 seq=98 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=64,263 next=64,280 destination=72,208 direction=left narrow_drop=false
+[AIBEVT] t=279 seq=99 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=281 seq=100 scenario=manual source=ai action=state actor=aibuilder:62 from=tunnel_to_stone to=return_wood reason=visible gold cluster depleted pos=59,264
+[AIBEVT] t=282 seq=101 scenario=manual source=ai action=target actor=aibuilder:60 target=visible_gold_cluster_tile state=tunnel_to_stone tile=104,248 pos=69,276
+[AIBEVT] t=282 seq=102 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=28,292 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=283 seq=103 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=72,208 next=24,272 low=0 waypoints=0
+[AIBEVT] t=284 seq=104 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=72,208 waypoints=4 low=1 low0=16,288 way0=16,288
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=150|collected=50|delivered=50|deaths=0
+[AIBEVT] t=292 seq=105 scenario=manual source=ai action=store_resources_loose actor=aibuilder:62 home=tent:43 reason=no_initial_crate wood=0 stone=4 gold=16 pos=28,292
+[AIBEVT] t=295 seq=106 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=25,287 next=32,280 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=295 seq=107 scenario=manual source=ai action=store_resources actor=aibuilder:62 home=tent:43 wood=0 stone=4 gold=16 pos=100,284
+[AIBEVT] t=295 seq=108 scenario=manual source=ai action=state actor=aibuilder:62 from=return_wood to=find_stone reason=resources delivered pos=53,280
+[AIBEVT] t=296 seq=109 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=100,272 waypoints=4 low=1 low0=56,280 way0=56,280
+[AIBEVT] t=298 seq=110 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=37,274 next=32,264 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBACT] v=3 episode=1 batch=1 records=45 reason=interval data=AAAAE2VOuwEHADEAAAYLAAAAADIAAAFABTXkZAAcAQYAAAAAADMA/wJvuynvAAAAAAYAAAAAADQA/wKL4VAiAAAAAAMAADEAMgAAAWQAHAEIAAAxAD/6AFAAAAAAAAAAAAAEAAAxAAb03QD/AAAAAAQFADEAAg7/BAUAMQACAwAJAgAeAAAABgAAAAEAADsAKgACAAkABgAAAAAANQAAAebwF6w0ABwBCQAAHgAAAAYAAAACAAGWACoAAgAJAAYAAAAAADYAAQHm8BesXAYcAQQAADEACGQAIAEAAAYAAAAAADcA/wJvuynvNAAcAQYAAAAAADgA/wKL4VAiNAAcAQYAAAAAADkA/wJvuynvXAYcAQYAAAAAADoA/wKL4VAiXAYcAQQDADEAAvwABAUAMQAC9wAEBQAxAAL0AAQFADEAAvMABAUAMQAC8gAEBQAxAALvAAQCADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAkDAHsAAAAHAAAAAQAAOwAqAAYAAwAJAAB7AAAABwAAAAIAAZYAKgAGAAMABwAAAAAAADUAAAHm8BesQAANAQcAAAAAAAA2AAEB5vAXrOYFOAEGAQAAAAA7AAAB5vAXrIwAJAEGAAAAAAA8AAAB5vAXrDQAHAEGAAAAAAA9AAAB5vAXrCQAJAEGAAAAAAA+AAAB5vAXrBQALAEEGgAxAAhkACABAAAGBgAAAAA/AP8CpP9WrgAAAAAGEQAAAABAAP8CpP9WrgAAAAAEBwAxAAhkACABAAAGBQAAAABBAP8Ci+FQIgAAAAAEGQAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+[AIBEVT] t=304 seq=111 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=72,208 next=40,280 low=0 waypoints=0
+[AIBEVT] t=304 seq=112 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=31,256 next=24,248 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=305 seq=113 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=72,208 waypoints=3 low=1 low0=24,288 way0=24,288
+[AIBEVT] t=319 seq=114 scenario=manual source=ai action=path_replan actor=aibuilder:61 reason=obstruction destination=72,208 next=16,240 low=0 waypoints=0
+[AIBEVT] t=320 seq=115 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=3 low=1 low0=32,248 way0=32,248
+[AIBEVT] t=321 seq=116 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=26,286 next=32,280 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=322 seq=117 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,284 waypoints=3 low=1 low0=80,280 way0=80,280
+[AIBEVT] t=325 seq=118 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=79,288
+[AIBEVT] t=330 seq=119 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=31,231 next=32,256 destination=72,208 direction=right narrow_drop=false
+[AIBEVT] t=350 seq=120 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=63,263 next=64,280 destination=72,208 direction=right narrow_drop=false
+[AIBEVT] t=365 seq=121 scenario=manual source=ai action=path_replan actor=aibuilder:61 reason=obstruction destination=72,208 next=48,256 low=0 waypoints=0
+[AIBEVT] t=366 seq=122 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=60,269 next=56,280 destination=72,208 direction=left narrow_drop=false
+[AIBEVT] t=366 seq=123 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=3 low=1 low0=40,232 way0=40,232
+[AIBEVT] t=387 seq=124 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=72,208 next=32,272 low=0 waypoints=0
+[AIBEVT] t=388 seq=125 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=72,208 waypoints=3 low=1 low0=40,280 way0=40,280
+[AIBEVT] t=389 seq=126 scenario=manual source=ai action=corner_escape actor=aibuilder:61 direction=-1 state=chop_tree pos=40,256
+[AIBEVT] t=394 seq=127 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=40,265
+[AIBEVT] t=398 seq=128 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,284 waypoints=3 low=1 low0=80,280 way0=80,280
+[AIBEVT] t=403 seq=129 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=79,288
+[AIBEVT] t=414 seq=130 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=415 seq=131 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=416 seq=132 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=62,264
+[AIBEVT] t=425 seq=133 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=72,208 waypoints=5 low=1 low0=0,296 way0=0,296
+[AIBEVT] t=430 seq=134 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=72,208 waypoints=5 low=1 low0=0,296 way0=0,296
+[AIBEVT] t=435 seq=135 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=10,295 next=16,288 destination=72,208 direction=-1 left_wall=false right_wall=true
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=300|collected=70|delivered=70|deaths=0
+[AIBEVT] t=440 seq=136 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=10,295 next=16,288 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=442 seq=137 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=28,288 next=32,280 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=456 seq=138 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=466 seq=139 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=59,278 next=64,288 destination=72,208 direction=right narrow_drop=false
+[AIBEVT] t=475 seq=140 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=64,264 next=64,280 destination=72,208 direction=right narrow_drop=false
+[AIBEVT] t=489 seq=141 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,284 waypoints=3 low=1 low0=80,280 way0=80,280
+[AIBEVT] t=491 seq=142 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=58,266 next=64,280 destination=72,208 direction=right narrow_drop=false
+[AIBEVT] t=494 seq=143 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=79,288
+[AIBEVT] t=499 seq=144 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=37,278 next=32,272 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=504 seq=145 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=31,265 next=24,256 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=505 seq=146 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=507 seq=147 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=510 seq=148 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=36,271 next=32,264 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=513 seq=149 scenario=manual source=ai action=target_abandon actor=aibuilder:59 target=tree_pine:9 reason=no_progress distance=60.5565 health=2.665 retry=900
+[AIBEVT] t=513 seq=150 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_tree to=find_tree reason=tree target made no progress pos=32,254
+[AIBEVT] t=513 seq=151 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=31,263 next=24,256 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=514 seq=152 scenario=manual source=ai action=target actor=aibuilder:59 target=tree_pine:13 state=chop_tree pos=31,254 climb_penalty=0
+[AIBEVT] t=514 seq=153 scenario=manual source=ai action=state actor=aibuilder:59 from=find_tree to=chop_tree reason=tree target acquired pos=31,254
+[AIBEVT] t=515 seq=154 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=14 low=1 low0=32,256 way0=32,256
+[AIBEVT] t=528 seq=155 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=530 seq=156 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=24,233 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=533 seq=157 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=25,234 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=534 seq=158 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=26,236 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=535 seq=159 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=23,233 next=16,224 destination=72,208 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=537 seq=160 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=27,242 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=539 seq=161 scenario=manual source=ai action=path_upward_turn actor=aibuilder:61 pos=35,223 next=16,216 destination=72,208 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=547 seq=162 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=72,264 way0=72,264
+[AIBEVT] t=551 seq=163 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=552 seq=164 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=570 seq=165 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=572 seq=166 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=573 seq=167 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=578 seq=168 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=26,242 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=581 seq=169 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,243 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=582 seq=170 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=23,244 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=585 seq=171 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,248 next=24,264 destination=432,328 direction=left
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=450|collected=70|delivered=70|deaths=0
+[AIBEVT] t=592 seq=172 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=593 seq=173 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=593 seq=174 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=594 seq=175 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=594 seq=176 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=595 seq=177 scenario=manual source=gym action=progress_violation actor=aibuilder:59 kind=motion_stall state=2 movement_ticks=38 max_displacement=4.32952 jumps=0 replans=2 interactions=0 targets=0 outcomes=0 invalid=0 invalid_reason= pos=25,247 destination=432,328
+[AIBGYM] v=1 t=595 b=59 tm=0 f=1 s=2 x=25 y=247 tx=0 ty=0 mv=4 j=0 rp=2 in=0 tg=0 out=0 inv=0 dx=432 dy=328 tb=13 bx=436 by=336
+[AIBACT] v=3 episode=1 batch=2 records=12 reason=interval data=BggAAAAARQD/AovhUCIAAAAABBYAMQAIZAAgAQAABwMAAAAAAEEA/wKL4VAiHAAkAQQbADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+[AIBEVT] t=603 seq=178 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=24,243 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=605 seq=179 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,246 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=614 seq=180 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=614 seq=181 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=615 seq=182 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=615 seq=183 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=616 seq=184 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=627 seq=185 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=24,248 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=628 seq=186 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,248 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=635 seq=187 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=636 seq=188 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=636 seq=189 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=637 seq=190 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=638 seq=191 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=641 seq=192 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=24,241 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=643 seq=193 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,241 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=644 seq=194 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=25,242 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=645 seq=195 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=26,243 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=656 seq=196 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=657 seq=197 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=658 seq=198 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBGYMW] data=ATsAAFMCAAABACpu/yAAHAEAAAAAAgAJAHP/KgAPAQAAAAACAAkAeP84AA0BAAAAAAIACQB9/z8AFgEAAAAAAgAJAIL/QAASAQAAAAACAAkAh/9AAAcBAAAAAAIACQCM/0EADgEAAAAAAgAJAJH/QQAYAQAAAAACAAkAlv87ABEBAAAAAAIACQCb/y8AFAEAAAAAAgAJAKD/JQAWAQAAAAACAAkApf8fAAkBAAAAAAIACQCq/ycA/wAAAAAAAgAJALT/HwAAAQAAAAACAA0Auf8cAPEAAAAAAAIADQC+/xgA6QAAAAAAAgANAMP/GgDsAAAAAAACAA0AyP8aAPgAAAAAAAIADQDN/xoA+AAAAAAAAgANANL/GwD4AAAAAAACAA0A1/8bAPYAAAAAAAIADQDc/xoA8gAAAAAAAgANAOH/GgD4AAAAAAACAA0A5v8aAPgAAAAAAAIADQDr/xoA9wAAAAAAAgANAPD/GgDyAAAAAAACAA0A9f8YAPcAAAAAAAIADQD6/xkA+AAAAAAAAgANAP//GQD4AAAAAAACAA0ABAAYAPEAAAAAAAIADQAJABgA9AAAAAAAAgANAA4AGgD4AAAAAAACAA0AEwAaAPgAAAAAAAIADQAYABkA8gAAAAAAAgANAB0AGADzAAAAAAACAA0AIgAYAPgAAAAAAAIADQAnABkA+AAAAAAAAgANACwAGADzAAAAAAACAA0AMQAZAPIAAAAAAAIADQA2ABoA+AAAAAAAAgANADsAGwD4AAAAAAACAA0AQAAbAPYAAAAAAAIADQA=
+[AIBEVT] t=659 seq=199 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=660 seq=200 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=663 seq=201 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=26,242 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=665 seq=202 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=25,242 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=667 seq=203 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=24,245 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=671 seq=204 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=25,248 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=677 seq=205 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=678 seq=206 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=14 low=1 low0=32,248 way0=32,248
+[AIBEVT] t=680 seq=207 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=681 seq=208 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=682 seq=209 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=702 seq=210 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=703 seq=211 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=704 seq=212 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=706 seq=213 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=27,241 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=711 seq=214 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=712 seq=215 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=724 seq=216 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=725 seq=217 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=726 seq=218 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=732 seq=219 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=733 seq=220 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=24,248 way0=24,248
+[AIBEVT] t=738 seq=221 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=25,242 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=738 seq=222 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_tree to=find_log reason=tree felled or gone pos=55,216
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=600|collected=70|delivered=70|deaths=0
+[AIBEVT] t=739 seq=223 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=25,241 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=739 seq=224 scenario=manual source=ai action=target actor=aibuilder:61 target=log:72 state=chop_log pos=55,216
+[AIBEVT] t=739 seq=225 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=55,216
+[AIBEVT] t=740 seq=226 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=86,216 waypoints=3 low=1 low0=56,216 way0=56,216
+[AIBEVT] t=741 seq=227 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=24,242 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=744 seq=228 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=25,246 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=746 seq=229 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=747 seq=230 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=748 seq=231 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=753 seq=232 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=754 seq=233 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=32,240 way0=32,240
+[AIBEVT] t=759 seq=234 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=27,240 next=24,256 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=761 seq=235 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=26,242 next=24,256 destination=432,328 direction=left
+[AIBEVT] t=765 seq=236 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=23,248 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=768 seq=237 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,248 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=768 seq=238 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=769 seq=239 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=770 seq=240 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=774 seq=241 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=775 seq=242 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=15 low=1 low0=32,248 way0=32,248
+[AIBEVT] t=790 seq=243 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=791 seq=244 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=792 seq=245 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=795 seq=246 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=73,216
+[AIBEVT] t=796 seq=247 scenario=manual source=ai action=target actor=aibuilder:61 target=log:73 state=chop_log pos=73,216
+[AIBEVT] t=796 seq=248 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=73,216
+[AIBEVT] t=801 seq=249 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=28,242 next=24,264 destination=432,328 direction=left narrow_drop=true
+[AIBEVT] t=804 seq=250 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=24,239 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=805 seq=251 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=23,238 next=24,264 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=808 seq=252 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=25,241 next=24,264 destination=432,328 direction=left
+[AIBEVT] t=810 seq=253 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=432,328 next=24,264 low=0 waypoints=0
+[AIBEVT] t=811 seq=254 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=432,328 waypoints=14 low=1 low0=32,248 way0=32,248
+[AIBEVT] t=812 seq=255 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=813 seq=256 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=814 seq=257 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=815 seq=258 scenario=manual source=ai action=target_abandon actor=aibuilder:59 target=tree_pine:13 reason=no_progress distance=404.533 health=2.998 retry=900
+[AIBEVT] t=815 seq=259 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_tree to=find_tree reason=tree target made no progress pos=32,261
+[AIBEVT] t=816 seq=260 scenario=manual source=ai action=target actor=aibuilder:59 target=tree_pine:15 state=chop_tree pos=32,266 climb_penalty=0
+[AIBEVT] t=816 seq=261 scenario=manual source=ai action=state actor=aibuilder:59 from=find_tree to=chop_tree reason=tree target acquired pos=32,266
+[AIBEVT] t=817 seq=262 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1008,328 waypoints=25 low=1 low0=32,272 way0=32,272
+[AIBEVT] t=834 seq=263 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=835 seq=264 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=836 seq=265 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=842 seq=266 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=58,278 next=64,288 destination=1008,328 direction=right narrow_drop=false
+[AIBEVT] t=855 seq=267 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=73,216
+[AIBEVT] t=856 seq=268 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=856 seq=269 scenario=manual source=ai action=target actor=aibuilder:61 target=log:74 state=chop_log pos=73,216
+[AIBEVT] t=856 seq=270 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=73,216
+[AIBEVT] t=857 seq=271 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=857 seq=272 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=114,220 waypoints=3 low=1 low0=72,216 way0=72,216
+[AIBEVT] t=858 seq=273 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=878 seq=274 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=879 seq=275 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=880 seq=276 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=750|collected=70|delivered=70|deaths=0
+[AIBACT] v=3 episode=1 batch=3 records=19 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhIAAAAASAD/BFFRUT9aANcABgAAAAAASQD/BFFRUT9nANMABgAAAAAASgD/BFFRUT91AM8ABgAAAAAASwD/BFFRUT+CAMsABgAAAAAATAD/BFFRUT+PAMcABwAAAAAAAAkA/wQQpChMTADYAAYIAAAAAE4A/wJvuynvAAAAAAQEADEACGQAIAEAAAQeADEACGQAIAEAAAcOAAAAAABIAP8EUVFRP1sA3AAEEAAxAAhkACABAAAEHgAxAAhkACABAAAHDgAAAAAASQD/BFFRUT9pANwABBAAMQAIZAAgAQAABB4AMQAIZAAgAQAA
+[AIBEVT] t=900 seq=277 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=901 seq=278 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=902 seq=279 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=904 seq=280 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=181,296 next=176,312 destination=1008,328 direction=left narrow_drop=false
+[AIBEVT] t=917 seq=281 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=99,216
+[AIBEVT] t=918 seq=282 scenario=manual source=ai action=target actor=aibuilder:61 target=log:75 state=chop_log pos=99,216
+[AIBEVT] t=918 seq=283 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=99,216
+[AIBEVT] t=919 seq=284 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=162,313 waypoints=4 low=1 low0=96,216 way0=96,216
+[AIBEVT] t=922 seq=285 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=923 seq=286 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=924 seq=287 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=944 seq=288 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=945 seq=289 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=946 seq=290 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=949 seq=291 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=153,224 next=152,240 destination=162,313 direction=left narrow_drop=false
+[AIBEVT] t=964 seq=292 scenario=manual source=ai action=path_replan actor=aibuilder:61 reason=obstruction destination=162,313 next=152,240 low=0 waypoints=0
+[AIBEVT] t=965 seq=293 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=162,313 waypoints=4 low=1 low0=160,224 way0=160,224
+[AIBEVT] t=966 seq=294 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=967 seq=295 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=968 seq=296 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=988 seq=297 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=989 seq=298 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=990 seq=299 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=992 seq=300 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=155,218 next=152,240 destination=162,313 direction=left narrow_drop=false
+[AIBEVT] t=1010 seq=301 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1011 seq=302 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1012 seq=303 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=1032 seq=304 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1033 seq=305 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1034 seq=306 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=900|collected=70|delivered=70|deaths=0
+[AIBEVT] t=1039 seq=307 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=1039 seq=308 scenario=manual source=ai action=reject_resource actor=aibuilder:62 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=1054 seq=309 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1055 seq=310 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1056 seq=311 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=1066 seq=312 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=161,312
+[AIBEVT] t=1067 seq=313 scenario=manual source=ai action=target actor=aibuilder:61 target=log:76 state=chop_log pos=161,312
+[AIBEVT] t=1067 seq=314 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=161,312
+[AIBEVT] t=1076 seq=315 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1078 seq=316 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=63,264
+[AIBEVT] t=1098 seq=317 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1099 seq=318 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=1121 seq=319 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=108,252 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1126 seq=320 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=161,312
+[AIBEVT] t=1127 seq=321 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=return_wood reason=no logs left and wood held pos=161,312
+[AIBEVT] t=1128 seq=322 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=28,292 waypoints=5 low=1 low0=160,312 way0=160,312
+[AIBEVT] t=1131 seq=323 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=628,317 next=624,328 destination=1008,328 direction=left narrow_drop=false
+[AIBEVT] t=1143 seq=324 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1144 seq=325 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=64,264
+[AIBEVT] t=1166 seq=326 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,260 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1167 seq=327 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=104,248 pos=65,264
+[AIBEVT] t=1171 seq=328 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=720,333
+[AIBEVT] t=1172 seq=329 scenario=manual source=ai action=state actor=aibuilder:60 from=tunnel_to_stone to=return_wood reason=visible gold cluster depleted pos=73,271
+[AIBEVT] t=1173 seq=330 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=28,292 waypoints=3 low=1 low0=72,272 way0=72,272
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1050|collected=70|delivered=70|deaths=0
+[AIBEVT] t=1193 seq=331 scenario=manual source=ai action=store_resources_loose actor=aibuilder:60 home=tent:43 reason=no_initial_crate wood=0 stone=24 gold=44 pos=28,292
+[AIBEVT] t=1196 seq=332 scenario=manual source=ai action=store_resources actor=aibuilder:60 home=tent:43 wood=0 stone=24 gold=44 pos=100,284
+[AIBEVT] t=1196 seq=333 scenario=manual source=ai action=state actor=aibuilder:60 from=return_wood to=find_stone reason=resources delivered pos=45,270
+[AIBEVT] t=1197 seq=334 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:60 anchor=68,272 target=64,240 route_corner=64,240 measured_anchor=68,272 reused_surface=false
+[AIBEVT] t=1197 seq=335 scenario=manual source=ai action=target actor=aibuilder:60 target=stone_tile state=tunnel_to_stone tile=64,240 route_corner=64,240 route_dirt=0 pos=44,272
+[AIBEVT] t=1197 seq=336 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=44,272
+[AIBEVT] t=1199 seq=337 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,276 waypoints=3 low=1 low0=48,280 way0=48,280
+[AIBACT] v=3 episode=1 batch=4 records=15 reason=interval data=BxAAAAAAAEoA/wRRUVE/dgDcAAQOADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAcPAAAAAABLAP8EUVFRP6YAOQEEDwAxAAhkACABAAAEHgAxAAhkACABAAAHDwAAAAAATAD/BFFRUT+yADwBBA8AMQAIZAAgAQAABB4AMQAIZAAgAQAABxoAAAAAAEUA/wKL4VAiHAAkAQYCAAAAAE8A/wKL4VAiAAAAAAQCADEACGQAIAEAAA==
+[AIBEVT] t=1202 seq=338 scenario=manual source=ai action=build_storage_shop actor=aibuilder:61 shop=buildershop:80 pos=220,308
+[AIBEVT] t=1202 seq=339 scenario=manual source=ai action=buy_storage_crate actor=aibuilder:61 shop=buildershop:80 crate=crate:81 pos=28,292
+[AIBEVT] t=1202 seq=340 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=220,308 waypoints=5 low=1 low0=80,288 way0=80,288
+[AIBEVT] t=1205 seq=341 scenario=manual source=ai action=store_resources actor=aibuilder:61 home=tent:43 wood=250 stone=0 gold=0 pos=100,284
+[AIBEVT] t=1205 seq=342 scenario=manual source=ai action=state actor=aibuilder:61 from=return_wood to=find_tree reason=wood delivered pos=46,272
+[AIBEVT] t=1205 seq=343 scenario=manual source=ai action=reject_resource actor=aibuilder:61 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=1206 seq=344 scenario=manual source=ai action=target actor=aibuilder:61 target=tree_pine:13 state=chop_tree pos=46,275 climb_penalty=0
+[AIBEVT] t=1206 seq=345 scenario=manual source=ai action=state actor=aibuilder:61 from=find_tree to=chop_tree reason=tree target acquired pos=46,275
+[AIBEVT] t=1207 seq=346 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1008,328 waypoints=13 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=1207 seq=347 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=432,328 waypoints=14 low=1 low0=48,280 way0=48,280
+[AIBEVT] t=1220 seq=348 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:83 reason=remote_stone pos=0,0
+[AIBEVT] t=1220 seq=349 scenario=manual source=ai action=reject_resource actor=aibuilder:62 resource=mat_stone:83 reason=remote_stone pos=0,0
+[AIBEVT] t=1222 seq=350 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:62 anchor=124,288 target=112,248 route_corner=128,248 measured_anchor=124,288 reused_surface=false
+[AIBEVT] t=1222 seq=351 scenario=manual source=ai action=target actor=aibuilder:62 target=stone_tile state=tunnel_to_stone tile=112,248 route_corner=128,248 route_dirt=4 pos=121,288
+[AIBEVT] t=1222 seq=352 scenario=manual source=ai action=state actor=aibuilder:62 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=121,288
+[AIBEVT] t=1229 seq=353 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=ascend entry_x=15 target=112,248 pos=134,288
+[AIBEVT] t=1247 seq=354 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=80,240 pos=58,280
+[AIBEVT] t=1248 seq=355 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=80,240 pos=58,280
+[AIBEVT] t=1252 seq=356 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=720,306 next=728,296 destination=1008,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1296 seq=357 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:62 from=124,288 anchor=124,288 corner_from=128,248 surface_entry_changed=false target=112,240 route_corner=128,240
+[AIBEVT] t=1296 seq=358 scenario=manual source=ai action=target actor=aibuilder:62 target=nearby_stone_tile state=tunnel_to_stone tile=112,240 pos=128,288
+[AIBEVT] t=1316 seq=359 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=287,303 next=288,320 destination=432,328 direction=right narrow_drop=false
+[AIBEVT] t=1325 seq=360 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,272 anchor=68,272 corner_from=64,240 surface_entry_changed=false target=64,232 route_corner=64,232
+[AIBEVT] t=1325 seq=361 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=64,232 pos=66,274
+[AIBEVT] t=1330 seq=362 scenario=manual source=ai action=corner_escape actor=aibuilder:60 direction=1 state=tunnel_to_stone pos=71,265
+[AIBEVT] t=1333 seq=363 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=718,334
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1200|collected=388|delivered=388|deaths=0
+[AIBEVT] t=1366 seq=364 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,292 waypoints=3 low=1 low0=144,288 way0=144,288
+[AIBEVT] t=1369 seq=365 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1008,328 waypoints=13 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=1400 seq=366 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=64,232 pos=79,288
+[AIBEVT] t=1403 seq=367 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,236 waypoints=3 low=1 low0=72,288 way0=72,288
+[AIBEVT] t=1414 seq=368 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=720,306 next=728,296 destination=1008,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1447 seq=369 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,236 waypoints=3 low=1 low0=72,288 way0=72,288
+[AIBEVT] t=1462 seq=370 scenario=manual source=ai action=target actor=aibuilder:62 target=nearby_stone_tile state=tunnel_to_stone tile=104,240 pos=124,283
+[AIBEVT] t=1471 seq=371 scenario=manual source=ai action=target_abandon actor=aibuilder:59 target=tree_pine:15 reason=no_progress distance=316.774 health=2.665 retry=900
+[AIBEVT] t=1471 seq=372 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_tree to=find_tree reason=tree target made no progress pos=691,332
+[AIBEVT] t=1472 seq=373 scenario=manual source=ai action=target actor=aibuilder:59 target=tree_bushy:16 state=chop_tree pos=693,336 climb_penalty=0
+[AIBEVT] t=1472 seq=374 scenario=manual source=ai action=state actor=aibuilder:59 from=find_tree to=chop_tree reason=tree target acquired pos=693,336
+[AIBEVT] t=1473 seq=375 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1240,328 waypoints=19 low=1 low0=696,336 way0=696,336
+[AIBEVT] t=1473 seq=376 scenario=manual source=ai action=corner_escape actor=aibuilder:60 direction=1 state=tunnel_to_stone pos=72,265
+[AIBEVT] t=1484 seq=377 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=720,336
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1350|collected=388|delivered=388|deaths=0
+[AIBACT] v=3 episode=1 batch=5 records=19 reason=interval data=BgIAAAAAUAAAA+zFrZncADQBBgAAAAAAUQAABUCaXhccACQBBwEAAAAAADcA/wJvuynvRQAkAQYRAAAAAFIA/wJvuynvAAAAAAYAAAAAAFMA/wKL4VAiAAAAAAgAADEAA14BbgAHAAAAAAAAUwD/AovhUCIAAAAABAoAMQAIZAAgAQAABgUAAAAAVAD/AovhUCIAAAAABBkAMQAIZAAgAQAABB4AMQAIZAAgAQAABhgAAAAAVQD/BBCkKExMANwABAYAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+[AIBEVT] t=1509 seq=378 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,292 waypoints=4 low=1 low0=144,288 way0=144,288
+[AIBEVT] t=1520 seq=379 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1240,328 waypoints=21 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=1540 seq=380 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:62 from=124,288 anchor=100,288 corner_from=128,240 surface_entry_changed=true target=96,240 route_corner=96,240
+[AIBEVT] t=1540 seq=381 scenario=manual source=ai action=target actor=aibuilder:62 target=nearby_stone_tile state=tunnel_to_stone tile=96,240 pos=124,270
+[AIBEVT] t=1542 seq=382 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=64,232 pos=79,288
+[AIBEVT] t=1545 seq=383 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,236 waypoints=3 low=1 low0=72,288 way0=72,288
+[AIBEVT] t=1548 seq=384 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=100,276 waypoints=3 low=1 low0=128,280 way0=128,280
+[AIBEVT] t=1550 seq=385 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=72,232 pos=63,269
+[AIBEVT] t=1559 seq=386 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=723,304 next=728,296 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1563 seq=387 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=728,300 next=736,288 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1563 seq=388 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=ascend entry_x=12 target=96,240 pos=111,283
+[AIBEVT] t=1574 seq=389 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=730,283 next=736,272 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1579 seq=390 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=100,284 waypoints=3 low=1 low0=96,288 way0=96,288
+[AIBEVT] t=1580 seq=391 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,276 waypoints=3 low=1 low0=80,280 way0=80,280
+[AIBEVT] t=1584 seq=392 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=100,244 waypoints=3 low=1 low0=96,288 way0=96,288
+[AIBEVT] t=1587 seq=393 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=ascend entry_x=8 target=72,232 pos=78,288
+[AIBEVT] t=1594 seq=394 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_tree to=find_log reason=tree felled or gone pos=425,336
+[AIBEVT] t=1595 seq=395 scenario=manual source=ai action=target actor=aibuilder:61 target=log:86 state=chop_log pos=425,336
+[AIBEVT] t=1595 seq=396 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=425,336
+[AIBEVT] t=1597 seq=397 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=728,304 next=736,272 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1627 seq=398 scenario=manual source=ai action=path_upward_turn actor=aibuilder:59 pos=671,336 next=736,272 destination=1240,328 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=1630 seq=399 scenario=manual source=ai action=stone_route_abort actor=aibuilder:62 reason=no_legal_continuation target=72,232 route_corner=96,240 return_anchor=100,288 return_corner=96,240 rejected_gold=false retry=0 pos=103,279
+[AIBEVT] t=1630 seq=400 scenario=manual source=ai action=state actor=aibuilder:62 from=tunnel_to_stone to=return_wood reason=stone route has no legal continuation pos=103,279
+[AIBEVT] t=1631 seq=401 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=28,292 waypoints=3 low=1 low0=104,280 way0=104,280
+[AIBEVT] t=1636 seq=402 scenario=manual source=ai action=path_downward_steer actor=aibuilder:62 pos=103,273 next=104,288 destination=28,292 direction=left narrow_drop=false
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1500|collected=388|delivered=388|deaths=0
+[AIBEVT] t=1639 seq=403 scenario=manual source=ai action=state actor=aibuilder:60 from=tunnel_to_stone to=return_wood reason=stone acquired pos=63,270
+[AIBEVT] t=1640 seq=404 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=28,292 waypoints=3 low=1 low0=64,264 way0=64,264
+[AIBEVT] t=1645 seq=405 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=425,336
+[AIBEVT] t=1646 seq=406 scenario=manual source=ai action=path_downward_steer actor=aibuilder:60 pos=59,266 next=64,280 destination=28,292 direction=right narrow_drop=false
+[AIBEVT] t=1646 seq=407 scenario=manual source=ai action=target actor=aibuilder:61 target=log:87 state=chop_log pos=425,336
+[AIBEVT] t=1646 seq=408 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=425,336
+[AIBEVT] t=1650 seq=409 scenario=manual source=ai action=path_upward_turn actor=aibuilder:59 pos=714,327 next=736,272 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1652 seq=410 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=719,334
+[AIBEVT] t=1658 seq=411 scenario=manual source=ai action=store_resources actor=aibuilder:60 home=tent:43 wood=0 stone=92 gold=0 pos=100,284
+[AIBEVT] t=1658 seq=412 scenario=manual source=ai action=state actor=aibuilder:60 from=return_wood to=find_stone reason=resources delivered pos=54,279
+[AIBEVT] t=1659 seq=413 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:60 anchor=68,280 target=64,320 route_corner=64,320 measured_anchor=68,280 reused_surface=false
+[AIBEVT] t=1659 seq=414 scenario=manual source=ai action=target actor=aibuilder:60 target=stone_tile state=tunnel_to_stone tile=64,320 route_corner=64,320 route_dirt=5 pos=53,280
+[AIBEVT] t=1659 seq=415 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=53,280
+[AIBEVT] t=1660 seq=416 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=descend entry_x=8 target=64,320 pos=52,280
+[AIBEVT] t=1661 seq=417 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,284 waypoints=3 low=1 low0=48,280 way0=48,280
+[AIBEVT] t=1661 seq=418 scenario=manual source=ai action=path_upward_steer actor=aibuilder:62 pos=71,287 next=64,280 destination=28,292 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=1666 seq=419 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=descend entry_x=8 target=64,320 pos=52,280
+[AIBEVT] t=1676 seq=420 scenario=manual source=ai action=path_downward_steer actor=aibuilder:62 pos=52,266 next=56,280 destination=28,292 direction=right narrow_drop=false
+[AIBEVT] t=1680 seq=421 scenario=manual source=ai action=store_resources actor=aibuilder:62 home=tent:43 wood=0 stone=96 gold=0 pos=100,284
+[AIBEVT] t=1680 seq=422 scenario=manual source=ai action=state actor=aibuilder:62 from=return_wood to=find_stone reason=resources delivered pos=50,275
+[AIBEVT] t=1681 seq=423 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=220,308 waypoints=7 low=1 low0=48,280 way0=48,280
+[AIBEVT] t=1688 seq=424 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1240,328 waypoints=21 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=1705 seq=425 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=425,336
+[AIBEVT] t=1706 seq=426 scenario=manual source=ai action=target actor=aibuilder:61 target=log:88 state=chop_log pos=425,336
+[AIBEVT] t=1706 seq=427 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=425,336
+[AIBEVT] t=1707 seq=428 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=472,332 waypoints=3 low=1 low0=424,336 way0=424,336
+[AIBEVT] t=1713 seq=429 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:62 anchor=124,288 target=80,328 route_corner=128,328 measured_anchor=124,288 reused_surface=false
+[AIBEVT] t=1713 seq=430 scenario=manual source=ai action=target actor=aibuilder:62 target=stone_tile state=tunnel_to_stone tile=80,328 route_corner=128,328 route_dirt=4 pos=120,288
+[AIBEVT] t=1713 seq=431 scenario=manual source=ai action=state actor=aibuilder:62 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=120,288
+[AIBEVT] t=1733 seq=432 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=720,306 next=728,296 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=1746 seq=433 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,320 surface_entry_changed=false target=56,320 route_corner=72,320
+[AIBEVT] t=1746 seq=434 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=56,320 pos=73,288
+[AIBEVT] t=1767 seq=435 scenario=manual source=ai action=stone_route_direct actor=aibuilder:62 phase=descend entry_x=15 target=80,328 pos=128,296
+[AIBEVT] t=1768 seq=436 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=452,336
+[AIBEVT] t=1769 seq=437 scenario=manual source=ai action=target actor=aibuilder:61 target=log:89 state=chop_log pos=452,336
+[AIBEVT] t=1769 seq=438 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=452,336
+[AIBEVT] t=1770 seq=439 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=484,332 waypoints=3 low=1 low0=456,336 way0=456,336
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1650|collected=576|delivered=576|deaths=0
+[AIBACT] v=3 episode=1 batch=6 records=23 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgQAAAAAVgD/BFFRUT/BAUwBBgAAAAAAVwD/BFFRUT/NAUUBBgAAAAAAWAD/BFFRUT/ZAT4BBgAAAAAAWQD/BFFRUT/lATgBBgAAAAAAWgD/BFFRUT/xATEBBgAAAAAAWwD/BFFRUT/+ASoBBwAAAAAAAA0A/wQQpChMtAFQAQYCAAAAAF0A/wJvuynvAAAAAAQYADEACGQAIAEAAAcYAAAAAABWAP8EUVFRP8MBVAEEBgAxAAhkACABAAAHBQAAAAAATwD/AovhUCI7ABYBBBkAMQAIZAAgAQAABgUAAAAAXwD/AovhUCIAAAAABxMAAAAAAFcA/wRRUVE/vAFUAQQGADEACGQAIAEAAAQeADEACGQAIAEAAAcbAAAAAABYAP8EUVFRP9wBTAEEAwAxAAhkACABAAAEHgAxAAhkACABAAA=
+[AIBEVT] t=1814 seq=440 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=718,334
+[AIBEVT] t=1818 seq=441 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=72,320 surface_entry_changed=false target=72,328 route_corner=64,328
+[AIBEVT] t=1818 seq=442 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=72,328 pos=73,288
+[AIBEVT] t=1828 seq=443 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=472,328
+[AIBEVT] t=1829 seq=444 scenario=manual source=ai action=target actor=aibuilder:61 target=log:90 state=chop_log pos=472,328
+[AIBEVT] t=1829 seq=445 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=472,328
+[AIBEVT] t=1835 seq=446 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:97 reason=remote_stone pos=0,0
+[AIBEVT] t=1835 seq=447 scenario=manual source=ai action=reject_resource actor=aibuilder:62 resource=mat_stone:97 reason=remote_stone pos=0,0
+[AIBEVT] t=1850 seq=448 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1240,328 waypoints=21 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=1875 seq=449 scenario=manual source=ai action=target_abandon actor=aibuilder:59 target=tree_bushy:16 reason=no_progress distance=541.633 health=2.332 retry=900
+[AIBEVT] t=1875 seq=450 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_tree to=find_tree reason=tree target made no progress pos=698,335
+[AIBEVT] t=1876 seq=451 scenario=manual source=ai action=target actor=aibuilder:59 target=tree_bushy:12 state=chop_tree pos=701,336 climb_penalty=0
+[AIBEVT] t=1876 seq=452 scenario=manual source=ai action=state actor=aibuilder:59 from=find_tree to=chop_tree reason=tree target acquired pos=701,336
+[AIBEVT] t=1877 seq=453 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=25 low=1 low0=704,336 way0=704,336
+[AIBEVT] t=1888 seq=454 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=472,328
+[AIBEVT] t=1889 seq=455 scenario=manual source=ai action=target actor=aibuilder:61 target=log:91 state=chop_log pos=472,328
+[AIBEVT] t=1889 seq=456 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=chop_log reason=log target acquired pos=472,328
+[AIBEVT] t=1890 seq=457 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=509,333 waypoints=3 low=1 low0=472,328 way0=472,328
+[AIBEVT] t=1895 seq=458 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=720,331 next=720,320 destination=1480,304 direction=-1 left_wall=false right_wall=true
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1800|collected=576|delivered=576|deaths=0
+[AIBEVT] t=1939 seq=459 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=1939 seq=460 scenario=manual source=ai action=reject_resource actor=aibuilder:62 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=1949 seq=461 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_log to=find_log reason=log gone pos=496,328
+[AIBEVT] t=1950 seq=462 scenario=manual source=ai action=state actor=aibuilder:61 from=find_log to=return_wood reason=no logs left and wood held pos=496,328
+[AIBEVT] t=1951 seq=463 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=28,292 waypoints=17 low=1 low0=496,328 way0=496,328
+[AIBEVT] t=1973 seq=464 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:62 target=80,328 approach=84,316
+[AIBEVT] t=1973 seq=465 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=84,316 waypoints=3 low=1 low0=128,312 way0=128,312
+[AIBEVT] t=1981 seq=466 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=762,275 next=768,288 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2009 seq=467 scenario=manual source=ai action=path_replan actor=aibuilder:62 reason=stone_route_obstruction destination=84,316 next=112,312 low=0 waypoints=0
+[AIBEVT] t=2010 seq=468 scenario=manual source=ai action=path_set actor=aibuilder:62 destination=84,316 waypoints=3 low=1 low0=120,288 way0=120,288
+[AIBEVT] t=2026 seq=469 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=837,270 next=832,280 destination=1480,304 direction=left narrow_drop=false
+[AIBEVT] t=2034 seq=470 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=848,272 low=0 waypoints=0
+[AIBEVT] t=2035 seq=471 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=23 low=1 low0=832,280 way0=832,280
+[AIBEVT] t=2052 seq=472 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=72,328 approach=76,316
+[AIBEVT] t=2073 seq=473 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=909,288 next=904,304 destination=1480,304 direction=left narrow_drop=false
+[AIBEVT] t=2075 seq=474 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=909,288 next=904,304 destination=1480,304 direction=left narrow_drop=false
+[AIBEVT] t=2086 seq=475 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=898,288 next=904,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2088 seq=476 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=904,304 low=0 waypoints=0
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=1950|collected=576|delivered=576|deaths=0
+[AIBEVT] t=2089 seq=477 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=20 low=1 low0=896,288 way0=896,288
+[AIBEVT] t=2094 seq=478 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=903,288 next=904,304 destination=1480,304 direction=right narrow_drop=false
+[AIBACT] v=3 episode=1 batch=7 records=20 reason=interval data=BxsAAAAAAFkA/wRRUVE/6AFMAQQDADEACGQAIAEAAAYFAAAAAGAA/wJvuynvAAAAAAYAAAAAAGEA/wKL4VAiAAAAAAgAADEAA8IBjAAHAAAAAAAAYAD/Am+7Ke8AAAAABwAAAAAAAGEA/wKL4VAiAAAAAAYXAAAAAGIA/wKL4VAiAAAAAAQCADEACGQAIAEAAAcbAAAAAABaAP8EUVFRP/QBTAEEAwAxAAhkACABAAAGCgAAAABjAP8Cb7sp7wAAAAAEFAAxAAhkACABAAAHHAAAAAAAWwD/BFFRUT8BAk0BBAIAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+[AIBEVT] t=2103 seq=479 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:62 reason=underground_shaft_change from=128,328 candidate=64,328 anchor=124,288 target=64,328 pos=71,320
+[AIBEVT] t=2103 seq=480 scenario=manual source=ai action=stone_route_continue actor=aibuilder:62 from=128,328 corner=128,328 target=64,328 route_dirt=0 pos=71,320
+[AIBEVT] t=2103 seq=481 scenario=manual source=ai action=target actor=aibuilder:62 target=nearby_stone_tile state=tunnel_to_stone tile=64,328 pos=71,320
+[AIBEVT] t=2104 seq=482 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:62 target=64,328 approach=68,324
+[AIBEVT] t=2109 seq=483 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=904,304 low=0 waypoints=0
+[AIBEVT] t=2110 seq=484 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=20 low=1 low0=904,288 way0=904,288
+[AIBEVT] t=2115 seq=485 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=908,288 next=904,304 destination=1480,304 direction=left narrow_drop=false
+[AIBEVT] t=2130 seq=486 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=904,304 low=0 waypoints=0
+[AIBEVT] t=2131 seq=487 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=20 low=1 low0=904,288 way0=904,288
+[AIBEVT] t=2165 seq=488 scenario=manual source=ai action=corner_escape actor=aibuilder:59 direction=-1 state=chop_tree pos=912,273
+[AIBEVT] t=2178 seq=489 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=64,328 pos=71,320
+[AIBEVT] t=2179 seq=490 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=64,328 approach=68,324
+[AIBEVT] t=2179 seq=491 scenario=manual source=ai action=store_resources actor=aibuilder:61 home=tent:43 wood=300 stone=0 gold=0 pos=100,284
+[AIBEVT] t=2179 seq=492 scenario=manual source=ai action=state actor=aibuilder:61 from=return_wood to=find_tree reason=wood delivered pos=48,272
+[AIBEVT] t=2179 seq=493 scenario=manual source=ai action=reject_resource actor=aibuilder:61 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=2180 seq=494 scenario=manual source=ai action=target actor=aibuilder:61 target=tree_pine:15 state=chop_tree pos=47,274 climb_penalty=0
+[AIBEVT] t=2180 seq=495 scenario=manual source=ai action=state actor=aibuilder:61 from=find_tree to=chop_tree reason=tree target acquired pos=47,274
+[AIBEVT] t=2181 seq=496 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=1008,328 waypoints=26 low=1 low0=48,280 way0=48,280
+[AIBEVT] t=2201 seq=497 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=22 low=1 low0=864,288 way0=864,288
+[AIBEVT] t=2211 seq=498 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:60 reason=underground_shaft_change from=64,328 candidate=72,328 anchor=68,280 target=56,328 pos=71,320
+[AIBEVT] t=2211 seq=499 scenario=manual source=ai action=stone_route_continue actor=aibuilder:60 from=64,328 corner=64,328 target=56,328 route_dirt=0 pos=71,320
+[AIBEVT] t=2211 seq=500 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=56,328 pos=71,320
+[AIBEVT] t=2211 seq=501 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:62 reason=underground_shaft_change from=128,328 candidate=72,328 anchor=124,288 target=56,328 pos=71,320
+[AIBEVT] t=2211 seq=502 scenario=manual source=ai action=stone_route_continue actor=aibuilder:62 from=128,328 corner=128,328 target=56,328 route_dirt=0 pos=71,320
+[AIBEVT] t=2211 seq=503 scenario=manual source=ai action=target actor=aibuilder:62 target=nearby_stone_tile state=tunnel_to_stone tile=56,328 pos=71,320
+[AIBEVT] t=2212 seq=504 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=56,328 approach=68,332
+[AIBEVT] t=2212 seq=505 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:62 target=56,328 approach=68,332
+[AIBEVT] t=2216 seq=506 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=880,279 next=880,288 destination=1480,304 direction=left narrow_drop=false
+[AIBEVT] t=2232 seq=507 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=904,288 next=904,304 destination=1480,304 direction=left narrow_drop=false
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=2100|collected=876|delivered=876|deaths=0
+[AIBEVT] t=2243 seq=508 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=157,289 next=152,304 destination=1008,328 direction=left narrow_drop=false
+[AIBEVT] t=2247 seq=509 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=904,304 low=0 waypoints=0
+[AIBEVT] t=2247 seq=510 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:60 reason=underground_shaft_change from=64,328 candidate=72,336 anchor=68,280 target=72,336 pos=72,328
+[AIBEVT] t=2247 seq=511 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,328 surface_entry_changed=false target=72,336 route_corner=64,336
+[AIBEVT] t=2247 seq=512 scenario=manual source=ai action=stone_route_continue actor=aibuilder:60 from=64,328 corner=64,336 target=72,336 route_dirt=0 pos=72,328
+[AIBEVT] t=2247 seq=513 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=72,336 pos=72,328
+[AIBEVT] t=2247 seq=514 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:62 reason=underground_shaft_change from=128,328 candidate=64,336 anchor=124,288 target=64,336 pos=71,328
+[AIBEVT] t=2247 seq=515 scenario=manual source=ai action=stone_route_abort actor=aibuilder:62 reason=no_legal_continuation target=64,336 route_corner=128,328 return_anchor=124,288 return_corner=128,328 rejected_gold=false retry=0 pos=71,328
+[AIBEVT] t=2247 seq=516 scenario=manual source=ai action=state actor=aibuilder:62 from=tunnel_to_stone to=return_wood reason=stone route has no legal continuation pos=71,328
+[AIBEVT] t=2248 seq=517 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=20 low=1 low0=904,288 way0=904,288
+[AIBEVT] t=2248 seq=518 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=72,336 approach=76,332
+[AIBEVT] t=2248 seq=519 scenario=manual source=ai action=stone_return_corner_assist actor=aibuilder:62 corner=128,328 anchor=124,288 pos=71,328
+[AIBEVT] t=2248 seq=520 scenario=manual source=ai action=stone_return_direct actor=aibuilder:62 anchor=124,288 pos=71,328
+[AIBEVT] t=2251 seq=521 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=157,287 next=152,304 destination=1008,328 direction=left narrow_drop=false
+[AIBEVT] t=2253 seq=522 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=898,288 next=904,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2255 seq=523 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=898,288 next=904,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2275 seq=524 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=159,311 next=152,304 destination=1008,328 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=2276 seq=525 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=904,304 low=0 waypoints=0
+[AIBEVT] t=2277 seq=526 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=19 low=1 low0=912,272 way0=912,272
+[AIBEVT] t=2283 seq=527 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=172,298 next=176,312 destination=1008,328 direction=right narrow_drop=false
+[AIBEVT] t=2284 seq=528 scenario=manual source=ai action=stone_return_stall actor=aibuilder:62 anchor=124,288 corner=128,328 pos=80,328 geometry=1000011/1000000/0000000/0000111/1111111/1111111/1111111
+[AIBEVT] t=2284 seq=529 scenario=manual source=ai action=stone_return_corner_retry actor=aibuilder:62 corner=128,328 anchor=124,288 pos=80,328
+[AIBEVT] t=2284 seq=530 scenario=manual source=ai action=stone_return_corner_assist actor=aibuilder:62 corner=128,328 anchor=124,288 pos=80,328
+[AIBEVT] t=2319 seq=531 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=947,279 next=944,304 destination=1480,304 direction=left narrow_drop=true
+[AIBEVT] t=2322 seq=532 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=945,281 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2323 seq=533 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=943,283 next=944,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2327 seq=534 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=944,288 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2328 seq=535 scenario=manual source=gym action=progress_violation actor=aibuilder:62 kind=motion_stall state=6 movement_ticks=40 max_displacement=0 jumps=0 replans=0 interactions=0 targets=0 outcomes=0 invalid=0 invalid_reason= pos=80,328 destination=124,288
+[AIBGYM] v=1 t=2328 b=62 tm=0 f=1 s=6 x=80 y=328 tx=0 ty=0 mv=0 j=0 rp=0 in=0 tg=0 out=0 inv=0 dx=124 dy=288 tb=0 bx=0 by=0
+[AIBEVT] t=2336 seq=536 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=944,304 low=0 waypoints=0
+[AIBEVT] t=2337 seq=537 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=19 low=1 low0=944,288 way0=944,288
+[AIBEVT] t=2346 seq=538 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=944,283 next=944,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2348 seq=539 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=944,286 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2357 seq=540 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=944,304 low=0 waypoints=0
+[AIBEVT] t=2358 seq=541 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=19 low=1 low0=944,288 way0=944,288
+[AIBEVT] t=2368 seq=542 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=944,284 next=944,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2370 seq=543 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=944,288 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2370 seq=544 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:60 reason=underground_shaft_change from=64,336 candidate=72,336 anchor=68,280 target=64,336 pos=72,328
+[AIBEVT] t=2370 seq=545 scenario=manual source=ai action=stone_route_continue actor=aibuilder:60 from=64,336 corner=64,336 target=64,336 route_dirt=0 pos=72,328
+[AIBEVT] t=2370 seq=546 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=64,336 pos=72,328
+[AIBEVT] t=2371 seq=547 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=64,336 approach=68,332
+[AIBEVT] t=2378 seq=548 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=944,304 low=0 waypoints=0
+[AIBEVT] t=2379 seq=549 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=19 low=1 low0=944,288 way0=944,288
+[AIBEVT] t=2384 seq=550 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=944,281 next=944,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2386 seq=551 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=944,281 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2387 seq=552 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=945,282 next=944,304 destination=1480,304 direction=left narrow_drop=true
+[AIBEVT] t=2388 seq=553 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=946,283 next=944,304 destination=1480,304 direction=left
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=2250|collected=876|delivered=876|deaths=0
+[AIBGYMW] data=AT4AABgJAAABACpz/0cAQAFAAEgBCgAAAHj/RwBAAUAASAEKAAAAff9HAEABQABIAQoAAACC/0cAQAFAAEgBCgAAAIf/RwBAAUAASAEKAAAAjP9HAEABOABIAQoAAACR/0cASAE4AEgBCgAAAJb/RwBIATgASAEKAAAAm/9HAEgBOABIAQoAAACg/0cASAE4AEgBCgAAAKX/RwBIATgASAEKAAAAqv9HAEgBOABIAQoAAACv/0cASAE4AEgBCgAAALT/SgBIAQAAAAAGAAAAuf9QAEgBAAAAAAYAAAC+/1AASAEAAAAABgAAAMP/UABIAQAAAAAGAAAAyP9QAEgBAAAAAAYAAADN/1AASAEAAAAABgAAANL/UABIAQAAAAAGAAAA1/9QAEgBAAAAAAYAAADc/1AASAEAAAAABgAAAOH/UABIAQAAAAAGAAAA5v9QAEgBAAAAAAYAAADr/1AASAEAAAAABgAAAPD/UABIAQAAAAAGAAAA9f9QAEgBAAAAAAYAAAD6/1AASAEAAAAABgAAAP//UABIAQAAAAAGAAAABABQAEgBAAAAAAYAAAAJAFAASAEAAAAABgAAAA4AUABIAQAAAAAGAAAAEwBQAEgBAAAAAAYAAAAYAFAASAEAAAAABgAAAB0AUABIAQAAAAAGAAAAIgBQAEgBAAAAAAYAAAAnAFAASAEAAAAABgAAACwAUABIAQAAAAAGAAAAMQBQAEgBAAAAAAYAAAA2AFAASAEAAAAABgAAADsAUABIAQAAAAAGAAAAQABQAEgBAAAAAAYAAAA=
+[AIBEVT] t=2399 seq=554 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=944,304 low=0 waypoints=0
+[AIBACT] v=3 episode=1 batch=8 records=12 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgcAAAAAZAD/BBCkKEy0AVQBBwkAAAAAAF0A/wJvuynvMwALAQQOADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+[AIBEVT] t=2400 seq=555 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=19 low=1 low0=944,288 way0=944,288
+[AIBEVT] t=2406 seq=556 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=946,282 next=944,304 destination=1480,304 direction=left narrow_drop=true
+[AIBEVT] t=2408 seq=557 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=946,283 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2410 seq=558 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=944,285 next=944,304 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2414 seq=559 scenario=manual source=ai action=path_downward_release actor=aibuilder:59 reason=blocked_side pos=945,288 next=944,304 destination=1480,304 direction=left
+[AIBEVT] t=2420 seq=560 scenario=manual source=ai action=path_replan actor=aibuilder:59 reason=obstruction destination=1480,304 next=944,304 low=0 waypoints=0
+[AIBEVT] t=2421 seq=561 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1480,304 waypoints=18 low=1 low0=952,288 way0=952,288
+[AIBEVT] t=2444 seq=562 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=954,301 next=960,312 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2450 seq=563 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:104 reason=remote_stone pos=0,0
+[AIBEVT] t=2458 seq=564 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=964,317 next=960,328 destination=1480,304 direction=left narrow_drop=true
+[AIBEVT] t=2500 seq=565 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=1045,312 next=1040,328 destination=1480,304 direction=left narrow_drop=false
+[AIBEVT] t=2502 seq=566 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:60 reason=underground_shaft_change from=64,336 candidate=72,336 anchor=68,280 target=80,336 pos=72,328
+[AIBEVT] t=2502 seq=567 scenario=manual source=ai action=stone_route_continue actor=aibuilder:60 from=64,336 corner=64,336 target=80,336 route_dirt=0 pos=72,328
+[AIBEVT] t=2502 seq=568 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=80,336 pos=72,328
+[AIBEVT] t=2503 seq=569 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=80,336 approach=76,340
+[AIBEVT] t=2509 seq=570 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=1051,327 next=1056,336 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2510 seq=571 scenario=manual source=ai action=path_downward_steer actor=aibuilder:61 pos=628,317 next=624,328 destination=1008,328 direction=left narrow_drop=false
+[AIBEVT] t=2512 seq=572 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=1058,321 next=1064,336 destination=1480,304 direction=right narrow_drop=false
+[AIBEVT] t=2520 seq=573 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=1076,317 next=1080,328 destination=1480,304 direction=right narrow_drop=false
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=2400|collected=876|delivered=876|deaths=0
+[AIBEVT] t=2549 seq=574 scenario=manual source=ai action=state actor=aibuilder:60 from=tunnel_to_stone to=return_wood reason=stone quota reached pos=71,336
+[AIBEVT] t=2550 seq=575 scenario=manual source=ai action=stone_return_direct actor=aibuilder:60 anchor=68,280 pos=71,336
+[AIBEVT] t=2550 seq=576 scenario=manual source=ai action=corner_escape actor=aibuilder:61 direction=-1 state=chop_tree pos=720,333
+[AIBEVT] t=2552 seq=577 scenario=manual source=ai action=stone_return_wall_hold actor=aibuilder:60 anchor=68,280 corner=64,336 pos=71,335
+[AIBEVT] t=2571 seq=578 scenario=manual source=ai action=stone_return_surface actor=aibuilder:60 anchor=68,280 pos=71,282 egress=60,284 surface_memory=68,280
+[AIBEVT] t=2586 seq=579 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=1008,328 waypoints=13 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=2588 seq=580 scenario=manual source=ai action=stone_return_exit actor=aibuilder:60 anchor=68,280 egress=60,284 pos=62,280 surface_memory=68,280
+[AIBEVT] t=2588 seq=581 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=28,292 waypoints=3 low=1 low0=64,280 way0=64,280
+[AIBEVT] t=2601 seq=582 scenario=manual source=ai action=store_resources actor=aibuilder:60 home=tent:43 wood=0 stone=252 gold=0 pos=100,284
+[AIBEVT] t=2601 seq=583 scenario=manual source=ai action=state actor=aibuilder:60 from=return_wood to=find_stone reason=resources delivered pos=51,280
+[AIBEVT] t=2602 seq=584 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:60 anchor=68,280 target=80,336 route_corner=64,336 measured_anchor=68,280 reused_surface=false
+[AIBEVT] t=2602 seq=585 scenario=manual source=ai action=target actor=aibuilder:60 target=stone_tile state=tunnel_to_stone tile=80,336 route_corner=64,336 route_dirt=0 pos=49,280
+[AIBEVT] t=2602 seq=586 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=49,280
+[AIBEVT] t=2603 seq=587 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,284 waypoints=3 low=1 low0=48,280 way0=48,280
+[AIBEVT] t=2613 seq=588 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=descend entry_x=8 target=80,336 pos=54,280
+[AIBEVT] t=2631 seq=589 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=720,306 next=728,296 destination=1008,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=2633 seq=590 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=80,336 approach=84,324
+[AIBEVT] t=2642 seq=591 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:60 reason=underground_shaft_change from=64,336 candidate=72,344 anchor=68,280 target=72,344 pos=71,336
+[AIBEVT] t=2642 seq=592 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,336 surface_entry_changed=false target=72,344 route_corner=64,344
+[AIBEVT] t=2642 seq=593 scenario=manual source=ai action=stone_route_continue actor=aibuilder:60 from=64,336 corner=64,344 target=72,344 route_dirt=1 pos=71,336
+[AIBEVT] t=2642 seq=594 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=72,344 pos=71,336
+[AIBEVT] t=2643 seq=595 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=72,344 approach=76,340
+[AIBEVT] t=2683 seq=596 scenario=manual source=ai action=path_upward_steer actor=aibuilder:59 pos=1402,289 next=1400,280 destination=1480,304 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=2685 seq=597 scenario=manual source=ai action=path_downward_steer actor=aibuilder:59 pos=1405,286 next=1408,304 destination=1480,304 direction=right narrow_drop=false
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=2550|collected=1128|delivered=1128|deaths=0
+[AIBEVT] t=2693 seq=598 scenario=manual source=ai action=stone_return_stall actor=aibuilder:62 anchor=124,288 corner=128,328 pos=104,320 geometry=1111100/0011100/0000100/0000011/0111000/0111000/1111001
+[AIBEVT] t=2693 seq=599 scenario=manual source=ai action=stone_return_corner_retry actor=aibuilder:62 corner=128,328 anchor=124,288 pos=104,320
+[AIBEVT] t=2693 seq=600 scenario=manual source=ai action=stone_return_corner_assist actor=aibuilder:62 corner=128,328 anchor=124,288 pos=104,320
+[AIBACT] v=3 episode=1 batch=9 records=17 reason=interval data=BB4AMQAIZAAgAQAABhQAAAAAZwD/Am+7Ke8AAAAABgAAAAAAaAD/AovhUCIAAAAACAAAMQADJgKqAAcAAAAAAABoAP8Ci+FQIgAAAAAECgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAGHQAAAABqAP8Ci+FQIgAAAAAEAQAxAAhkACABAAAEHgAxAAhkACABAAAHEgAAAAAAagD/AovhUCI6ABYBBAwAMQAIZAAgAQAABhMAAAAAawD/AovhUCIAAAAABAsAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+[AIBEVT] t=2712 seq=601 scenario=manual source=ai action=corner_escape actor=aibuilder:61 direction=-1 state=chop_tree pos=718,334
+[AIBEVT] t=2714 seq=602 scenario=manual source=ai action=stone_route_fresh_rejected actor=aibuilder:60 reason=underground_shaft_change from=64,344 candidate=72,344 anchor=68,280 target=80,344 pos=71,336
+[AIBEVT] t=2714 seq=603 scenario=manual source=ai action=stone_route_continue actor=aibuilder:60 from=64,344 corner=64,344 target=80,344 route_dirt=1 pos=71,336
+[AIBEVT] t=2714 seq=604 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=80,344 pos=71,336
+[AIBEVT] t=2715 seq=605 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=80,344 approach=76,348
+[AIBEVT] t=2748 seq=606 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=1008,328 waypoints=14 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=2786 seq=607 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,344 surface_entry_changed=false target=88,336 route_corner=64,336
+[AIBEVT] t=2786 seq=608 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=88,336 pos=71,336
+[AIBEVT] t=2787 seq=609 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=88,336 approach=68,340
+[AIBEVT] t=2793 seq=610 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=720,306 next=728,296 destination=1008,328 direction=-1 left_wall=false right_wall=true
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=2700|collected=1128|delivered=1128|deaths=0
+[AIBEVT] t=2839 seq=611 scenario=manual source=ai action=reject_resource actor=aibuilder:60 resource=mat_stone:58 reason=remote_stone pos=1510,316
+[AIBEVT] t=2850 seq=612 scenario=manual source=ai action=target_abandon actor=aibuilder:61 target=tree_pine:15 reason=no_progress distance=316.774 health=2.665 retry=900
+[AIBEVT] t=2850 seq=613 scenario=manual source=ai action=state actor=aibuilder:61 from=chop_tree to=find_tree reason=tree target made no progress pos=691,332
+[AIBEVT] t=2851 seq=614 scenario=manual source=ai action=target actor=aibuilder:61 target=tree_bushy:16 state=chop_tree pos=693,336 climb_penalty=0
+[AIBEVT] t=2851 seq=615 scenario=manual source=ai action=state actor=aibuilder:61 from=find_tree to=chop_tree reason=tree target acquired pos=693,336
+[AIBEVT] t=2852 seq=616 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=1240,328 waypoints=19 low=1 low0=696,336 way0=696,336
+[AIBEVT] t=2858 seq=617 scenario=manual source=ai action=stone_return_anchor_retarget actor=aibuilder:60 from=68,280 anchor=68,280 corner_from=64,336 surface_entry_changed=false target=88,328 route_corner=64,328
+[AIBEVT] t=2858 seq=618 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=88,328 pos=71,336
+[AIBEVT] t=2859 seq=619 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=88,328 approach=68,332
+[AIBEVT] t=2860 seq=620 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_tree to=find_log reason=tree felled or gone pos=1456,312
+[AIBEVT] t=2861 seq=621 scenario=manual source=ai action=target actor=aibuilder:59 target=log:109 state=chop_log pos=1456,312
+[AIBEVT] t=2861 seq=622 scenario=manual source=ai action=state actor=aibuilder:59 from=find_log to=chop_log reason=log target acquired pos=1456,312
+[AIBEVT] t=2862 seq=623 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1491,306 waypoints=3 low=1 low0=1456,312 way0=1456,312
+[AIBEVT] t=2863 seq=624 scenario=manual source=ai action=corner_escape actor=aibuilder:61 direction=-1 state=chop_tree pos=720,336
+[AIBEVT] t=2899 seq=625 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=1240,328 waypoints=22 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=2930 seq=626 scenario=manual source=ai action=target actor=aibuilder:60 target=nearby_stone_tile state=tunnel_to_stone tile=96,328 pos=71,336
+[AIBEVT] t=2931 seq=627 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=96,328 approach=76,332
+[AIBEVT] t=2932 seq=628 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_log to=find_log reason=log gone pos=1477,312
+[AIBEVT] t=2933 seq=629 scenario=manual source=ai action=target actor=aibuilder:59 target=log:110 state=chop_log pos=1477,312
+[AIBEVT] t=2933 seq=630 scenario=manual source=ai action=state actor=aibuilder:59 from=find_log to=chop_log reason=log target acquired pos=1477,312
+[AIBEVT] t=2938 seq=631 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=723,304 next=728,296 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=2942 seq=632 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=728,300 next=736,288 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=2953 seq=633 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=730,283 next=736,272 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=2976 seq=634 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=728,304 next=736,272 destination=1240,328 direction=-1 left_wall=false right_wall=true
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=2850|collected=1128|delivered=1128|deaths=0
+[AIBEVT] t=2995 seq=635 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_log to=find_log reason=log gone pos=1477,312
+[AIBEVT] t=2996 seq=636 scenario=manual source=ai action=target actor=aibuilder:59 target=log:112 state=chop_log pos=1477,312
+[AIBEVT] t=2996 seq=637 scenario=manual source=ai action=state actor=aibuilder:59 from=find_log to=chop_log reason=log target acquired pos=1477,312
+[AIBACT] v=3 episode=1 batch=10 records=19 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgoAAAAAbQD/BFFRUT/XBTEBBgAAAAAAbgD/BFFRUT/hBSgBBgAAAAAAbwD/BFFRUT/rBR8BBgAAAAAAcAD/BFFRUT/2BRUBBgAAAAAAcQD/BFFRUT8ABgwBBwAAAAAAAAwA/wTTVhKtzAU4AQYKAAAAAHMA/wJvuynvAAAAAAQKADEACGQAIAEAAAQeADEACGQAIAEAAAcVAAAAAABtAP8EUVFRP9oFPAEECQAxAAhkACABAAAEHgAxAAhkACABAAAHGAAAAAAAbgD/BFFRUT/lBTwBBAYAMQAIZAAgAQAA
+[AIBEVT] t=3006 seq=638 scenario=manual source=ai action=path_upward_turn actor=aibuilder:61 pos=671,336 next=736,272 destination=1240,328 direction=1 left_wall=true right_wall=false
+[AIBEVT] t=3029 seq=639 scenario=manual source=ai action=path_upward_turn actor=aibuilder:61 pos=714,327 next=736,272 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=3031 seq=640 scenario=manual source=ai action=corner_escape actor=aibuilder:61 direction=-1 state=chop_tree pos=719,334
+[AIBEVT] t=3057 seq=641 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_log to=find_log reason=log gone pos=1477,312
+[AIBEVT] t=3058 seq=642 scenario=manual source=ai action=target actor=aibuilder:59 target=log:111 state=chop_log pos=1477,312
+[AIBEVT] t=3058 seq=643 scenario=manual source=ai action=state actor=aibuilder:59 from=find_log to=chop_log reason=log target acquired pos=1477,312
+[AIBEVT] t=3059 seq=644 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1516,316 waypoints=3 low=1 low0=1480,312 way0=1480,312
+[AIBEVT] t=3062 seq=645 scenario=manual source=ai action=stone_route_abort actor=aibuilder:60 reason=no_legal_continuation target=104,336 route_corner=64,328 return_anchor=68,280 return_corner=64,328 rejected_gold=false retry=0 pos=71,336
+[AIBEVT] t=3062 seq=646 scenario=manual source=ai action=state actor=aibuilder:60 from=tunnel_to_stone to=return_wood reason=stone route has no legal continuation pos=71,336
+[AIBEVT] t=3063 seq=647 scenario=manual source=ai action=stone_return_corner_assist actor=aibuilder:60 corner=64,328 anchor=68,280 pos=71,336
+[AIBEVT] t=3063 seq=648 scenario=manual source=ai action=stone_return_direct actor=aibuilder:60 anchor=68,280 pos=71,336
+[AIBEVT] t=3067 seq=649 scenario=manual source=ai action=stone_return_corner_rejoined actor=aibuilder:60 corner=64,328 anchor=68,280 pos=71,330
+[AIBEVT] t=3067 seq=650 scenario=manual source=ai action=path_set actor=aibuilder:61 destination=1240,328 waypoints=21 low=1 low0=664,336 way0=664,336
+[AIBEVT] t=3068 seq=651 scenario=manual source=ai action=stone_return_wall_hold actor=aibuilder:60 anchor=68,280 corner=64,328 pos=70,326
+[AIBEVT] t=3084 seq=652 scenario=manual source=ai action=stone_return_surface actor=aibuilder:60 anchor=68,280 pos=71,284 egress=60,284 surface_memory=68,280
+[AIBEVT] t=3102 seq=653 scenario=manual source=ai action=stone_return_exit actor=aibuilder:60 anchor=68,280 egress=60,284 pos=64,280 surface_memory=68,280
+[AIBEVT] t=3102 seq=654 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=28,292 waypoints=3 low=1 low0=64,280 way0=64,280
+[AIBEVT] t=3111 seq=655 scenario=manual source=ai action=store_resources actor=aibuilder:60 home=tent:43 wood=0 stone=160 gold=0 pos=100,284
+[AIBEVT] t=3111 seq=656 scenario=manual source=ai action=state actor=aibuilder:60 from=return_wood to=find_stone reason=resources delivered pos=51,280
+[AIBEVT] t=3112 seq=657 scenario=manual source=ai action=stone_return_anchor actor=aibuilder:60 anchor=68,280 target=112,312 route_corner=64,312 measured_anchor=68,280 reused_surface=false
+[AIBEVT] t=3112 seq=658 scenario=manual source=ai action=target actor=aibuilder:60 target=stone_tile state=tunnel_to_stone tile=112,312 route_corner=64,312 route_dirt=3 pos=50,280
+[AIBEVT] t=3112 seq=659 scenario=manual source=ai action=state actor=aibuilder:60 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=50,280
+[AIBEVT] t=3112 seq=660 scenario=manual source=ai action=path_upward_steer actor=aibuilder:61 pos=720,306 next=728,296 destination=1240,328 direction=-1 left_wall=false right_wall=true
+[AIBEVT] t=3113 seq=661 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=68,284 waypoints=3 low=1 low0=48,280 way0=48,280
+[AIBEVT] t=3120 seq=662 scenario=manual source=ai action=stone_route_direct actor=aibuilder:60 phase=descend entry_x=8 target=112,312 pos=52,280
+[AIBEVT] t=3122 seq=663 scenario=manual source=ai action=state actor=aibuilder:59 from=chop_log to=find_log reason=log gone pos=1503,312
+[AIBEVT] t=3123 seq=664 scenario=manual source=ai action=target actor=aibuilder:59 target=log:113 state=chop_log pos=1503,312
+[AIBEVT] t=3123 seq=665 scenario=manual source=ai action=state actor=aibuilder:59 from=find_log to=chop_log reason=log target acquired pos=1503,312
+[AIBEVT] t=3124 seq=666 scenario=manual source=ai action=path_set actor=aibuilder:59 destination=1536,292 waypoints=3 low=1 low0=1504,312 way0=1504,312
+[AIBEVT] t=3135 seq=667 scenario=manual source=ai action=stone_exposed_path actor=aibuilder:60 target=112,312 approach=124,316
+[AIBEVT] t=3135 seq=668 scenario=manual source=ai action=path_set actor=aibuilder:60 destination=124,316 waypoints=3 low=1 low0=72,296 way0=72,296
+AIBGYM|PROGRESS|run=gloryhill_4b_downward_node_fix_diag_20260718|elapsed=3000|collected=1288|delivered=1288|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_downward_node_fix_diag_20260718 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-3895577951-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=3000 elapsed=3000 collected_wood=550 collected_stone=678 collected_gold=60 collected_total=1288 delivered_wood=550 delivered_stone=678 delivered_gold=60 delivered_total=1288 stock_delta_wood=350 stock_delta_stone=628 stock_delta_gold=60 deaths=0 failure_flags=1 idle_ticks=0 travel_px=14648.9 reason=duration_complete
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_downward_node_fix_diag_20260718 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-3895577951-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=3000 elapsed=3000 collected_wood=550 collected_stone=678 collected_gold=60 collected_total=1288 delivered_wood=550 delivered_stone=678 delivered_gold=60 delivered_total=1288 stock_delta_wood=350 stock_delta_stone=628 stock_delta_gold=60 deaths=0 failure_flags=1 idle_ticks=0 travel_px=14648.9 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=1 collected_wood=0 collected_stone=578 collected_gold=44 collected_total=622 delivered_wood=0 delivered_stone=578 delivered_gold=44 delivered_total=622
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=1 collected_wood=0 collected_stone=578 collected_gold=44 collected_total=622 delivered_wood=0 delivered_stone=578 delivered_gold=44 delivered_total=622
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=2 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=2 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=3 collected_wood=0 collected_stone=100 collected_gold=16 collected_total=116 delivered_wood=0 delivered_stone=100 delivered_gold=16 delivered_total=116
+[AIBGYMB] schema=4 run=gloryhill_4b_downward_node_fix_diag_20260718 slot=3 collected_wood=0 collected_stone=100 collected_gold=16 collected_total=116 delivered_wood=0 delivered_stone=100 delivered_gold=16 delivered_total=116
+AIBGYM|RESULT|run=gloryhill_4b_downward_node_fix_diag_20260718|status=result|metric=resource_collection_smoke|collected=1288|delivered=1288|elapsed=3000|deaths=0|failures=1|reason=duration_complete

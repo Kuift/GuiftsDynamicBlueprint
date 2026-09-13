@@ -115,6 +115,44 @@ This cohort also tightened the benchmark boundary. Four-worker spawns now come f
 
 All candidates still contain at least one recoverable 40-tick motion-stall window, usually during a slow deep cross-tunnel return. The accepted result is a throughput improvement and removal of the false mining state-stall bit, not a claim of failure-free four-worker navigation.
 
+### Final safe-quarry and refined-return cohort
+
+The later production pass fixed two additional defects without reopening the earlier accepted shaft-return result:
+
+- Quarry output used a fixed offset from storage. On Gloryhill that point could hang over the miner's shaft, so tagged `mat_stone` fell underground and remained eligible as a moving base-source lure. Quarry placement now reuses the clear, supported five-column base-workshop selector; creation revalidates before payment, refunds a failed spawn, and ignores unsupported existing quarries. Tagged output is eligible only at the exact home/storage/supported-quarry boundary.
+- Underground ore and gold retargeting could overwrite the original surface-entry identity or clear the mutable mining corner before return. The worker now preserves a stable episode surface anchor plus a separately saved latest cross-tunnel corner. It rejoins the corner inside the anchor/corner span, centers through the two-wide shaft lip, and latches wall-plus-up input only after the topology-qualified handoff.
+
+Fresh exact-key 5,400-tick results:
+
+```text
+control collected: 1806, 1764, 1538; mean=1702.667
+control delivered: 1726, 1684, 1538; mean=1649.333
+candidate collected/delivered: 1698, 1588, 1928; mean=1738.000
+
+gross collection delta:       +35.333 (+2.08%)
+confirmed delivery delta:     +88.667 (+5.38%)
+delivered-stone mean:         828.000 -> 938.000 (+110.000, +13.29%)
+accessible-stock mean:        1234.000 -> 1488.000 (+254.000)
+wood mean:                    741.333 -> 713.333 (-28.000)
+gold mean:                    80.000 -> 86.667 (+6.667)
+mean travel:                  23365.167 -> 24515.500 px (+4.92%)
+deaths:                       0 versus 0
+failure runs:                 3 versus 3
+acceptance:                   passed
+```
+
+The controls are `gloryhill_4b_return_control_001_20260718` through `_003`; candidates are `gloryhill_4b_return_final_candidate001_20260718` through `candidate003` under `Artifacts/aib_gym`. The exact comparator output is `Artifacts/aib_gym/gloryhill_4b_return_final_comparison_20260718.json`. Candidate delivery equaled collection in all three runs; control delivery gaps were `80/80/0`. This is the important conservation result even though the comparator's primary gross-collection gate moved only `+2.08%`.
+
+Focused runtime evidence remains distinct from the cohort. `gloryhill_4b_return_stableentry_smoke_20260718` completed 3,000 ticks with `1608` collected/delivered, `938` stone, `80` gold, zero deaths, and no failure flag. `gloryhill_4b_return_finalmechanism_smoke_20260718` recorded the bounded corner-rejoin, wall-hold, surface-exit, and later store sequence on the retained mechanism. The required mirrored-overhang regression passed `1/1` with `DONE` in `../../Logs/console-26-07-18-08-15-49.txt`. `stone_builder_collects_loose_stone_near_quarry_when_tiles_unsafe` also passed with `DONE`; the separate quarry-build fixture physically created the supported quarry but its localhost simulation froze at tick 35, so that launch is runtime-inconclusive rather than a pass or failure.
+
+Two experiments were rejected and removed. Per-fall high-water realignment generated hundreds of repeated events and an approximately 800-tick oscillation. A bounded 12-tick wall retry reduced the comparable 3,000-tick stone result from `938` to `266`. Do not restore either mechanism from the diagnostic artifacts. The retained candidate still has one latched failure flag in every full episode, so the remaining monitor/path signal is follow-up work rather than hidden by the acceptance result.
+
+### Bounded underground-retarget follow-up
+
+The later `untitled.png` failure was a separate outbound route-erasure deadlock: a strict fresh-surface search failed after the miner was underground, the mutable corner became zero, and custom pathing repeatedly targeted deeper ore through dirt that was correctly excluded from off-route mining. Production now continues the retained shaft only when the exact deeper two-wide shaft/two-high tunnel passes every existing terrain, barrier, no-build, bedrock, and castle gate; otherwise it preserves the return identities, clears the target/path, and surfaces below quota.
+
+Event-logged `Artifacts/aib_gym/gloryhill_4b_route_continue_diag_20260718.tcpr.txt` exercised both decisions on official Gloryhill, fully delivered 1,466 material with zero deaths, and contains none of the baseline's `destination=228,396`, `next=216,368`, `next=192,384`, or `tile=224,392` signatures. Fresh EventLog-off candidate `gloryhill_4b_route_continue_candidate_001_20260718` fully delivered 1,660 material with zero deaths and four productive slots. Both retained the known bit-1 recoverable motion-stall signal. The candidate is one fresh sanity episode with a differing fingerprint component, not an exact control/candidate cohort, a statistical improvement claim, or evidence of failure-free navigation.
+
 ## Construction and defense metrics
 
 Implemented infrastructure schema: `[AIBGYMI]` v1 in `Scripts/AIBInfrastructureBenchmark.as` for `flag_gatehouse_physical`.
@@ -132,18 +170,47 @@ Official Gloryhill physical cohort (build 4762, 2026-07-15):
 
 Every run also reported `pending=0`, `reservations=0`, `work_tiles=0`, completed archival, and healthy rear/front gates. Left evidence is `gloryhill_flag_gatehouse_diagnostic_012` plus `left_candidate_001/_002`; right evidence is `right_diagnostic_001` plus `right_candidate_001/_002` under `Artifacts/aib_gym/`. This is an accepted absolute construction/friendly-passage milestone. It is not a control/candidate combat comparison and does not establish enemy delay, breach resistance, or survival.
 
-The remaining metrics are still required:
+### Strategy wave schema and accepted survival matrix
+
+Strategy waves emit `[AIBEVT] source=strategy action=wave_result` records from `Scripts/AIBStrategyWaveHarness.as`. Fixture version 4 / driver `grounded_candidate_corridor_v4_exclusive_spawn_outcomes` requires:
+
+- one production worker plus seven attackers at most (`ai_actor_cap=8`);
+- a fresh official-map process, canonical pre-intervention fingerprint, and separate measurement-start fingerprint;
+- deterministic knight, archer, bomb, or mixed composition for seed `101`, `211`, or `307`;
+- real production archer shots and stock server-created bombs where applicable;
+- local approach and attack contact, plus a physical control crossing;
+- exact measured-plan task coordinates retained across later replans;
+- spawn-indexed, mutually exclusive attacker crossing/death outcomes; and
+- friendly route and builder-death gates in addition to censor-aware breach timing and crossings.
+
+The engine may call rules `onBlobDie` repeatedly for one blob. `duplicate_death_callbacks`, `post_cross_deaths`, and `duplicate_bomb_callbacks` expose that behavior, while `outcomes_resolved` counts only the first mutually exclusive outcome for each spawn index. `Tools/compare_aib_wave_results.ps1` rejects any v4 row unless `crossings + enemy_deaths == outcomes_resolved <= spawned`; it also rejects invalid pressure, composition, arrow/bomb, route, and fixture contracts. Driver-v3 rows use the older overlapping callback semantics and cannot share a cohort with driver v4.
+
+Final build-4762 collection (2026-07-18): `Artifacts/aib_gym/wave_v4_bombsafe_20260718_*.tcpr.txt`, exactly 48 trials / 24 pairs on official 8x_Gloryhill. All strict acceptance gates passed.
+
+```text
+overall mean first-breach delta:  +46.708 ticks
+overall mean crossing delta:       -1.875
+overall builder-death delta:        0.000
+overall friendly-route penalty:     0.000
+accepted pairs:                    24 / 24
+```
+
+The left-side scenario deltas were knight `+15.667/0`, archer `+15.000/0`, bomb `+15.667/-1.000`, and mixed `+13.667/-2.000` for first breach/crossings. The right-side deltas were knight `+148.333/-4.333`, archer `+15.000/0`, bomb `+135.333/-4.667`, and mixed `+15.000/-3.000`. Every value is a three-seed mean and every scenario had zero builder-death increase.
+
+An earlier final-driver left cohort is intentionally rejected: bomb seed 211 killed the worker while it was still finishing a 7/9 emergency barrier. The production worker now retreats from activated enemy bombs within 128 pixels while preserving its job. The exact focused rerun and all 12 final bomb/mixed plan trials had zero builder deaths. This is evidence for the named seven-attacker local corridor, not every possible player siege.
+
+Current metric status:
 
 | Metric | Required authoritative outcome | Current foundation |
 |---|---|---|
-| Four-builder resource throughput | Same v4 resource record with four per-worker slots | Accepted Gloryhill 3x3 cohort: 942.667 -> 1574.000 mean delivery, zero deaths |
+| Four-builder resource throughput | Same v4 resource record with four per-worker slots | Accepted initial shaft-return cohort: 942.667 -> 1574.000 mean delivery; final safe-quarry/refined-return cohort: 1649.333 -> 1738.000, zero deaths |
 | Correct infrastructure near flag | Physical matching blocks near the flag plus traversable rear/home-side and front gates | Accepted Gloryhill schema-v1 cohort: 3/3 full physical passes on each team side |
-| Protected accessible workshops | Same-team class workshop within a bounded tent/hall/tunnel route, with measured cover and real friendly traversal | Storage siting exists; player-class/access benchmark pending |
-| Ally versus enemy traversal | Timed physical probes through the completed structure in both directions | Real ally probe passes both sides; equivalent enemy delay/breach probe pending |
-| Builder/base survival | Time-to-death/breach under knight, archer, bomb, and mixed attackers | Wave harness exists; paired runtime dataset pending |
+| Protected accessible workshops | Same-team class workshop within a bounded tent/hall/tunnel route, with measured cover and real friendly traversal | Accepted 3/3 schema-4 passes per side for the pre-2026-07-20 72-task single-exit structure; the new roof-hatch geometry has a focused template/runtime pass but no refreshed physical cohort yet |
+| Ally versus enemy traversal | Timed physical probes through the completed structure in both directions | Accepted friendly class-use/return plus gatehouse and workshop builder-pickaxe breach cohorts |
+| Builder/base survival | Time-to-death/breach under knight, archer, bomb, and mixed attackers | Accepted 48-trial/24-pair fixture-v4 wave matrix; all semantic gates passed |
 | Adversarial progression | Defender and attacker variants improve in alternating, map-matched rounds | Not implemented yet |
 
-Every gym-owned resource episode is capped at eight total managed AI actors. The strategy-wave source now derives its attacker budget from live construction workers and compiled successfully in visible KAG, so its intended defender-plus-attacker cap is also eight; a real wave run is still required before claiming that cap as runtime-verified.
+Every gym-owned resource episode is capped at eight total managed AI actors. The final 48-trial wave matrix runtime-verified the corresponding one-worker/seven-attacker cap on both sides and all four pressure types.
 
 ## Map comparison contract
 

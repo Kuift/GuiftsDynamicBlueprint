@@ -6,6 +6,21 @@ const string AIBM_MANUAL_CONTROL_KEY = "aib player manual order";
 const string AIBM_RETIRE_PENDING_KEY = "aib strategy retire pending";
 const string AIBM_RESOURCE_HANDOFF_UNTIL_KEY = "aib strategy resource handoff until";
 const string AIBM_STONE_RETURN_ANCHOR_KEY = "ai builder stone return anchor";
+const string AIBM_STONE_RETURN_CORNER_KEY = "ai builder stone return corner";
+const string AIBM_STONE_SURFACE_MEMORY_KEY = "ai builder stone surface memory";
+const string AIBM_STONE_RETURN_EGRESS_KEY = "ai builder stone return egress";
+const string AIBM_STONE_EXPOSED_TARGET_KEY = "ai builder exposed stone target";
+const string AIBM_STONE_EXPOSED_APPROACH_KEY = "ai builder exposed stone approach";
+const string AIBM_STONE_REJECTED_ROUTE_KEY = "ai builder rejected route target";
+const string AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY = "ai builder rejected route until";
+const string AIBM_STONE_RETURN_PROGRESS_POS_KEY = "ai builder stone return progress pos";
+const string AIBM_STONE_RETURN_PROGRESS_TICK_KEY = "ai builder stone return progress tick";
+const string AIBM_STONE_RETURN_STALL_LOGGED_KEY = "ai builder stone return stall logged";
+const string AIBM_STONE_RETURN_CORNER_ASSIST_KEY = "ai builder stone return corner assist";
+const string AIBM_STONE_RETURN_CORNER_REJOINED_KEY = "ai builder stone return corner rejoined";
+const string AIBM_STONE_RETURN_CLIMB_LATCH_KEY = "ai builder stone return climb latch";
+const string AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY = "ai builder stone return climb direction";
+const string AIBM_STONE_RETURN_SURFACED_KEY = "ai builder stone return surfaced";
 const u8 AIBM_JOB_WOOD = 0;
 const u8 AIBM_JOB_STONE = 1;
 const u8 AIBM_JOB_BLUEPRINT = 2;
@@ -48,11 +63,28 @@ void AIBM_ClearNavigationIntent(CBlob@ builder)
 	BrainPath@ path;
 	if (builder.get("ai builder brain path", @path) && path !is null) path.EndPath();
 	builder.set_netid("ai builder target", 0);
+	builder.set_netid("ai builder guide saw target", 0);
+	builder.set_u32("ai builder guide resupply request", 0);
+	builder.set_u32("ai builder guide resupply timeout", 0);
 	builder.set_Vec2f("ai builder destination", Vec2f_zero);
 	builder.set_Vec2f("ai builder tile target", Vec2f_zero);
 	builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
 	builder.set_Vec2f("ai builder stone route corner", Vec2f_zero);
 	builder.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, Vec2f_zero);
+	builder.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, Vec2f_zero);
+	builder.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+	builder.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, Vec2f_zero);
+	builder.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, Vec2f_zero);
+	builder.set_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY, Vec2f_zero);
+	builder.set_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY, 0);
+	builder.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, Vec2f_zero);
+	builder.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, 0);
+	builder.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	builder.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+	builder.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+	builder.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+	builder.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+	builder.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, false);
 	builder.set_bool("ai builder justgo", false);
 	builder.set_bool("ai builder mining gold", false);
 	builder.set_bool("ai builder direct stone shaft", false);
@@ -83,6 +115,27 @@ void AIBM_ClearNavigationIntent(CBlob@ builder)
 	builder.setKeyPressed(key_action3, false);
 }
 
+void AIBM_ClearDeliveredResourceEpisodeIntent(CBlob@ builder, const u8 job, const u32 now)
+{
+	if (builder is null) return;
+	// A rejected mining route is an episode-to-episode cooldown.  The normal
+	// delivery handoff must clear the completed route and pressed actions, but
+	// erasing this pair here lets the same unreachable ore be selected again on
+	// the very next stone episode.  Manual ownership changes and real role
+	// handoffs still call AIBM_ClearNavigationIntent directly and clear it.
+	Vec2f rejectedRoute = builder.get_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY);
+	const u32 rejectedUntil = builder.get_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY);
+	const bool preserveRejectedRoute = job == AIBM_JOB_STONE &&
+		rejectedRoute != Vec2f_zero && rejectedUntil > now;
+
+	AIBM_ClearNavigationIntent(builder);
+	if (preserveRejectedRoute)
+	{
+		builder.set_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY, rejectedRoute);
+		builder.set_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY, rejectedUntil);
+	}
+}
+
 void AIBM_ClearDeferredStrategyRole(CBlob@ builder)
 {
 	if (builder is null) return;
@@ -99,6 +152,9 @@ bool AIBM_ApplyStrategyRole(CBlob@ builder, const u8 job, const u8 state)
 	if (oldJob == AIBM_JOB_BLUEPRINT && job != AIBM_JOB_BLUEPRINT && team >= 0 && team < 8)
 		AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());
 	AIBM_ClearNavigationIntent(builder);
+	// A role handoff can outlive terrain changes around an old mining route.
+	// Keep the proven surface only across the normal stone delivery boundary.
+	builder.set_Vec2f(AIBM_STONE_SURFACE_MEMORY_KEY, Vec2f_zero);
 	builder.set_u8("ai builder job", job);
 	builder.set_u8("ai builder state", state);
 	builder.set_bool("ai builder job active", true);
@@ -118,6 +174,7 @@ void AIBM_ClearStrategyControl(CBlob@ builder)
 	const int team = builder.getTeamNum();
 	if (team >= 0 && team < 8) AIBP_ReleaseBuilderReservation(u8(team), builder.getNetworkID());
 	AIBM_ClearNavigationIntent(builder);
+	builder.set_Vec2f(AIBM_STONE_SURFACE_MEMORY_KEY, Vec2f_zero);
 	builder.set_bool("aib strategy assigned", false);
 	AIBM_ClearDeferredStrategyRole(builder);
 	builder.set_bool(AIBM_RETIRE_PENDING_KEY, false);

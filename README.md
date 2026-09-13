@@ -63,10 +63,10 @@ Project direction: `ai_blueprint_direction.md`. Detailed deterministic gym archi
 ## Strategic AI blueprint director
 
 - The server-side director observes each team's home, frontline, terrain, combat mix, recent pressure, stored resources, and AI builders.
-- It evaluates procedural gatehouse, tower, emergency barrier, archer perch, and access-route candidates. Invalid candidates are rejected before publication.
+- Production follows the Chapter 1 one-shot sequence: flag room, frontline tower, protected workshops, home Tunnel, frontline Tunnel, then Quarry/Storage. Legacy gatehouse, archer-perch, and access-route templates are fixture-only; a real collapse can still select an emergency barrier.
 - Human blueprints and AI blueprints use separate layers. Human tiles always win merge conflicts and autonomous replanning never edits the human layer.
 - AI plans retain an immutable desired layer and task history after builders consume the live work grid.
-- Construction is phased: foundation/backwalls, access pieces, then shell. Tasks are reserved per builder so two builders do not select the same tile.
+- Construction is phased: foundation/backwalls, access pieces, then shell. A task lease covers only active approach/build work; it is released before an ordinary Builder collects missing material and whenever the target is stale, so competing Builders or Autobuilders cannot deadlock on an abandoned reservation.
 - Doors and platforms are supported build targets and material collection follows the actual remaining plan cost.
 
 Team members can select a director mode with `!aib_strategy off`, `!aib_strategy suggest`, or `!aib_strategy auto`. `Rules/CommonScripts/AIBDirectorPolicy.cfg` defaults CTF to `auto`, so a team plan is selected and activated without a player drawing it or entering a command; server administrators can instead choose `off` or `suggest`. The deterministic AIB test mode always defaults to `off` and opts in only in director-specific scenarios.
@@ -93,15 +93,15 @@ The passive AI monitor emits at most one compact numeric `[AIBGYM]` record per b
 
 For an interactive director check, a moderator on a playing team can use `!aib_director_test`. It switches that team to automatic strategy and automatically creates one same-team AI builder at the moderator only when none exists. Automated coverage should use `strategic_auto_director_heartbeat_end_to_end`, which starts without a worker and verifies that production bootstrap provisioning creates and assigns one safely.
 
-The AIBTest suite contains 65 scenarios. A complete successful run reports:
+The AIBTest suite contains 78 scenarios. A complete successful run reports:
 
 ```text
-AIB tests passed: 65 passed, 0 failed
+AIB tests passed: 78 passed, 0 failed
 ```
 
 The game log must also contain the matching `[AIBTEST] DONE` marker; the launcher no longer accepts matching START/PASS counts alone. Run the full suite with `Tools/run_aib_tests.ps1`, one case with `-Scenario <name>`, or an inclusive range with `-StartScenario <name> -EndScenario <name>`. The default opens a visible `RunLocalhost` session and leaves KAG running; add `-StopAfterRun` only when desired. Intermediate fixtures remain visible for 15 ticks before cleanup, while the final selected fixture is retained indefinitely after `DONE` for human inspection. A lack of post-START log/simulation progress produces a distinct stale-run diagnostic. `AIBTestCamera.as` intends to follow the active fixture, but displayed follow and manual movement are currently unreliable; `CAMERA_TARGET`/`CAMERA_VIEW` logs must not be treated as proof of what the player sees.
 
-KAG can still stop advancing during visible localhost runs. The targeted log `console-26-07-09-22-06-03.txt` passed scenarios 42-46 with `DONE`; `console-26-07-10-17-32-06.txt` passed the physical repair scenario with `DONE`. These are focused results, not a full 65-scenario pass, and camera records are not visual verification. The newest canonical-reset, two-team mirrored plan completion, uneven-edge full-fallback completion, damaged-front, full selected-plan completion, sealed-bootstrap-pocket, no-build fallback, occupied-base fallback, active-barrier fallback, and mirrored blocked-bootstrap/round-reset fixtures are statically contracted but have not been run.
+KAG can still stop advancing during visible localhost runs. The last complete baseline is the older 65-scenario run in `console-26-07-18-18-49-07.txt`; no complete 78-scenario verdict exists for the current source. The corrected flag-sector, protected-workshop, zero-gold Tunnel, hard-progression, and two-Tunnel cases passed individually in `console-26-07-20-08-30-22.txt`; reservation contention passed as strengthened visible hot run `68d8e2cd8af1`. Earlier guide cases 71–76 retain a focused 6/6 `DONE`, and the affected workshop pair retains 2/2 with `DONE`. These focused records are not a full-suite pass, and camera records are not visual verification. See `BUILDER_GUIDE_CHAPTER1_IMPLEMENTATION.md` for the point-by-point contract and evidence limits.
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 

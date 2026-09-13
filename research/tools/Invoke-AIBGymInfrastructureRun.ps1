@@ -11,6 +11,9 @@ param(
     [ValidateRange(0,7)]
     [int]$Team = 0,
 
+    [ValidateSet('gatehouse','workshops','gatehouse_breach','workshops_breach')]
+    [string]$Metric = 'gatehouse',
+
     [string]$TranscriptPath = '',
 
     [switch]$CompilerForwarding
@@ -21,6 +24,7 @@ $modRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $kagRoot = (Resolve-Path (Join-Path $modRoot '..\..')).Path
 $rootConfig = Join-Path $kagRoot 'autoconfig.cfg'
 $kagExe = Join-Path $kagRoot 'KAG.exe'
+$logsDirectory = Join-Path $kagRoot 'Logs'
 $tcprSend = Join-Path $PSScriptRoot 'tcpr_send.py'
 $aibTestConfig = Join-Path $modRoot 'Rules\AIBTest\gamemode.cfg'
 $ctfRules = Join-Path $modRoot 'Rules\CTF\gamemode.cfg'
@@ -83,10 +87,23 @@ $ownedPid = 0
 $runFailure = $null
 try {
     Write-RootSettings ([bool]$CompilerForwarding)
+    $launchTime = Get-Date
     $process = Start-Process -FilePath $kagExe -WorkingDirectory $kagRoot `
         -ArgumentList @('noautoupdate','nolauncher','autostart',$autostart) -PassThru
     $ownedPid = $process.Id
     Write-Host "Started visible KAG infrastructure benchmark PID $ownedPid for $RunId"
+
+    $logDeadline = (Get-Date).AddSeconds(15)
+    $consoleLog = $null
+    do {
+        $consoleLog = Get-ChildItem -LiteralPath $logsDirectory -Filter 'console-*.txt' -File |
+            Where-Object { $_.LastWriteTime -ge $launchTime.AddSeconds(-2) } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($null -ne $consoleLog) { break }
+        Start-Sleep -Milliseconds 200
+    } while ((Get-Date) -lt $logDeadline)
+    if ($null -eq $consoleLog) { throw 'KAG did not create a console log within 15 seconds.' }
 
     $expect = 'AIBGYMI\|RESULT\|run=' + [regex]::Escape($RunId)
     $fail = 'ERROR .*GuiftsDynamicBlueprint_vDev.*\.as:|Rules partially failed initialization|Script .* has errors|AIBGYMI\|ABORT\|run=' + [regex]::Escape($RunId)
@@ -99,15 +116,18 @@ try {
         '--transcript', $TranscriptPath,
         '--command', 'getRules().SetCurrentState(GAME)',
         '--command', "getRules().set_u8(`"aib infrastructure team`", $Team)",
+        '--command', "getRules().set_string(`"aib infrastructure metric`", `"$Metric`")",
         '--command', "getRules().set_string(`"aib infrastructure variant`", `"$Variant`")",
         '--command', "getRules().set_string(`"aib infrastructure run id`", `"$RunId`")",
         '--command', 'getRules().set_u32("aib infrastructure readiness deadline", 0)',
         '--command', 'getRules().set_bool("aib infrastructure stop requested", false)',
         '--command', 'getRules().set_bool("aib infrastructure request", true)',
         '--command', "tcpr(`"AIBGYMI|ARMED|run=$RunId`")",
-        '--listen-seconds', '150',
+        '--listen-seconds', ($Metric -eq 'workshops_breach' ? '300' :
+            ($Metric -eq 'workshops' ? '240' : ($Metric -eq 'gatehouse_breach' ? '180' : '150'))),
         '--expect', $expect,
-        '--fail', $fail
+        '--fail', $fail,
+        '--fail-file', $consoleLog.FullName
     )
     & python @arguments
     if ($LASTEXITCODE -ne 0) { throw "tcpr_send.py failed with exit code $LASTEXITCODE." }
@@ -115,7 +135,7 @@ try {
     $resultPattern = '^\[AIBGYMI\](?=.*\bstatus=result\b)(?=.*\brun=' + [regex]::Escape($RunId) + '\b)'
     $results = @(Select-String -LiteralPath $TranscriptPath -Pattern $resultPattern)
     if ($results.Count -lt 1) { throw 'The TCPR transcript has no complete infrastructure result row.' }
-    Write-Host "AIBGYM_INFRASTRUCTURE_RESULT run=$RunId transcript=$TranscriptPath result_rows=$($results.Count)"
+    Write-Host "AIBGYM_INFRASTRUCTURE_RESULT run=$RunId metric=$Metric transcript=$TranscriptPath result_rows=$($results.Count)"
     $results[0].Line
 } catch {
     $runFailure = $_

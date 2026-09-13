@@ -10,6 +10,7 @@
 #include "AIBGymBenchmarkCommon.as";
 #include "AIBHomeResourceCommon.as";
 #include "AIBManualOrderCommon.as";
+#include "AIBBuilderGuideCommon.as";
 #include "AutoBuilderCommon.as";
 #include "BlueprintData.as";
 #include "Pathing/BrainPathing.as";
@@ -20,6 +21,11 @@ const u8 AIB_HIT_DELAY = 12;
 const u8 AIB_LOG_WAIT = 45;
 const f32 AIB_SAFE_RADIUS = 10.0f * 8.0f;
 const f32 AIB_KNIGHT_FEAR_RADIUS = 10.0f * 8.0f;
+// Stock bombs damage actors within 64 pixels and may destroy the short wall
+// that currently blocks their ray. Retreat while an activated enemy bomb is
+// within twice that radius instead of waiting for its carrier to reach the
+// ordinary knight-fear envelope.
+const f32 AIB_BOMB_FEAR_RADIUS = 16.0f * 8.0f;
 const u8 AIB_JOB_WOOD = 0;
 const u8 AIB_JOB_STONE = 1;
 const u8 AIB_JOB_BLUEPRINT = 2;
@@ -31,7 +37,13 @@ const u8 AIB_STONE_LOOSE_SEARCH_RADIUS_TILES = 12;
 const u8 AIB_STONE_ROUTE_CANDIDATE_LIMIT = 24;
 const u8 AIB_STONE_ROUTE_CANDIDATE_SEPARATION = 4;
 const u8 AIB_GOLD_SIGHT_RADIUS = 16;
+const u8 AIB_REJECTED_ROUTE_CLUSTER_RADIUS = 4;
+const u16 AIB_REJECTED_ROUTE_COOLDOWN = 900;
+const u16 AIB_STONE_SHAFT_NO_PROGRESS_TICKS = 4 * 30;
+const u16 AIB_STONE_SHAFT_HANDOFF_NO_PROGRESS_TICKS = 30;
 const u16 AIB_STONE_RETURN_AMOUNT = 250;
+const u8 AIB_STONE_RETURN_PROGRESS_PIXELS = 4;
+const u8 AIB_STONE_RETURN_STALL_TICKS = 30;
 const u8 AIB_BLUEPRINT_PLACE_DELAY = 8;
 const u8 AIB_LADDER_WOOD_COST = 10;
 const u8 AIB_LADDER_BACKWALL_WOOD_COST = 2;
@@ -52,7 +64,7 @@ const u8 AIB_STONE_CORNER_OBSTRUCTION_THRESHOLD = 12;
 // suppress another escape cycle while the path controller uses that run-up.
 const u8 AIB_STONE_CORNER_ESCAPE_TICKS = 36;
 const u8 AIB_STONE_CORNER_ESCAPE_COOLDOWN = 90;
-const u16 AIB_BUILDER_SHOP_WOOD_COST = 50;
+const u16 AIB_BUILDER_SHOP_WOOD_COST = 200;
 const u8 AIB_BASE_WORKSHOP_MIN_SEARCH_TILES = 7;
 const u8 AIB_BASE_WORKSHOP_MAX_SEARCH_TILES = 26;
 const u8 AIB_BASE_WORKSHOP_VERTICAL_SEARCH_TILES = 8;
@@ -63,9 +75,11 @@ const u8 AIB_BASE_WORKSHOP_RETRY_TICKS = 60;
 const u16 AIB_CRATE_WOOD_COST = 150;
 const u8 AIB_BASE_CRATE_MAX_SEARCH_TILES = 12;
 const u8 AIB_BASE_CRATE_VERTICAL_SEARCH_TILES = 4;
-const u16 AIB_NURSERY_WOOD_COST = 100;
+const u16 AIB_NURSERY_WOOD_COST = 250;
 const u16 AIB_NURSERY_SEED_STONE_COST = 20;
-const u16 AIB_QUARRY_WOOD_COST = 200;
+const u16 AIB_QUARRY_WOOD_COST = 150;
+const u16 AIB_QUARRY_STONE_COST = 150;
+const u16 AIB_QUARRY_GOLD_COST = 100;
 // At growth step 10 (of 15), trees enter the mature minimap/wood-yield tier.
 // Younger nursery trees can be destroyed without producing useful logs.
 const u8 AIB_TREE_HARVEST_GROWTH = 10;
@@ -93,6 +107,12 @@ const u32 AIB_RESOURCE_REJECT_LOG_REFRESH = 30 * 30;
 const u32 AIB_TREE_NO_PROGRESS_TICKS = 10 * 30;
 const u32 AIB_TREE_RETRY_COOLDOWN = 30 * 30;
 const f32 AIB_TREE_DISTANCE_PROGRESS = 8.0f;
+// A zero-stock emergency plan has one warm-up resource episode in which to
+// become useful. Its director-owned collector should prefer a grounded tree to
+// a closer high canopy; ordinary/manual harvesting retains the measured
+// home-distance score used by the resource-collection cohort.
+const f32 AIB_URGENT_TREE_FREE_APPROACH_RISE_TILES = 3.0f;
+const f32 AIB_URGENT_TREE_UPHILL_SCORE_PER_PIXEL = 2.0f;
 const u32 AIB_RESOURCE_HANDOFF_HOLD_TICKS = 31;
 // Inventory transfers are queued by KAG. A crate can report acceptance in the
 // mutation tick and return the stack to the builder shortly afterward.
@@ -139,7 +159,9 @@ namespace AIBuilderState
 		nursery_collect_stone,
 		nursery_buy_seed,
 		nursery_plant_seed,
-		nursery_wait_tree
+		nursery_wait_tree,
+		visit_resupply,
+		deliver_log_to_saw
 	}
 }
 
@@ -156,6 +178,21 @@ void onInit(CBrain@ this)
 	blob.set_Vec2f("ai builder shaft top", Vec2f_zero);
 	blob.set_Vec2f("ai builder stone route corner", Vec2f_zero);
 	blob.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_SURFACE_MEMORY_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY, Vec2f_zero);
+	blob.set_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY, 0);
+	blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, Vec2f_zero);
+	blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, 0);
+	blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+	blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+	blob.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, false);
 	blob.set_u8("ai builder job", autoBuilder ? AIB_JOB_BLUEPRINT : AIB_JOB_WOOD);
 	AIB_SyncPublicState(blob, true);
 	blob.set_u32("ai builder log wait until", 0);
@@ -185,6 +222,10 @@ void onInit(CBrain@ this)
 	blob.set_u32("ai builder next seed buy", 0);
 	blob.set_u32("ai builder nursery wait until", 0);
 	blob.set_u32("ai builder next stone supply", 0);
+	blob.set_u32("ai builder guide resupply request", 0);
+	blob.set_u32("ai builder guide resupply timeout", 0);
+	blob.set_u32("ai builder guide resupply retry", 0);
+	blob.set_netid("ai builder guide saw target", 0);
 	blob.set_Vec2f("ai builder jump peak", Vec2f_zero);
 	blob.set_u8("ai builder debug last state", AIBuilderState::idle);
 	blob.set_u16("ai builder navigation epoch", 0);
@@ -196,6 +237,8 @@ void onInit(CBrain@ this)
 	blob.set_u32("ai builder log progress tick", 0);
 	blob.set_f32("ai builder log progress distance", 999999.0f);
 	blob.set_f32("ai builder log progress health", 0.0f);
+	blob.set_netid("ai builder bomb threat", 0);
+	blob.set_netid("ai builder bomb threat logged", 0);
 	blob.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, 0);
 	AIBG_Init(blob);
 	if (autoBuilder)
@@ -249,6 +292,7 @@ void onTick(CBrain@ this)
 		AIB_TickAutoBuilder(this, blob);
 		return;
 	}
+	if (AIB_TryStartGuideResupply(blob)) return;
 	if (AIB_ShouldHoldAtResourceHandoff(blob))
 	{
 		AIB_FloatInWater(blob);
@@ -264,7 +308,7 @@ void onTick(CBrain@ this)
 	{
 		AIB_ReportTimedStatus(blob, "Stuck while " + AIB_StateName(state), "stuck");
 	}
-	if (AIB_FleeFromNearbyKnight(this, blob))
+	if (AIB_FleeFromNearbyBomb(this, blob) || AIB_FleeFromNearbyKnight(this, blob))
 	{
 		AIB_FloatInWater(blob);
 		return;
@@ -333,7 +377,23 @@ void onTick(CBrain@ this)
 	}
 
 	const u8 activeState = blob.get_u8("ai builder state");
-	if (AIB_TryRecoverStoneCorner(this, blob, activeState))
+	CMap@ activeMap = getMap();
+	Vec2f stoneReturnAnchor = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
+	const bool stoneReturnBelowBand = activeMap !is null && stoneReturnAnchor != Vec2f_zero &&
+		!AIB_IsWithinStoneReturnReentryBand(blob.getPosition(), stoneReturnAnchor, activeMap.tilesize);
+	const bool stoneReturnSurfaced = blob.get_bool(AIBM_STONE_RETURN_SURFACED_KEY);
+	const bool stoneReturnShaftReentry = stoneReturnBelowBand && activeMap !is null &&
+		AIB_IsInsideStoneReturnShaftInfluence(blob.getPosition(), stoneReturnAnchor, activeMap.tilesize);
+	const bool directStoneReturnOwnsKeys = activeMap !is null &&
+		activeState == AIBuilderState::return_wood && blob.get_u8("ai builder job") == AIB_JOB_STONE &&
+		stoneReturnAnchor != Vec2f_zero &&
+		(blob.get_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY) != Vec2f_zero ||
+			blob.get_bool("ai builder direct stone return") ||
+			(stoneReturnBelowBand && (!stoneReturnSurfaced || stoneReturnShaftReentry)));
+	// The deep-shaft return controller must hold wall direction plus up without a
+	// generic corner-escape cycle walking it back across the open shaft. Normal
+	// travel and tunnel mining retain the mirrored overhang recovery below.
+	if (!directStoneReturnOwnsKeys && AIB_TryRecoverStoneCorner(this, blob, activeState))
 	{
 		return;
 	}
@@ -419,9 +479,75 @@ void onTick(CBrain@ this)
 		case AIBuilderState::nursery_wait_tree:
 			AIB_NurseryWaitForTree(this, blob);
 			break;
+
+		case AIBuilderState::visit_resupply:
+			AIB_VisitGuideResupply(this, blob);
+			break;
+
+		case AIBuilderState::deliver_log_to_saw:
+			AIB_DeliverLogToSaw(this, blob);
+			break;
 	}
 
+	if (AIB_CaptureStoneReturnReentryFixture(this, blob)) return;
 	AIB_FloatInWater(blob);
+}
+
+bool AIB_CaptureStoneReturnReentryFixture(CBrain@ brain, CBlob@ blob)
+{
+	if (!isServer() || brain is null || blob is null ||
+		!blob.hasTag("aibt stone return reentry probe")) return false;
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null ||
+		!rules.get_bool("aibt stone route abort reentry staged")) return false;
+
+	// The rules fixture samples before this brain callback. Capture the brief
+	// production handoff here so a re-entry that climbs from the stale-corner
+	// setup cannot surface and disappear again between two rules observations.
+	if (!rules.get_bool("aibt stone route abort reentry bypassed corner") &&
+		blob.get_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY) &&
+		blob.get_bool("ai builder direct stone return"))
+	{
+		rules.set_bool("aibt stone route abort reentry bypassed corner", true);
+		AIB_LogEvent("test", "stone_return_reentry_fixture_bypass", AIB_EventBlobRef(blob),
+			"anchor=" + AIB_EventPos(blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY)) +
+			" corner=" + AIB_EventPos(blob.get_Vec2f(AIBM_STONE_RETURN_CORNER_KEY)) +
+			" pos=" + AIB_EventPos(blob.getPosition()));
+	}
+
+	Vec2f anchor = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
+	if (rules.get_bool("aibt stone route abort reentry bypassed corner") &&
+		!rules.get_bool("aibt stone route abort reentry surfaced") && getGameTime() % 10 == 7)
+	{
+		AIB_LogEvent("test", "stone_return_reentry_fixture_progress", AIB_EventBlobRef(blob),
+			"anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(blob.getPosition()) +
+			" surfaced=" + (blob.get_bool(AIBM_STONE_RETURN_SURFACED_KEY) ? "true" : "false") +
+			" direct=" + (blob.get_bool("ai builder direct stone return") ? "true" : "false") +
+			" rejoined=" + (blob.get_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY) ? "true" : "false"));
+	}
+	if (!rules.get_bool("aibt stone route abort reentry bypassed corner") ||
+		!blob.get_bool(AIBM_STONE_RETURN_SURFACED_KEY) ||
+		!AIB_HasReachedStoneReturnSurface(blob.getPosition(), anchor, map.tilesize)) return false;
+
+	const bool firstSurfaceCapture = !rules.get_bool("aibt stone route abort reentry surfaced");
+	rules.set_bool("aibt stone route abort reentry surfaced", true);
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	blob.set_bool("ai builder justgo", false);
+	blob.setKeyPressed(key_left, false);
+	blob.setKeyPressed(key_right, false);
+	blob.setKeyPressed(key_up, false);
+	blob.setKeyPressed(key_down, false);
+	blob.setVelocity(Vec2f_zero);
+	if (firstSurfaceCapture)
+	{
+		AIB_LogEvent("test", "stone_return_reentry_fixture_complete", AIB_EventBlobRef(blob),
+			"anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(blob.getPosition()) +
+			" corner_bypassed=true surfaced=true");
+	}
+	return true;
 }
 
 void AIB_TickAutoBuilder(CBrain@ brain, CBlob@ blob)
@@ -481,6 +607,15 @@ void AIB_FindTree(CBrain@ brain, CBlob@ blob)
 	CBlob@ tree = AIB_GetNearestTree(blob);
 	if (tree is null)
 	{
+		// Quarry creation reserves one fuel batch in addition to its build cost.
+		// Finish that build/approach/refuel transaction before a no-tree nursery
+		// quest can spend the same base stock.
+		CBlob@ home = AIB_GetTeamHome(blob);
+		if (home !is null && AIB_TryMaintainBaseQuarry(brain, blob, home))
+		{
+			return;
+		}
+
 		CBlob@ growingTree = AIB_GetNearestAccessibleTreeIgnoringMaturity(blob);
 		if (growingTree !is null && !AIB_IsTreeHarvestReady(growingTree))
 		{
@@ -488,13 +623,17 @@ void AIB_FindTree(CBrain@ brain, CBlob@ blob)
 			return;
 		}
 
-		if (AIB_GetNearestTreeIgnoringSelection(blob) is null)
+		const bool noUnselectedTrees = AIB_GetNearestTreeIgnoringSelection(blob) is null;
+		if (noUnselectedTrees && AIB_CanStartNurseryQuest(blob, home))
 		{
 			AIB_SetState(blob, AIBuilderState::nursery_collect_wood, "no accessible trees; starting nursery quest");
 		}
 		else
 		{
-			AIB_SetState(blob, AIBuilderState::find_tree, "no overseer-selected tree available");
+			AIB_ReportWaitingStatus(blob, noUnselectedTrees ?
+				"Waiting for nursery funding" : "Waiting for an overseer-selected tree");
+			AIB_SetState(blob, AIBuilderState::find_tree,
+				noUnselectedTrees ? "no trees and nursery quest is not yet funded" : "no overseer-selected tree available");
 		}
 		return;
 	}
@@ -504,7 +643,9 @@ void AIB_FindTree(CBrain@ brain, CBlob@ blob)
 	blob.set_Vec2f("ai builder destination", Vec2f_zero);
 	blob.set_netid("ai builder target", tree.getNetworkID());
 	AIB_BeginTreeProgress(blob, tree);
-	AIB_LogEvent("ai", "target", AIB_EventBlobRef(blob), "target=" + AIB_EventBlobRef(tree) + " state=chop_tree pos=" + AIB_EventPos(blob.getPosition()));
+	AIB_LogEvent("ai", "target", AIB_EventBlobRef(blob), "target=" + AIB_EventBlobRef(tree) +
+		" state=chop_tree pos=" + AIB_EventPos(blob.getPosition()) +
+		" climb_penalty=" + blob.get_f32("ai builder selected tree climb penalty"));
 	AIB_SetState(blob, AIBuilderState::chop_tree, "tree target acquired");
 }
 
@@ -611,6 +752,21 @@ void AIB_ChopLog(CBrain@ brain, CBlob@ blob)
 		brain.EndPath();
 		AIB_EndBrainPath(blob);
 		blob.set_Vec2f("ai builder destination", Vec2f_zero);
+		CBlob@ saw = AIB_GetGuideLogSaw(blob, log);
+		if (saw !is null)
+		{
+			blob.setAimPos(log.getPosition());
+			blob.setKeyPressed(key_action3, true);
+			blob.server_Pickup(log);
+			if (blob.getCarriedBlob() is log)
+			{
+				blob.set_netid("ai builder guide saw target", saw.getNetworkID());
+				AIB_LogEvent("ai", "guide_saw_log_pickup", AIB_EventBlobRef(blob),
+					"log=" + AIB_EventBlobRef(log) + " saw=" + AIB_EventBlobRef(saw));
+				AIB_SetState(blob, AIBuilderState::deliver_log_to_saw, "safe guide saw available");
+				return;
+			}
+		}
 		blob.setKeyPressed(key_action2, true);
 		if (AIB_HitTarget(blob, log, logPos))
 		{
@@ -623,6 +779,82 @@ void AIB_ChopLog(CBrain@ brain, CBlob@ blob)
 			AIB_SetState(blob, AIBuilderState::return_wood, "last log consumed and wood held");
 		}
 	}
+}
+
+CBlob@ AIB_GetGuideLogSaw(CBlob@ blob, CBlob@ log)
+{
+	if (blob is null || log is null) return null;
+	CBlob@ home = AIB_GetTeamHome(blob);
+	if (home is null) return null;
+	CBlob@ best = null;
+	f32 bestDistance = 999999.0f;
+	CBlob@[] saws;
+	getBlobsByName("saw", @saws);
+	for (uint i = 0; i < saws.length; i++)
+	{
+		CBlob@ saw = saws[i];
+		if (!AIBGuide_IsStructurallySafeSaw(blob, log, saw, home) || !AIB_IsAccessibleResource(blob, saw)) continue;
+		const f32 distance = (saw.getPosition() - blob.getPosition()).Length();
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			@best = saw;
+		}
+	}
+	return best;
+}
+
+void AIB_DeliverLogToSaw(CBrain@ brain, CBlob@ blob)
+{
+	CBlob@ log = blob.getCarriedBlob();
+	CBlob@ saw = getBlobByNetworkID(blob.get_netid("ai builder guide saw target"));
+	if (log is null || log.getName() != "log")
+	{
+		blob.set_netid("ai builder guide saw target", 0);
+		blob.set_netid("ai builder target", 0);
+		AIB_SetState(blob, AIBuilderState::find_log, "carried guide saw log missing");
+		return;
+	}
+	if (saw is null || saw.hasTag("dead") || !saw.get_bool("saw_on") || !AIB_IsAccessibleResource(blob, saw))
+	{
+		log.server_DetachFrom(blob);
+		log.setPosition(blob.getPosition());
+		log.setVelocity(Vec2f_zero);
+		blob.set_netid("ai builder guide saw target", 0);
+		blob.set_netid("ai builder target", 0);
+		AIB_SetState(blob, AIBuilderState::find_log, "guide saw became unsafe or unavailable");
+		return;
+	}
+	CBlob@ home = AIB_GetTeamHome(blob);
+	if (!AIBGuide_IsStructurallySafeSaw(blob, log, saw, home))
+	{
+		log.server_DetachFrom(blob);
+		log.setPosition(blob.getPosition());
+		log.setVelocity(Vec2f_zero);
+		blob.set_netid("ai builder guide saw target", 0);
+		blob.set_netid("ai builder target", 0);
+		AIB_SetState(blob, AIBuilderState::find_log, "guide saw left safe base role");
+		return;
+	}
+	const f32 side = blob.getPosition().x <= saw.getPosition().x ? -1.0f : 1.0f;
+	Vec2f approach = saw.getPosition() + Vec2f(side * 28.0f, -4.0f);
+	if ((approach - blob.getPosition()).Length() > 14.0f)
+	{
+		AIB_GoTo(brain, blob, approach);
+		return;
+	}
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	log.server_DetachFrom(blob);
+	log.setPosition(saw.getPosition() + Vec2f(0.0f, -16.0f));
+	log.setVelocity(Vec2f_zero);
+	AIB_LogEvent("ai", "guide_saw_log_drop", AIB_EventBlobRef(blob),
+		"log=" + AIB_EventBlobRef(log) + " saw=" + AIB_EventBlobRef(saw));
+	blob.set_netid("ai builder guide saw target", 0);
+	blob.set_netid("ai builder target", 0);
+	blob.set_u32("ai builder log wait until", getGameTime() + AIB_LOG_WAIT);
+	AIB_SetState(blob, AIBuilderState::find_log, "log delivered to guide saw");
 }
 
 void AIB_FindWood(CBrain@ brain, CBlob@ blob)
@@ -787,7 +1019,7 @@ void AIB_ReturnWood(CBrain@ brain, CBlob@ blob)
 	// pending-role predicate still sees a tile target and the old job can start
 	// another long episode before the next director heartbeat.
 	blob.set_u32(AIBM_RESOURCE_HANDOFF_UNTIL_KEY, getGameTime() + AIB_RESOURCE_HANDOFF_HOLD_TICKS);
-	AIBM_ClearNavigationIntent(blob);
+	AIBM_ClearDeliveredResourceEpisodeIntent(blob, job, getGameTime());
 	if (job == AIB_JOB_STONE)
 	{
 		AIB_SetState(blob, AIBuilderState::find_stone, "resources delivered");
@@ -819,6 +1051,100 @@ bool AIB_ShouldHoldAtResourceHandoff(CBlob@ blob)
 	return true;
 }
 
+bool AIB_IsGuideResupplyBoundary(CBlob@ blob)
+{
+	return AIBGuide_IsSafeEpisodeBoundary(blob);
+}
+
+bool AIB_TryStartGuideResupply(CBlob@ blob)
+{
+	CRules@ rules = getRules();
+	if (blob is null || rules is null || rules.isWarmup() || !AIBGuide_ResupplyEnabled(rules) ||
+		!AIBGuide_IsAutonomousBuilder(blob) ||
+		blob.get_u8("ai builder state") == AIBuilderState::visit_resupply) return false;
+	const u32 now = getGameTime();
+	if (blob.get_u32(AIB_GUIDE_RESUPPLY_NEXT_KEY) > now ||
+		now < blob.get_u32("ai builder guide resupply retry") || !AIB_IsGuideResupplyBoundary(blob)) return false;
+	// A resource runner carrying an episode outcome must finish its normal
+	// delivery boundary first. Blueprint workers may keep partial shop funding.
+	if (blob.get_u8("ai builder job") != AIB_JOB_BLUEPRINT && AIB_HasAnyResource(blob)) return false;
+	// A warm-up grant or an earlier visit may have left a completion timestamp.
+	// Clear its source before publishing this request so only a fresh physical
+	// match resupply can complete the visit state.
+	blob.set_netid(AIB_GUIDE_RESUPPLY_SOURCE_KEY, 0);
+	blob.set_u32("ai builder guide resupply request", now);
+	blob.set_u32("ai builder guide resupply timeout", now + 15 * 30);
+	AIB_SetState(blob, AIBuilderState::visit_resupply, "guide resupply due at safe boundary");
+	return true;
+}
+
+CBlob@ AIB_GetGuideResupplySpot(CBlob@ blob)
+{
+	return AIBGuide_GetNearestResupplySpot(blob);
+}
+
+void AIB_ResumeAfterGuideResupply(CBlob@ blob, const string &in reason)
+{
+	if (blob is null) return;
+	blob.set_u32("ai builder guide resupply request", 0);
+	blob.set_u32("ai builder guide resupply timeout", 0);
+	const u8 job = blob.get_u8("ai builder job");
+	if (job == AIB_JOB_BLUEPRINT)
+	{
+		AIB_SetState(blob, AIBuilderState::collect_blueprint_resources, reason);
+	}
+	else if (AIB_HasAnyResource(blob))
+	{
+		AIB_SetState(blob, AIBuilderState::return_wood, reason);
+	}
+	else if (job == AIB_JOB_STONE)
+	{
+		AIB_SetState(blob, AIBuilderState::find_stone, reason);
+	}
+	else
+	{
+		AIB_SetState(blob, AIBuilderState::find_tree, reason);
+	}
+}
+
+void AIB_VisitGuideResupply(CBrain@ brain, CBlob@ blob)
+{
+	const u32 request = blob.get_u32("ai builder guide resupply request");
+	const u16 sourceID = blob.get_netid(AIB_GUIDE_RESUPPLY_SOURCE_KEY);
+	if (request != 0 && sourceID != 0 && blob.get_u32(AIB_GUIDE_RESUPPLY_LAST_KEY) >= request)
+	{
+		AIB_LogEvent("ai", "guide_resupply", AIB_EventBlobRef(blob),
+			"source=" + sourceID +
+			" wood=" + AIB_GUIDE_MATCH_WOOD + " stone=" + AIB_GUIDE_MATCH_STONE);
+		AIB_ResumeAfterGuideResupply(blob, "guide resupply collected");
+		return;
+	}
+	if (getGameTime() >= blob.get_u32("ai builder guide resupply timeout"))
+	{
+		blob.set_u32("ai builder guide resupply retry", getGameTime() + 5 * 30);
+		AIB_ResumeAfterGuideResupply(blob, "guide resupply visit timed out");
+		return;
+	}
+
+	CBlob@ spot = AIB_GetGuideResupplySpot(blob);
+	if (spot is null)
+	{
+		blob.set_u32("ai builder guide resupply retry", getGameTime() + 5 * 30);
+		AIB_ResumeAfterGuideResupply(blob, "no eligible guide resupply point");
+		return;
+	}
+	if (!AIBGuide_IsMatchResupplySpot(spot, blob))
+	{
+		AIB_GoTo(brain, blob, spot.getPosition());
+		return;
+	}
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	blob.set_bool("ai builder justgo", false);
+	AIB_ReportWaitingStatus(blob, "Collecting Builder resupply");
+}
+
 void AIB_FindStone(CBrain@ brain, CBlob@ blob)
 {
 	if (AIB_GetNearestStoneMat(blob) !is null)
@@ -829,6 +1155,7 @@ void AIB_FindStone(CBrain@ brain, CBlob@ blob)
 
 	if (!AIB_IsInsideCurrentBarrierZoneAt(blob.getPosition()))
 	{
+		AIB_ReportWaitingStatus(blob, "Waiting outside the active barrier strip");
 		AIB_SetState(blob, AIBuilderState::find_stone, "inside barrier strip, retrying stone job");
 		return;
 	}
@@ -837,6 +1164,7 @@ void AIB_FindStone(CBrain@ brain, CBlob@ blob)
 	if (stone == Vec2f_zero)
 	{
 		if (AIB_TryUseBaseStoneSource(brain, blob)) return;
+		AIB_ReportWaitingStatus(blob, "Waiting for an accessible stone source");
 		AIB_SetState(blob, AIBuilderState::find_stone, "no stone source found, retrying stone job");
 		return;
 	}
@@ -961,7 +1289,12 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 			miningGold = true;
 			blob.set_bool("ai builder mining gold", true);
 			blob.set_Vec2f("ai builder tile target", target);
-			blob.set_Vec2f("ai builder stone route corner", AIB_GetBestStoneRouteCorner(blob, target));
+			// Visible gold can be discovered after the miner is already below the
+			// surface. A fresh surface-oriented route search may then fail even
+			// though the retained shaft has a legal continuation. Use the same
+			// fail-closed retarget policy as nearby stone so the return corner is
+			// extended to this depth or the worker surfaces with its old route.
+			if (!AIB_RetargetExistingStoneRoute(brain, blob, target)) return;
 			brain.EndPath();
 			AIB_EndBrainPath(blob);
 			blob.set_Vec2f("ai builder destination", Vec2f_zero);
@@ -979,7 +1312,7 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 			if (visibleGold != Vec2f_zero)
 			{
 				blob.set_Vec2f("ai builder tile target", visibleGold);
-				blob.set_Vec2f("ai builder stone route corner", AIB_GetBestStoneRouteCorner(blob, visibleGold));
+				if (!AIB_RetargetExistingStoneRoute(brain, blob, visibleGold)) return;
 				AIB_LogEvent("ai", "target", AIB_EventBlobRef(blob), "target=visible_gold_cluster_tile state=tunnel_to_stone tile=" + AIB_EventPos(visibleGold) + " pos=" + AIB_EventPos(blob.getPosition()));
 				return;
 			}
@@ -1001,8 +1334,10 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 		if (nearbyStone != Vec2f_zero)
 		{
 			blob.set_Vec2f("ai builder tile target", nearbyStone);
-			AIB_RetargetExistingStoneRoute(blob, nearbyStone);
-			AIB_LogEvent("ai", "target", AIB_EventBlobRef(blob), "target=nearby_stone_tile state=tunnel_to_stone tile=" + AIB_EventPos(nearbyStone) + " pos=" + AIB_EventPos(blob.getPosition()));
+			if (AIB_RetargetExistingStoneRoute(brain, blob, nearbyStone))
+			{
+				AIB_LogEvent("ai", "target", AIB_EventBlobRef(blob), "target=nearby_stone_tile state=tunnel_to_stone tile=" + AIB_EventPos(nearbyStone) + " pos=" + AIB_EventPos(blob.getPosition()));
+			}
 			return;
 		}
 
@@ -1037,9 +1372,17 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 	if (AIB_TryMineExposedStone(brain, blob, target)) return;
 
 	Vec2f targetCenter = AIB_TileCenter(target);
-	Vec2f routeDestination = AIB_GetStoneRouteDestination(blob, target);
 	Vec2f routeCorner = blob.get_Vec2f("ai builder stone route corner");
-	Vec2f clearanceTile = AIB_GetPassageClearanceTile(blob, routeDestination);
+	if (routeCorner == Vec2f_zero)
+	{
+		// Safety net for hot-reloaded/legacy state and any retarget caller that
+		// reaches tunnel movement without a usable corner. Never degrade to raw
+		// ore BrainPath through dirt: continue the retained shaft or surface.
+		if (!AIB_RetargetExistingStoneRoute(brain, blob, target)) return;
+		routeCorner = blob.get_Vec2f("ai builder stone route corner");
+	}
+	Vec2f routeDestination = AIB_GetStoneRouteDestination(blob, target);
+	Vec2f clearanceTile = AIB_GetStoneRouteClearanceTile(blob, target, routeCorner, routeDestination);
 	if (clearanceTile != Vec2f_zero && AIB_IsNonMineableStoneRouteBlock(clearanceTile) &&
 		AIB_IsTileOnStoneRoute(blob, target, routeCorner, clearanceTile))
 	{
@@ -1055,6 +1398,10 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 			return;
 		}
 
+		// BrainPath alternates surface/underground nodes when a vertical clearance
+		// tile is just beyond hit range. Let the dedicated shaft controller own the
+		// approach before falling back to ordinary pathing.
+		if (AIB_DriveStoneRouteShaft(brain, blob, target, routeCorner)) return;
 		AIB_GoTo(brain, blob, clearanceCenter);
 		return;
 	}
@@ -1093,7 +1440,7 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 
 	if (shouldDig)
 	{
-		Vec2f dig = AIB_GetNextTunnelTile(blob, routeDestination);
+		Vec2f dig = AIB_GetNextTunnelTile(blob, target, routeCorner, routeDestination);
 		if (dig != Vec2f_zero && AIB_IsNonMineableStoneRouteBlock(dig) &&
 			AIB_IsTileOnStoneRoute(blob, target, routeCorner, dig))
 		{
@@ -1109,6 +1456,7 @@ void AIB_TunnelToStone(CBrain@ brain, CBlob@ blob)
 				return;
 			}
 
+			if (AIB_DriveStoneRouteShaft(brain, blob, target, routeCorner)) return;
 			AIB_GoTo(brain, blob, digCenter);
 			return;
 		}
@@ -1123,13 +1471,60 @@ bool AIB_TryMineExposedStone(CBrain@ brain, CBlob@ blob, Vec2f target)
 {
 	CMap@ map = getMap();
 	if (brain is null || blob is null || map is null || target == Vec2f_zero) return false;
+
+	Vec2f returnAnchor = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
+	Vec2f routeCorner = blob.get_Vec2f("ai builder stone route corner");
+	const bool underground = returnAnchor != Vec2f_zero &&
+		blob.getPosition().y > returnAnchor.y + map.tilesize * 1.5f;
+	// An ordinary BrainPath shortcut can reach exposed ore through a cave while
+	// skipping solid cells in the planned cross-tunnel. The miner would then
+	// retain a shaft it cannot physically rejoin. Below the surface handoff,
+	// require the entire two-high return corridor to be open; otherwise fall
+	// through to the route excavator below.
+	if (underground && (routeCorner == Vec2f_zero || !AIB_IsStoneCrossTunnelOpen(target, routeCorner)))
+	{
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, Vec2f_zero);
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, Vec2f_zero);
+		return false;
+	}
+
+	Vec2f latchedTarget = blob.get_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY);
+	Vec2f approach = blob.get_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY);
+	bool continuingApproach = latchedTarget != Vec2f_zero && approach != Vec2f_zero &&
+		(latchedTarget - target).Length() < 1.0f;
+	if (!continuingApproach && latchedTarget != Vec2f_zero)
+	{
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, Vec2f_zero);
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, Vec2f_zero);
+		latchedTarget = Vec2f_zero;
+		approach = Vec2f_zero;
+	}
+
 	const int builderY = Maths::Floor(blob.getPosition().y / map.tilesize);
 	const int targetY = Maths::Floor(target.y / map.tilesize);
-	if (Maths::Abs(builderY - targetY) > 2 || AIB_CountOpenStoneSides(target) == 0) return false;
+	if (!continuingApproach)
+	{
+		if (Maths::Abs(builderY - targetY) > 2 || AIB_CountOpenStoneSides(target) == 0) return false;
+		approach = AIB_GetApproachPositionForStone(blob, target);
+		if (!AIB_HasStoneApproachBodyClearance(blob, approach)) return false;
 
-	Vec2f approach = AIB_GetApproachPositionForStone(blob, target);
-	Vec2f collision;
-	if (map.rayCastSolid(blob.getPosition(), approach, collision)) return false;
+		brain.EndPath();
+		AIB_EndBrainPath(blob);
+		blob.set_Vec2f("ai builder destination", Vec2f_zero);
+		blob.set_bool("ai builder justgo", false);
+		blob.set_u8("ai builder obstruction threshold", 0);
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, target);
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, approach);
+		continuingApproach = true;
+		AIB_LogEvent("ai", "stone_exposed_path", AIB_EventBlobRef(blob),
+			"target=" + AIB_EventPos(target) + " approach=" + AIB_EventPos(approach));
+	}
+	else if (!AIB_HasStoneApproachBodyClearance(blob, approach))
+	{
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, Vec2f_zero);
+		blob.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, Vec2f_zero);
+		return false;
+	}
 
 	Vec2f targetCenter = AIB_TileCenter(target);
 	if ((targetCenter - blob.getPosition()).Length() <= 40.0f)
@@ -1138,17 +1533,7 @@ bool AIB_TryMineExposedStone(CBrain@ brain, CBlob@ blob, Vec2f target)
 		return true;
 	}
 
-	if ((blob.get_Vec2f("ai builder destination") - approach).Length() > 1.0f)
-	{
-		brain.EndPath();
-		AIB_EndBrainPath(blob);
-		blob.set_Vec2f("ai builder destination", approach);
-		blob.set_bool("ai builder justgo", true);
-		blob.set_u8("ai builder obstruction threshold", 0);
-		AIB_LogEvent("ai", "stone_exposed_direct", AIB_EventBlobRef(blob),
-			"target=" + AIB_EventPos(target) + " approach=" + AIB_EventPos(approach));
-	}
-	AIB_PathTo(blob, approach);
+	AIB_GoTo(brain, blob, approach);
 	blob.setAimPos(targetCenter);
 	return true;
 }
@@ -1163,8 +1548,10 @@ void AIB_FindStoneMat(CBrain@ brain, CBlob@ blob)
 		if (nearbyStone != Vec2f_zero && !AIB_ShouldReturnStone(blob))
 		{
 			blob.set_Vec2f("ai builder tile target", nearbyStone);
-			AIB_RetargetExistingStoneRoute(blob, nearbyStone);
-			AIB_SetState(blob, AIBuilderState::tunnel_to_stone, "nearby stone found");
+			if (AIB_RetargetExistingStoneRoute(brain, blob, nearbyStone))
+			{
+				AIB_SetState(blob, AIBuilderState::tunnel_to_stone, "nearby stone found");
+			}
 		}
 		else if (AIB_HasStone(blob))
 		{
@@ -1197,8 +1584,10 @@ void AIB_FindStoneMat(CBrain@ brain, CBlob@ blob)
 			if (nearbyStone != Vec2f_zero)
 			{
 				blob.set_Vec2f("ai builder tile target", nearbyStone);
-				AIB_RetargetExistingStoneRoute(blob, nearbyStone);
-				AIB_SetState(blob, AIBuilderState::tunnel_to_stone, "picked loose stone, nearby stone remains");
+				if (AIB_RetargetExistingStoneRoute(brain, blob, nearbyStone))
+				{
+					AIB_SetState(blob, AIBuilderState::tunnel_to_stone, "picked loose stone, nearby stone remains");
+				}
 			}
 			else
 			{
@@ -1210,6 +1599,11 @@ void AIB_FindStoneMat(CBrain@ brain, CBlob@ blob)
 
 void AIB_CollectBlueprintResources(CBrain@ brain, CBlob@ blob)
 {
+	// Reservations protect an active approach/place attempt, not an unbounded
+	// material trip. Release defensively on every collection tick as well as at
+	// the transition so hot-reloaded workers cannot retain an old lease.
+	if (blob !is null && blob.getTeamNum() >= 0 && blob.getTeamNum() < 8)
+		AIBP_ReleaseBuilderReservation(u8(blob.getTeamNum()), blob.getNetworkID());
 	string needed;
 	u16 amount = 0;
 	if (!AIB_GetBlueprintMaterialNeed(blob, needed, amount))
@@ -1267,15 +1661,24 @@ bool AIB_GetBlueprintMaterialNeed(CBlob@ blob, string &out material, u16 &out am
 		const u16 target = AIB_GetBlueprintTargetForTile(targetTile, team);
 		if (target != 0)
 		{
-			material = AIBP_BlockMaterial(target);
-			amount = AIBP_BlockCost(target);
-			return material != "" && AIB_CountMaterial(blob, material) < amount;
+			string[] materials = { "mat_wood", "mat_stone", "mat_gold" };
+			for (uint i = 0; i < materials.length; i++)
+			{
+				const u16 required = AIBP_BlockMaterialCost(target, materials[i]);
+				if (required == 0 || AIB_CountMaterial(blob, materials[i]) >= required) continue;
+				material = materials[i];
+				amount = required;
+				return true;
+			}
+			return false;
 		}
 	}
 
 	const u16 wood = AIBP_MinRemainingBlockCost(team, "mat_wood");
 	const u16 stone = AIBP_MinRemainingBlockCost(team, "mat_stone");
-	if ((wood > 0 && AIB_CountWood(blob) >= wood) || (stone > 0 && AIB_CountStone(blob) >= stone)) return false;
+	const u16 gold = AIBP_MinRemainingBlockCost(team, "mat_gold");
+	if ((wood > 0 && AIB_CountWood(blob) >= wood) || (stone > 0 && AIB_CountStone(blob) >= stone) ||
+		(gold > 0 && AIB_CountMaterial(blob, "mat_gold") >= gold)) return false;
 	if (wood > 0 && AIB_CountWood(blob) < wood)
 	{
 		material = "mat_wood"; amount = wood; return true;
@@ -1283,6 +1686,10 @@ bool AIB_GetBlueprintMaterialNeed(CBlob@ blob, string &out material, u16 &out am
 	if (stone > 0 && AIB_CountStone(blob) < stone)
 	{
 		material = "mat_stone"; amount = stone; return true;
+	}
+	if (gold > 0 && AIB_CountMaterial(blob, "mat_gold") < gold)
+	{
+		material = "mat_gold"; amount = gold; return true;
 	}
 	return false;
 }
@@ -1293,6 +1700,7 @@ void AIB_FindBlueprintBlock(CBrain@ brain, CBlob@ blob)
 	Vec2f tile = AIB_GetNearestBlueprintBuildTile(blob);
 	if (tile == Vec2f_zero)
 	{
+		AIBP_ReleaseBuilderReservation(u8(blob.getTeamNum()), blob.getNetworkID());
 		const string waitStatus = AIB_GetBlueprintWaitStatus(blob);
 		AIB_LogBlueprintWaitSnapshot(blob, waitStatus);
 		if (blob.get_bool("ai builder saw blueprint target") || waitStatus != "Waiting for blueprint work")
@@ -1352,6 +1760,7 @@ void AIB_BuildBlueprintBlock(CBrain@ brain, CBlob@ blob)
 	}
 	if (tile == Vec2f_zero || !AIB_BlueprintTileStillNeedsWork(tile, team))
 	{
+		AIBP_ReleaseBuilderReservation(team, blob.getNetworkID());
 		AIB_SetState(blob, AIBuilderState::find_blueprint_block, "blueprint tile complete");
 		return;
 	}
@@ -1579,6 +1988,7 @@ bool AIB_GoToBrainPath(CBrain@ brain, CBlob@ blob, Vec2f destination)
 	if (!downwardSteer)
 	{
 		blob.set_u32("ai builder downward path steer until", 0);
+		blob.set_s32("ai builder downward path steer direction", 0);
 		blob.set_bool("ai builder downward path steering", false);
 	}
 	const bool upwardSteer = !downwardSteer && AIB_TrySteerUpwardPath(blob, next, destination);
@@ -1602,7 +2012,8 @@ bool AIB_GoToBrainPath(CBrain@ brain, CBlob@ blob, Vec2f destination)
 bool AIB_TrySteerUpwardPath(CBlob@ blob, Vec2f next, Vec2f destination)
 {
 	if (blob is null || next == Vec2f_zero || blob.isOnLadder() || blob.isInWater()) return false;
-	if (AIB_UsesDedicatedStoneRouteMovement(blob.get_u8("ai builder job"), blob.get_u8("ai builder state"))) return false;
+	if (AIB_UsesDedicatedStoneRouteMovement(blob.get_u8("ai builder job"), blob.get_u8("ai builder state")) &&
+		blob.get_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY) == Vec2f_zero) return false;
 
 	CMap@ map = getMap();
 	if (map is null) return false;
@@ -1612,7 +2023,12 @@ bool AIB_TrySteerUpwardPath(CBlob@ blob, Vec2f next, Vec2f destination)
 	const u32 now = getGameTime();
 	const u32 until = blob.get_u32("ai builder upward path steer until");
 	const bool active = until > now;
-	if (rise < map.tilesize * 0.75f || (!active && Maths::Abs(nextLateral) > map.tilesize * 0.75f)) return false;
+	// BrainPath can express a wall climb as a one-tile diagonal-up node. The
+	// former 0.75-tile lateral bound excluded the recurring Gloryhill
+	// (63,328)->(56,320) escape node, leaving ordinary workers at the bottom of
+	// a mined shaft. Keep the existing obstruction delay and one-sided wall
+	// qualification, but admit exactly one tile of lateral node offset.
+	if (rise < map.tilesize * 0.75f || (!active && Maths::Abs(nextLateral) > map.tilesize)) return false;
 	if (!active && blob.get_u8("ai builder obstruction threshold") < AIB_UPWARD_PATH_STEER_OBSTRUCTION_TICKS)
 		return false;
 
@@ -1654,7 +2070,8 @@ bool AIB_TrySteerUpwardPath(CBlob@ blob, Vec2f next, Vec2f destination)
 bool AIB_TrySteerDownwardPath(CBlob@ blob, Vec2f next, Vec2f destination)
 {
 	if (blob is null || next == Vec2f_zero || blob.isOnLadder() || blob.isInWater()) return false;
-	if (AIB_UsesDedicatedStoneRouteMovement(blob.get_u8("ai builder job"), blob.get_u8("ai builder state"))) return false;
+	if (AIB_UsesDedicatedStoneRouteMovement(blob.get_u8("ai builder job"), blob.get_u8("ai builder state")) &&
+		blob.get_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY) == Vec2f_zero) return false;
 
 	CMap@ map = getMap();
 	if (map is null) return false;
@@ -1667,10 +2084,17 @@ bool AIB_TrySteerDownwardPath(CBlob@ blob, Vec2f next, Vec2f destination)
 
 	const u32 now = getGameTime();
 	const u32 until = blob.get_u32("ai builder downward path steer until");
+	const bool holdActive = until > now;
 	if (until <= now && blob.get_u8("ai builder obstruction threshold") < AIB_DOWNWARD_PATH_STEER_OBSTRUCTION_TICKS)
 		return false;
 
-	const bool right = destinationLateral > 0.0f;
+	const s32 previousDirection = blob.get_s32("ai builder downward path steer direction");
+	const s32 direction = AIB_SelectDownwardPathSteerDirection(pos, next, destination,
+		previousDirection, holdActive);
+	const bool right = direction > 0;
+	// The active low-level node owns a diagonal descent's horizontal sign. The
+	// final destination may already lie beyond the shaft in the opposite
+	// direction; following it here walks away from the lip and fights BrainPath.
 	// Direct walk-off owns the keys only while the adjacent side is open.
 	// Gloryhill can pair a nominal down node with a nearby two-high stone wall;
 	// once the runner actually reaches that wall, release direct ownership so
@@ -1708,8 +2132,9 @@ bool AIB_TrySteerDownwardPath(CBlob@ blob, Vec2f next, Vec2f destination)
 	if (until <= now)
 	{
 		blob.set_u32("ai builder downward path steer until", now + AIB_DOWNWARD_PATH_STEER_HOLD_TICKS);
+		blob.set_s32("ai builder downward path steer direction", direction);
 	}
-	if (!blob.get_bool("ai builder downward path steering"))
+	if (!blob.get_bool("ai builder downward path steering") || direction != previousDirection)
 	{
 		AIB_LogEvent("ai", "path_downward_steer", AIB_EventBlobRef(blob),
 			"pos=" + AIB_EventPos(pos) + " next=" + AIB_EventPos(next) +
@@ -2128,11 +2553,26 @@ bool AIB_TryPlaceRecoveryLadder(CBlob@ blob, Vec2f next)
 	}
 
 	const u32 now = getGameTime();
-	const bool preparedHere = (blob.get_Vec2f(AIB_RECOVERY_SUPPORT_TARGET_KEY) - tile).Length() < 0.1f;
-	const u32 supportTick = preparedHere ? blob.get_u32(AIB_RECOVERY_SUPPORT_TICK_KEY) : 0;
-	const u8 supportChain = preparedHere ? blob.get_u8(AIB_RECOVERY_SUPPORT_CHAIN_KEY) : 0;
+	Vec2f preparedTarget = blob.get_Vec2f(AIB_RECOVERY_SUPPORT_TARGET_KEY);
+	const u32 preparedTick = blob.get_u32(AIB_RECOVERY_SUPPORT_TICK_KEY);
+	const u8 preparedChain = blob.get_u8(AIB_RECOVERY_SUPPORT_CHAIN_KEY);
+	const bool preparedHere = preparedTarget != Vec2f_zero && preparedTick > 0 && preparedChain > 0 &&
+		(preparedTarget - tile).Length() < 0.1f;
+	// A staged chain can make the adjacent next rung supported before the
+	// runner's next obstruction cycle. Preserve that causal evidence when the
+	// last paid chain ended one tile away and is still within two normal ladder
+	// placement windows; exact-target support remains valid without that age cap.
+	const bool preparedNearby = !preparedHere && preparedTarget != Vec2f_zero &&
+		preparedTick > 0 && preparedTick < now && preparedChain > 0 &&
+		now - preparedTick <= AIB_LADDER_PLACE_DELAY * 2 &&
+		(preparedTarget - tile).Length() <= map.tilesize * 1.5f;
+	const bool preparedForLadder = preparedHere || preparedNearby;
+	const u32 supportTick = preparedForLadder ? preparedTick : 0;
+	const u8 supportChain = preparedForLadder ? preparedChain : 0;
 	ladder.Tag("aibuilder recovery ladder");
 	ladder.set_bool("aibuilder recovery support ready before spawn", supportReadyBeforeSpawn);
+	ladder.set_bool("aibuilder recovery support inherited adjacent", preparedNearby);
+	ladder.set_Vec2f("aibuilder recovery support target", preparedForLadder ? preparedTarget : Vec2f_zero);
 	ladder.set_u32("aibuilder recovery support tick", supportTick);
 	ladder.set_u8("aibuilder recovery support chain", supportChain);
 	ladder.set_u32("aibuilder recovery ladder tick", now);
@@ -2146,7 +2586,9 @@ bool AIB_TryPlaceRecoveryLadder(CBlob@ blob, Vec2f next)
 	blob.set_u32(AIB_RECOVERY_LADDER_TICK_KEY, now);
 	AIB_LogEvent("ai", "place_ladder", AIB_EventBlobRef(blob), "tile=" + AIB_EventPos(tile) +
 		" next=" + AIB_EventPos(next) + " angle=90 support_before_spawn=true prepared_tick=" + supportTick +
-		" chain=" + supportChain);
+		" chain=" + supportChain + " support_target=" +
+		AIB_EventPos(preparedForLadder ? preparedTarget : Vec2f_zero) +
+		" inherited_adjacent=" + AIB_BoolString(preparedNearby));
 	return true;
 }
 
@@ -2393,19 +2835,22 @@ void AIB_ScaleObstacles(CBlob@ blob, Vec2f destination)
 	CMap@ map = getMap();
 	Vec2f pos = blob.getPosition();
 	const f32 radius = blob.getRadius();
+	const bool dedicatedStoneRoute = AIB_UsesDedicatedStoneRouteMovement(
+		blob.get_u8("ai builder job"), blob.get_u8("ai builder state"));
+	const bool exposedStonePath = blob.get_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY) != Vec2f_zero;
 
 	if (blob.isOnLadder() || blob.isInWater())
 	{
 		blob.setKeyPressed(destination.y < pos.y ? key_up : key_down, true);
 	}
-	else if (AIB_UsesDedicatedStoneRouteMovement(blob.get_u8("ai builder job"), blob.get_u8("ai builder state")))
+	else if (dedicatedStoneRoute && !exposedStonePath)
 	{
 		// Shaft/tunnel movement explicitly centers, descends, climbs, and mines
 		// exact route tiles. Generic obstacle scaling fights that controller by
 		// repeatedly injecting jumps whenever horizontal speed is low.
 		return;
 	}
-	else if (blob.isOnWall() ||
+	if (blob.isOnWall() ||
 		(blob.isKeyPressed(key_right) && (map.isTileSolid(pos + Vec2f(1.3f * radius, radius)) || blob.getShape().vellen < 0.1f)) ||
 		(blob.isKeyPressed(key_left) && (map.isTileSolid(pos + Vec2f(-1.3f * radius, radius)) || blob.getShape().vellen < 0.1f)))
 	{
@@ -2443,6 +2888,7 @@ Vec2f AIB_GetBestStoneTile(CBlob@ blob)
 
 			Vec2f tilePos = Vec2f(x * map.tilesize, y * map.tilesize);
 			if (!AIB_IsStoneTile(tilePos)) continue;
+			if (AIB_IsRejectedMiningRouteTarget(blob, tilePos)) continue;
 			if (!AIB_IsInsideCurrentBarrierZone(blob, AIB_TileCenter(tilePos))) continue;
 			if (!AIB_IsSafeResource(blob, AIB_TileCenter(tilePos))) continue;
 
@@ -2500,6 +2946,7 @@ Vec2f AIB_GetBestStoneTile(CBlob@ blob)
 	{
 		Vec2f routeCorner = AIB_GetBestStoneRouteCorner(blob, candidates[i]);
 		if (routeCorner == Vec2f_zero) continue;
+		if (AIB_IsStoneRouteReservedByOther(blob, routeCorner)) continue;
 		const u16 dirt = AIB_CountDirtOnStoneRoute(blob, candidates[i], routeCorner);
 		const f32 score = approximateScores[i] + dirt * AIB_STONE_DIRT_PENALTY;
 		if (score < bestScore)
@@ -2535,6 +2982,7 @@ Vec2f AIB_GetStoneRouteDestination(CBlob@ blob, Vec2f target)
 	{
 		corner = AIB_GetBestStoneRouteCorner(blob, target);
 		blob.set_Vec2f("ai builder stone route corner", corner);
+		AIB_UpdateStoneReturnRoute(blob, target, corner);
 	}
 	if (corner == Vec2f_zero) return target;
 
@@ -2546,9 +2994,10 @@ Vec2f AIB_GetStoneRouteDestination(CBlob@ blob, Vec2f target)
 	const int targetY = Maths::Floor(target.y / map.tilesize);
 	const int entryX = AIB_GetStoneRouteEntryX(builderX, shaftX, targetX);
 
-	// Reach the shaft mouth over existing terrain before digging.  Once aligned,
-	// descend the fixed shaft; only at ore depth do we begin the cross-tunnel.
-	if (builderX != entryX)
+	// Reach the shaft mouth over existing terrain before digging. A full-width
+	// runner is centered on the boundary between both planned shaft columns, so
+	// either column is valid ownership after the surface approach.
+	if (!AIB_IsStoneRouteShaftColumn(builderX, shaftX, targetX))
 	{
 		return Vec2f(entryX * map.tilesize, builderY * map.tilesize);
 	}
@@ -2561,10 +3010,9 @@ Vec2f AIB_GetStoneRouteDestination(CBlob@ blob, Vec2f target)
 
 // BrainPath is useful for reaching the shaft mouth, but it oscillates between
 // surface and underground nodes inside a simple open vertical shaft.  Once the
-// builder occupies either planned shaft column, keep it centered on the
-// canonical clearance column and let normal gravity/ladder/wall physics move it
-// vertically.  Clearance mining runs before this helper each tick, so only
-// exact route tiles are ever dug.
+// builder occupies either planned shaft column, keep descent centered across
+// the full opening and retain the wall alignment required for ascent. Clearance
+// mining runs before this helper each tick, so only exact route tiles are dug.
 bool AIB_DriveStoneRouteShaft(CBrain@ brain, CBlob@ blob, Vec2f target, Vec2f routeCorner)
 {
 	CMap@ map = getMap();
@@ -2576,18 +3024,55 @@ bool AIB_DriveStoneRouteShaft(CBrain@ brain, CBlob@ blob, Vec2f target, Vec2f ro
 	const int shaftX = Maths::Floor(routeCorner.x / map.tilesize);
 	const int targetX = Maths::Floor(target.x / map.tilesize);
 	const int targetY = Maths::Floor(target.y / map.tilesize);
-	if (Maths::Abs(builderY - targetY) <= 1) return false;
 
 	const int side = targetX < shaftX ? -1 : 1;
 	const int entryX = AIB_GetStoneRouteEntryX(builderX, shaftX, targetX);
 	const f32 entryCenterX = (entryX + 0.5f) * map.tilesize;
+	const f32 shaftCenterX = AIB_GetStoneRouteShaftCenterX(shaftX, targetX, map.tilesize);
 	const bool inShaftColumn = builderX == shaftX || builderX == shaftX + side;
 	// Take over the final short, clear approach before BrainPath can settle just
 	// outside the shaft column and repeatedly replan.  This only drives movement;
 	// all clearance mining has already passed the exact-route checks above.
-	const bool nearClearEntry = Maths::Abs(pos.x - entryCenterX) <= map.tilesize * 2.0f &&
+	const bool nearClearEntry = Maths::Abs(pos.x - shaftCenterX) <= map.tilesize * 2.0f &&
 		AIB_HasClearStoneRouteApproach(blob, target, routeCorner);
 	if (!inShaftColumn && !nearClearEntry) return false;
+
+	const u32 now = getGameTime();
+	Vec2f progressPos = blob.get_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY);
+	u32 progressTick = blob.get_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY);
+	const bool atHandoffBand = Maths::Abs(builderY - targetY) <= 1;
+	const bool recordedHandoffBand = progressPos != Vec2f_zero &&
+		Maths::Abs(Maths::Floor(progressPos.y / map.tilesize) - targetY) <= 1;
+	if (progressPos == Vec2f_zero || progressTick == 0 ||
+		(atHandoffBand && !recordedHandoffBand) ||
+		AIB_HasAdvancedStoneShaftProgress(progressPos, pos, routeCorner, map.tilesize, 8.0f))
+	{
+		blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, pos);
+		blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, now);
+		blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	}
+	const u16 noProgressTicks = atHandoffBand ?
+		AIB_STONE_SHAFT_HANDOFF_NO_PROGRESS_TICKS : AIB_STONE_SHAFT_NO_PROGRESS_TICKS;
+	if (now - blob.get_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY) >= noProgressTicks)
+	{
+		AIB_LogEvent("ai", "stone_route_stall", AIB_EventBlobRef(blob),
+			"reason=shaft_no_progress target=" + AIB_EventPos(target) +
+			" route_corner=" + AIB_EventPos(routeCorner) +
+			" phase=" + (atHandoffBand ? "handoff" : "shaft") +
+			" supported_cross=" + (AIB_HasSupportedStoneCrossTunnel(target, routeCorner) ? "true" : "false") +
+			" elapsed=" + (now - blob.get_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY)) +
+			" threshold=" + noProgressTicks + " pos=" + AIB_EventPos(pos));
+		AIB_AbortStoneRouteToSurface(brain, blob, target, "shaft_no_progress");
+		return true;
+	}
+
+	// Observe the last vertical step before handing the target-row crossing back
+	// to ordinary pathing. Previously this return ran first, so a miner bouncing
+	// between the lip and the one-tile band never recorded its best elevation and
+	// could replan forever. Once it travels away from the shaft, the ownership
+	// gate above releases it without applying this vertical watchdog to a valid
+	// horizontal cross-tunnel traversal.
+	if (atHandoffBand) return false;
 
 	brain.EndPath();
 	AIB_EndBrainPath(blob);
@@ -2599,11 +3084,17 @@ bool AIB_DriveStoneRouteShaft(CBrain@ brain, CBlob@ blob, Vec2f target, Vec2f ro
 	blob.setKeyPressed(key_up, false);
 	blob.setKeyPressed(key_down, false);
 
-	const bool centered = Maths::Abs(pos.x - entryCenterX) <= 1.0f;
-	if (pos.x < entryCenterX - 1.0f) blob.setKeyPressed(key_right, true);
-	else if (pos.x > entryCenterX + 1.0f) blob.setKeyPressed(key_left, true);
-
 	const bool descending = targetY > builderY;
+	// Down on a grounded one-tile lip is crouch, not descent. Straddle the full
+	// opening only while grounded; once gravity owns the fall, restore the proven
+	// clearance-column alignment. This avoids steering every open-shaft fall into
+	// the far wall while still releasing a real supporting lip. Ascending miners
+	// keep the established wall-center alignment needed for KAG wall climbing.
+	const f32 driveCenterX = descending && blob.isOnGround() ? shaftCenterX : entryCenterX;
+	const bool centered = Maths::Abs(pos.x - driveCenterX) <= 1.0f;
+	if (pos.x < driveCenterX - 1.0f) blob.setKeyPressed(key_right, true);
+	else if (pos.x > driveCenterX + 1.0f) blob.setKeyPressed(key_left, true);
+
 	if (descending)
 	{
 		if (centered) blob.setKeyPressed(key_down, true);
@@ -2629,7 +3120,20 @@ void AIB_SetStoneReturnAnchor(CBlob@ blob, Vec2f target, Vec2f routeCorner)
 	CMap@ map = getMap();
 	if (blob is null || map is null || target == Vec2f_zero || routeCorner == Vec2f_zero)
 	{
-		if (blob !is null) blob.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, Vec2f_zero);
+		if (blob !is null)
+		{
+			blob.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, Vec2f_zero);
+			blob.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, Vec2f_zero);
+			blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+			blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, Vec2f_zero);
+			blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, 0);
+			blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+			blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+			blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+			blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+			blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+			blob.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, false);
+		}
 		return;
 	}
 
@@ -2638,12 +3142,225 @@ void AIB_SetStoneReturnAnchor(CBlob@ blob, Vec2f target, Vec2f routeCorner)
 	const int shaftX = Maths::Floor(routeCorner.x / map.tilesize);
 	const int targetX = Maths::Floor(target.x / map.tilesize);
 	const int entryX = AIB_GetStoneRouteEntryX(builderX, shaftX, targetX);
-	Vec2f anchor = Vec2f((entryX + 0.5f) * map.tilesize, pos.y);
+	Vec2f measuredAnchor = Vec2f((entryX + 0.5f) * map.tilesize, pos.y);
+	Vec2f anchor = AIB_SelectStoneReturnAnchor(measuredAnchor,
+		blob.get_Vec2f(AIBM_STONE_SURFACE_MEMORY_KEY), map.tilesize);
+	const bool reusedSurface = (anchor - measuredAnchor).Length() >= 1.0f;
 	blob.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, anchor);
+	blob.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, routeCorner);
+	blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, pos);
+	blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+	blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+	blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+	blob.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, false);
 	blob.set_bool("ai builder direct stone return", false);
 	AIB_LogEvent("ai", "stone_return_anchor", AIB_EventBlobRef(blob),
 		"anchor=" + AIB_EventPos(anchor) + " target=" + AIB_EventPos(target) +
-		" route_corner=" + AIB_EventPos(routeCorner));
+		" route_corner=" + AIB_EventPos(routeCorner) +
+		" measured_anchor=" + AIB_EventPos(measuredAnchor) +
+		" reused_surface=" + (reusedSurface ? "true" : "false"));
+}
+
+void AIB_UpdateStoneReturnRoute(CBlob@ blob, Vec2f target, Vec2f routeCorner)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null || target == Vec2f_zero || routeCorner == Vec2f_zero) return;
+	Vec2f previous = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
+	if (previous == Vec2f_zero)
+	{
+		AIB_SetStoneReturnAnchor(blob, target, routeCorner);
+		return;
+	}
+
+	const int builderX = Maths::Floor(blob.getPosition().x / map.tilesize);
+	const int shaftX = Maths::Floor(routeCorner.x / map.tilesize);
+	const int targetX = Maths::Floor(target.x / map.tilesize);
+	const int entryX = AIB_GetStoneRouteEntryX(builderX, shaftX, targetX);
+	// The initial entry is a measured surface connection. A route chosen while
+	// already underground describes only the local ore leg and must not invent a
+	// new surface shaft at that x. Retarget the canonical entry only while the
+	// runner is still within the normal surface handoff band.
+	const bool canRetargetSurfaceEntry = blob.getPosition().y <= previous.y + map.tilesize * 1.5f;
+	Vec2f updated = canRetargetSurfaceEntry ?
+		Vec2f((entryX + 0.5f) * map.tilesize, previous.y) : previous;
+	Vec2f previousCorner = blob.get_Vec2f(AIBM_STONE_RETURN_CORNER_KEY);
+	const bool anchorChanged = Maths::Abs(updated.x - previous.x) >= 1.0f;
+	const bool cornerChanged = previousCorner == Vec2f_zero || (routeCorner - previousCorner).Length() >= 1.0f;
+	if (!anchorChanged && !cornerChanged) return;
+
+	// Nearby ore and visible gold can legitimately extend the current tunnel at
+	// a new depth. Retain that last valid corner for the underground rejoin leg,
+	// while preserving the episode's measured surface entry once below ground;
+	// the mutable mining corner can legitimately become zero on a later target.
+	blob.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, updated);
+	blob.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, routeCorner);
+	blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+	blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, blob.getPosition());
+	blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+	blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+	blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+	blob.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, false);
+	blob.set_bool("ai builder direct stone return", false);
+	AIB_LogEvent("ai", "stone_return_anchor_retarget", AIB_EventBlobRef(blob),
+		"from=" + AIB_EventPos(previous) + " anchor=" + AIB_EventPos(updated) +
+		" corner_from=" + AIB_EventPos(previousCorner) +
+		" surface_entry_changed=" + (anchorChanged ? "true" : "false") +
+		" target=" + AIB_EventPos(target) + " route_corner=" + AIB_EventPos(routeCorner));
+}
+
+string AIB_StoneReturnGeometry(CMap@ map, Vec2f pos)
+{
+	if (map is null) return "none";
+	const int centerX = Maths::Floor(pos.x / map.tilesize);
+	const int centerY = Maths::Floor(pos.y / map.tilesize);
+	string geometry = "";
+	for (int dy = -3; dy <= 3; dy++)
+	{
+		if (dy > -3) geometry += "/";
+		for (int dx = -3; dx <= 3; dx++)
+		{
+			Vec2f sample = Vec2f((centerX + dx + 0.5f) * map.tilesize,
+				(centerY + dy + 0.5f) * map.tilesize);
+			geometry += (map.isTileSolid(sample) ? "1" : "0");
+		}
+	}
+	return geometry;
+}
+
+u8 AIB_GetStoneReturnClimbWallMask(CBlob@ blob, Vec2f pos, Vec2f anchor)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null || anchor == Vec2f_zero) return 0;
+	const f32 leftWallX = AIB_GetStoneReturnOuterWallSampleX(anchor, map.tilesize, -1);
+	const f32 rightWallX = AIB_GetStoneReturnOuterWallSampleX(anchor, map.tilesize, 1);
+	const f32 wallY = blob.getRadius() * 0.5f;
+	u8 mask = 0;
+	if (map.isTileSolid(Vec2f(leftWallX, pos.y - wallY)) ||
+		map.isTileSolid(Vec2f(leftWallX, pos.y + wallY))) mask |= 1;
+	if (map.isTileSolid(Vec2f(rightWallX, pos.y - wallY)) ||
+		map.isTileSolid(Vec2f(rightWallX, pos.y + wallY))) mask |= 2;
+	return mask;
+}
+
+bool AIB_ObserveStoneReturnProgress(CBlob@ blob, CMap@ map, Vec2f anchor, Vec2f routeCorner)
+{
+	if (blob is null || map is null) return false;
+	Vec2f pos = blob.getPosition();
+	Vec2f progressPos = blob.get_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY);
+	const u32 now = getGameTime();
+	const bool cornerRejoined = blob.get_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY);
+	if (progressPos == Vec2f_zero || AIB_HasAdvancedStoneReturnProgress(progressPos, pos,
+		anchor, routeCorner, cornerRejoined, map.tilesize, AIB_STONE_RETURN_PROGRESS_PIXELS))
+	{
+		blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, pos);
+		blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, now);
+		blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+		return false;
+	}
+
+	const u32 progressTick = blob.get_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY);
+	if (progressTick == 0 || now < progressTick + AIB_STONE_RETURN_STALL_TICKS ||
+		blob.get_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY)) return false;
+	blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, true);
+	AIB_LogEvent("ai", "stone_return_stall", AIB_EventBlobRef(blob),
+		"anchor=" + AIB_EventPos(anchor) + " corner=" + AIB_EventPos(routeCorner) +
+		" pos=" + AIB_EventPos(pos) + " geometry=" + AIB_StoneReturnGeometry(map, pos));
+	return true;
+}
+
+Vec2f AIB_FindStoneReturnEgress(CBlob@ blob, Vec2f anchor)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null || anchor == Vec2f_zero) return Vec2f_zero;
+	CBlob@ home = AIB_GetTeamHome(blob);
+	const f32 ts = map.tilesize;
+	const int anchorX = Maths::Floor(anchor.x / ts);
+	const int anchorY = Maths::Floor(anchor.y / ts);
+	const s32 preferred = home !is null && home.getPosition().x > anchor.x ? 1 : -1;
+	array<s32> directions = { preferred, -preferred };
+	array<s32> vertical = { 0, -1, 1, -2, 2 };
+	for (uint side = 0; side < directions.length; side++)
+	{
+		for (s32 step = 1; step <= 4; step++)
+		{
+			const int x = anchorX + directions[side] * step;
+			for (uint dy = 0; dy < vertical.length; dy++)
+			{
+				Vec2f candidate = Vec2f((x + 0.5f) * ts, (anchorY + vertical[dy] + 0.5f) * ts);
+				if (!AIB_IsStoneReturnEgressElevation(candidate, anchor, ts)) continue;
+				if (home !is null ? AIBR_IsGroundedStoragePoint(home, candidate) : AIBR_IsGroundedStoragePoint(candidate))
+					return candidate;
+			}
+		}
+	}
+	return Vec2f_zero;
+}
+
+bool AIB_DriveStoneReturnEgress(CBrain@ brain, CBlob@ blob, Vec2f anchor, Vec2f egress)
+{
+	CMap@ map = getMap();
+	if (brain is null || blob is null || map is null || egress == Vec2f_zero) return false;
+	if (!AIB_IsStoneReturnEgressElevation(egress, anchor, map.tilesize) ||
+		!AIBR_IsGroundedStoragePoint(egress))
+	{
+		blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+		return false;
+	}
+
+	Vec2f pos = blob.getPosition();
+	if ((pos - egress).Length() <= map.tilesize * 1.25f && blob.isOnGround())
+	{
+		blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+		blob.set_Vec2f("ai builder destination", Vec2f_zero);
+		AIB_LogEvent("ai", "stone_return_exit", AIB_EventBlobRef(blob),
+			"anchor=" + AIB_EventPos(anchor) + " egress=" + AIB_EventPos(egress) +
+			" pos=" + AIB_EventPos(pos) + " surface_memory=" + AIB_EventPos(anchor));
+		return false;
+	}
+
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_Vec2f("ai builder destination", egress);
+	blob.set_bool("ai builder justgo", false);
+	blob.set_u8("ai builder obstruction threshold", 0);
+	blob.setKeyPressed(key_left, false);
+	blob.setKeyPressed(key_right, false);
+	blob.setKeyPressed(key_up, false);
+	blob.setKeyPressed(key_down, false);
+	if (egress.x < pos.x - 1.0f) blob.setKeyPressed(key_left, true);
+	else if (egress.x > pos.x + 1.0f) blob.setKeyPressed(key_right, true);
+	if (!blob.isOnGround() || pos.y > egress.y + 1.0f) blob.setKeyPressed(key_up, true);
+	AIB_ScaleObstacles(blob, egress);
+	return true;
+}
+
+void AIB_RearmStoneReturnFromShaftReentry(CBlob@ blob, CMap@ map, Vec2f anchor)
+{
+	if (blob is null || map is null || anchor == Vec2f_zero) return;
+	// The re-entry predicate already proves that the worker fell back inside the
+	// saved two-column shaft. Preserve that physical handoff: asking it to rejoin
+	// the retained ore-corridor corner again can steer toward a stale corner above
+	// the surface anchor and trap an already-in-shaft runner below the lip. Adopt
+	// a wall only when the canonical outer-wall probes detect one, but do so at
+	// the current depth because the stale corner is no longer a valid engage gate.
+	const u8 wallMask = AIB_GetStoneReturnClimbWallMask(blob, blob.getPosition(), anchor);
+	const s32 climbDirection = AIB_SelectStoneReturnClimbDirection(wallMask, 0);
+	blob.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+	blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, true);
+	blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, climbDirection != 0);
+	blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, climbDirection);
+	blob.set_bool("ai builder direct stone return", false);
+	blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, blob.getPosition());
+	blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+	blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
 }
 
 bool AIB_TryReturnThroughStoneRoute(CBrain@ brain, CBlob@ blob)
@@ -2655,18 +3372,96 @@ bool AIB_TryReturnThroughStoneRoute(CBrain@ brain, CBlob@ blob)
 	Vec2f anchor = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
 	if (anchor == Vec2f_zero) return false;
 	Vec2f pos = blob.getPosition();
-	// Collision resolution can leave the runner a few pixels below the original
-	// surface height; once it is within a body-clear tile and a half, ordinary
-	// navigation is the better owner and avoids on/off controller chatter.
-	if (pos.y <= anchor.y + map.tilesize * 1.5f)
+	Vec2f routeCorner = blob.get_Vec2f(AIBM_STONE_RETURN_CORNER_KEY);
+	if (routeCorner == Vec2f_zero) routeCorner = blob.get_Vec2f("ai builder stone route corner");
+	Vec2f egress = blob.get_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY);
+	const bool withinReentryBand = AIB_IsWithinStoneReturnReentryBand(pos, anchor, map.tilesize);
+	const bool shaftReentry = !withinReentryBand &&
+		AIB_IsInsideStoneReturnShaftInfluence(pos, anchor, map.tilesize);
+	if (egress != Vec2f_zero)
 	{
-		if (blob.get_bool("ai builder direct stone return"))
+		if (shaftReentry)
+		{
+			blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+			AIB_RearmStoneReturnFromShaftReentry(blob, map, anchor);
+			AIB_LogEvent("ai", "stone_return_reentry", AIB_EventBlobRef(blob),
+				"anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(pos) + " source=egress");
+		}
+		else
+		{
+			return AIB_DriveStoneReturnEgress(brain, blob, anchor, egress);
+		}
+	}
+	else if (blob.get_bool(AIBM_STONE_RETURN_SURFACED_KEY))
+	{
+		// Once the worker has physically crossed the shaft lip, ordinary surface
+		// navigation owns the trip home. Re-arm the shaft controller only for a
+		// real fall inside the same two-column shaft, never for a lower surface
+		// slope several tiles away.
+		if (!shaftReentry) return false;
+		AIB_RearmStoneReturnFromShaftReentry(blob, map, anchor);
+		AIB_LogEvent("ai", "stone_return_reentry", AIB_EventBlobRef(blob),
+			"anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(pos) + " source=surface");
+	}
+	const bool directReturnActive = blob.get_bool("ai builder direct stone return");
+	const bool strictSurfaceCrossing = AIB_HasReachedStoneReturnSurface(pos, anchor, map.tilesize);
+	const bool retainedSurfaceOwnership = !directReturnActive &&
+		withinReentryBand;
+	// Keep this controller through the marginal wall-climb apex below the shaft
+	// lip. After the strict crossing, a wider re-entry band prevents collision
+	// jitter from alternating direct return and BrainPath every few ticks.
+	if (strictSurfaceCrossing || retainedSurfaceOwnership)
+	{
+		if (directReturnActive)
+		{
+			// This anchor has now been crossed under real movement. Preserve that
+			// proof across delivery cleanup so a same-shaft follow-up route cannot
+			// replace it with one transient, higher collision position.
+			blob.set_Vec2f(AIBM_STONE_SURFACE_MEMORY_KEY, anchor);
+			egress = AIB_FindStoneReturnEgress(blob, anchor);
+			blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, egress);
+			AIB_LogEvent("ai", "stone_return_surface", AIB_EventBlobRef(blob),
+				"anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(pos) +
+				" egress=" + AIB_EventPos(egress) + " surface_memory=" + AIB_EventPos(anchor));
+		}
+		blob.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, true);
+		blob.set_bool("ai builder direct stone return", false);
+		blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, Vec2f_zero);
+		blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, 0);
+		blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+		blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+		blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+		blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+		blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+		if (egress != Vec2f_zero) return AIB_DriveStoneReturnEgress(brain, blob, anchor, egress);
+		if (directReturnActive)
 		{
 			AIB_LogEvent("ai", "stone_return_exit", AIB_EventBlobRef(blob),
-				"anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(pos));
+				"anchor=" + AIB_EventPos(anchor) + " egress=none pos=" + AIB_EventPos(pos) +
+				" surface_memory=" + AIB_EventPos(anchor));
 		}
-		blob.set_bool("ai builder direct stone return", false);
 		return false;
+	}
+	const bool startingDirectReturn = !directReturnActive;
+	if (startingDirectReturn)
+	{
+		// Mining-route progress timestamps belong to the outbound leg. Start a
+		// fresh return window instead of reporting an immediate false stall.
+		blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, pos);
+		blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+		blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	}
+	const bool retryCornerRejoin = !startingDirectReturn &&
+		AIB_ObserveStoneReturnProgress(blob, map, anchor, routeCorner);
+	if (retryCornerRejoin)
+	{
+		blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+		blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+		blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+		blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+		AIB_LogEvent("ai", "stone_return_corner_retry", AIB_EventBlobRef(blob),
+			"corner=" + AIB_EventPos(routeCorner) + " anchor=" + AIB_EventPos(anchor) +
+			" pos=" + AIB_EventPos(pos));
 	}
 
 	brain.EndPath();
@@ -2679,7 +3474,45 @@ bool AIB_TryReturnThroughStoneRoute(CBrain@ brain, CBlob@ blob)
 	blob.setKeyPressed(key_up, false);
 	blob.setKeyPressed(key_down, false);
 
-	const f32 lateral = anchor.x - pos.x;
+	// Adjacent ore and visible-gold diversions can leave the miner below the
+	// retained cross-tunnel on either side of its corner. Aiming directly at the
+	// surface anchor then walks horizontally into the solid diagonal below that
+	// corridor forever. Rejoin the stored route corner first, but steer the
+	// runner's body to the centre of the two cleared shaft columns rather than the
+	// corner tile's left edge. Once it reaches that vertical band near the real
+	// shaft centre, latch the handoff so crossing jitter cannot pull it backward.
+	// The progress watchdog reopens this gate only after a genuine stopped fall.
+	const bool wasCornerAssist = blob.get_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY);
+	bool cornerRejoined = blob.get_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY);
+	bool cornerAssist = false;
+	Vec2f cornerRejoinTarget = AIB_GetStoneReturnCornerRejoinTarget(anchor, routeCorner, map.tilesize);
+	if (!cornerRejoined && routeCorner != Vec2f_zero)
+	{
+		const bool insideReturnSpan = cornerRejoinTarget != Vec2f_zero &&
+			Maths::Abs(pos.x - cornerRejoinTarget.x) <= map.tilesize * 0.5f;
+		const f32 verticalTolerance = wasCornerAssist ? map.tilesize * 0.5f : map.tilesize;
+		const bool insideTunnelBand = pos.y <= routeCorner.y + verticalTolerance;
+		cornerAssist = !insideReturnSpan || !insideTunnelBand;
+		if (!cornerAssist)
+		{
+			cornerRejoined = true;
+			blob.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, true);
+			// Start the climb phase with its own upward-progress sample. Horizontal
+			// approach time must not consume the bounded wall-climb window.
+			blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, pos);
+			blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+			blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+		}
+	}
+	if (cornerAssist != wasCornerAssist)
+	{
+		blob.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, cornerAssist);
+		AIB_LogEvent("ai", cornerAssist ? "stone_return_corner_assist" : "stone_return_corner_rejoined",
+			AIB_EventBlobRef(blob), "corner=" + AIB_EventPos(routeCorner) +
+			" anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(pos));
+	}
+	Vec2f driveTarget = cornerAssist && cornerRejoinTarget != Vec2f_zero ? cornerRejoinTarget : anchor;
+	const f32 lateral = driveTarget.x - pos.x;
 	if (Maths::Abs(lateral) > 1.0f)
 	{
 		blob.setKeyPressed(key_left, lateral < 0.0f);
@@ -2688,8 +3521,90 @@ bool AIB_TryReturnThroughStoneRoute(CBrain@ brain, CBlob@ blob)
 	// KAG wall climbing needs up while the runner also leans into the shaft
 	// wall. Keep the long cross-tunnel approach horizontal, then combine both
 	// inputs within a tile and a half of the stored entry column.
-	if (Maths::Abs(lateral) <= map.tilesize * 1.5f)
+	if (cornerAssist)
 	{
+		if (AIB_ShouldClimbToStoneReturnCorner(pos, driveTarget, map.tilesize))
+		{
+			blob.setKeyPressed(key_up, true);
+		}
+		// During a long horizontal rejoin, ordinary geometry-qualified obstacle
+		// scaling may jump a real lip without turning the whole approach into an
+		// unbounded wall climb toward a distant, higher corner.
+		AIB_ScaleObstacles(blob, driveTarget);
+	}
+	else if (Maths::Abs(lateral) <= map.tilesize * 1.5f)
+	{
+		// Cross-tunnels can leave a two-cell notch in the shaft's left wall. Jump
+		// through that lip near the two-wide centerline before latching the wall
+		// direction; pressing left from the tunnel floor walks under the lip.
+		// After the latch, hold the selected solid wall plus up until the surface exit.
+		bool climbLatched = blob.get_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY);
+		s32 climbDirection = blob.get_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY);
+		const f32 shaftCenterX = anchor.x + map.tilesize * 0.5f;
+		const bool centeredForClimb = Maths::Abs(pos.x - shaftCenterX) <= 2.0f;
+		const u8 climbWallMask = AIB_GetStoneReturnClimbWallMask(blob, pos, anchor);
+		// When the ore lies left of the planned shaft, its two-high cross-tunnel
+		// opens through the same outer wall used by the canonical left-column
+		// climb. Rise half a tile through that notch before leaning left. A
+		// right-opening tunnel leaves the climb wall intact and can latch sooner.
+		const f32 wallEngageY = routeCorner == Vec2f_zero ? anchor.y + map.tilesize * 2.0f :
+			AIB_GetStoneReturnWallEngageY(anchor, routeCorner, map.tilesize);
+		if (climbLatched)
+		{
+			const s32 selectedDirection = AIB_SelectStoneReturnClimbDirection(climbWallMask, climbDirection);
+			if (selectedDirection == 0)
+			{
+				climbLatched = false;
+				climbDirection = 0;
+				blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+				blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+				AIB_LogEvent("ai", "stone_return_wall_release", AIB_EventBlobRef(blob),
+					"reason=no_wall anchor=" + AIB_EventPos(anchor) +
+					" corner=" + AIB_EventPos(routeCorner) + " pos=" + AIB_EventPos(pos));
+			}
+			else if (selectedDirection != climbDirection)
+			{
+				const s32 previousDirection = climbDirection;
+				climbDirection = selectedDirection;
+				blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, climbDirection);
+				AIB_LogEvent("ai", "stone_return_wall_turn", AIB_EventBlobRef(blob),
+					"from=" + previousDirection + " to=" + climbDirection + " walls=" + climbWallMask +
+					" anchor=" + AIB_EventPos(anchor) + " pos=" + AIB_EventPos(pos));
+			}
+		}
+		if (climbLatched && AIB_HasEscapedStoneReturnClimbWall(pos, anchor, map.tilesize, climbDirection))
+		{
+			climbLatched = false;
+			climbDirection = 0;
+			blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+			blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+			AIB_LogEvent("ai", "stone_return_wall_release", AIB_EventBlobRef(blob),
+				"reason=outside_shaft anchor=" + AIB_EventPos(anchor) +
+				" corner=" + AIB_EventPos(routeCorner) + " pos=" + AIB_EventPos(pos));
+		}
+		const s32 availableClimbDirection = AIB_SelectStoneReturnClimbDirection(climbWallMask, 0);
+		if (!climbLatched && availableClimbDirection != 0 && centeredForClimb && pos.y <= wallEngageY)
+		{
+			climbLatched = true;
+			climbDirection = availableClimbDirection;
+			blob.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, true);
+			blob.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, climbDirection);
+			AIB_LogEvent("ai", "stone_return_wall_hold", AIB_EventBlobRef(blob),
+				"anchor=" + AIB_EventPos(anchor) + " corner=" + AIB_EventPos(routeCorner) +
+				" direction=" + climbDirection + " walls=" + climbWallMask + " pos=" + AIB_EventPos(pos));
+		}
+		if (climbLatched)
+		{
+			blob.setKeyPressed(key_left, climbDirection < 0);
+			blob.setKeyPressed(key_right, climbDirection > 0);
+		}
+		else
+		{
+			// Collision centers a full-width builder between the two route tiles,
+			// half a tile right of the canonical left-column anchor.
+			blob.setKeyPressed(key_left, pos.x > shaftCenterX + 1.0f);
+			blob.setKeyPressed(key_right, pos.x < shaftCenterX - 1.0f);
+		}
 		blob.setKeyPressed(key_up, true);
 		AIB_ScaleObstacles(blob, anchor);
 	}
@@ -2703,16 +3618,93 @@ bool AIB_TryReturnThroughStoneRoute(CBrain@ brain, CBlob@ blob)
 	return true;
 }
 
-void AIB_RetargetExistingStoneRoute(CBlob@ blob, Vec2f target)
+void AIB_AbortStoneRouteToSurface(CBrain@ brain, CBlob@ blob, Vec2f target, const string &in reason)
+{
+	if (blob is null) return;
+	Vec2f routeCorner = blob.get_Vec2f("ai builder stone route corner");
+	Vec2f returnAnchor = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
+	Vec2f returnCorner = blob.get_Vec2f(AIBM_STONE_RETURN_CORNER_KEY);
+	const bool rejectedGold = blob.get_bool("ai builder mining gold") || AIB_IsGoldTile(target);
+	const u32 rejectedUntil = getGameTime() + AIB_REJECTED_ROUTE_COOLDOWN;
+	blob.set_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY, target);
+	blob.set_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY, rejectedUntil);
+	if (brain !is null) brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	blob.set_Vec2f("ai builder tile target", Vec2f_zero);
+	blob.set_bool("ai builder justgo", false);
+	blob.set_bool("ai builder mining gold", false);
+	blob.set_bool("ai builder direct stone shaft", false);
+	blob.set_u8("ai builder obstruction threshold", 0);
+	blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, blob.getPosition());
+	blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+	blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	AIB_LogEvent("ai", "stone_route_abort", AIB_EventBlobRef(blob),
+		"reason=" + reason + " target=" + AIB_EventPos(target) +
+		" route_corner=" + AIB_EventPos(routeCorner) +
+		" return_anchor=" + AIB_EventPos(returnAnchor) +
+		" return_corner=" + AIB_EventPos(returnCorner) +
+		" rejected_gold=" + (rejectedGold ? "true" : "false") +
+		" retry=" + rejectedUntil +
+		" pos=" + AIB_EventPos(blob.getPosition()));
+	AIB_SetState(blob, AIBuilderState::return_wood,
+		reason == "shaft_no_progress" ? "stone shaft made no progress" : "stone route has no legal continuation");
+}
+
+bool AIB_RetargetExistingStoneRoute(CBrain@ brain, CBlob@ blob, Vec2f target)
 {
 	CMap@ map = getMap();
-	if (blob is null || map is null || target == Vec2f_zero) return;
+	if (blob is null || map is null || target == Vec2f_zero) return false;
 
 	// Adjacent ore can cross to the other side of the old shaft or introduce a
 	// new bedrock/structure conflict.  Re-run the bounded exact search; already
 	// open corridors remain cheapest and are naturally reused.
+	Vec2f previousCorner = blob.get_Vec2f("ai builder stone route corner");
+	Vec2f retainedCorner = blob.get_Vec2f(AIBM_STONE_RETURN_CORNER_KEY);
+	if (retainedCorner == Vec2f_zero) retainedCorner = previousCorner;
+	Vec2f returnAnchor = blob.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
 	Vec2f corner = AIB_GetBestStoneRouteCorner(blob, target);
-	blob.set_Vec2f("ai builder stone route corner", corner);
+	if (AIB_CanUseFreshStoneRetarget(blob.getPosition(), returnAnchor, retainedCorner, corner, map.tilesize))
+	{
+		blob.set_Vec2f("ai builder stone route corner", corner);
+		AIB_UpdateStoneReturnRoute(blob, target, corner);
+		return true;
+	}
+	if (corner != Vec2f_zero)
+	{
+		AIB_LogEvent("ai", "stone_route_fresh_rejected", AIB_EventBlobRef(blob),
+			"reason=underground_shaft_change from=" + AIB_EventPos(retainedCorner) +
+			" candidate=" + AIB_EventPos(corner) + " anchor=" + AIB_EventPos(returnAnchor) +
+			" target=" + AIB_EventPos(target) + " pos=" + AIB_EventPos(blob.getPosition()));
+	}
+
+	// A fresh search is surface-oriented and can legitimately fail once the
+	// worker is already inside its tunnel. Continue the last nonzero shaft x at
+	// the new depth only after validating every remaining shaft/cross-tunnel
+	// cell. The saved return corner survives even if legacy state already erased
+	// the mutable mining corner.
+	Vec2f continuedCorner = AIB_GetContinuedStoneRouteCorner(blob, target, retainedCorner);
+	if (continuedCorner != Vec2f_zero)
+	{
+		if (brain !is null) brain.EndPath();
+		AIB_EndBrainPath(blob);
+		blob.set_Vec2f("ai builder destination", Vec2f_zero);
+		blob.set_bool("ai builder justgo", false);
+		blob.set_bool("ai builder direct stone shaft", false);
+		blob.set_u8("ai builder obstruction threshold", 0);
+		blob.set_Vec2f("ai builder stone route corner", continuedCorner);
+		AIB_UpdateStoneReturnRoute(blob, target, continuedCorner);
+		AIB_LogEvent("ai", "stone_route_continue", AIB_EventBlobRef(blob),
+			"from=" + AIB_EventPos(retainedCorner) +
+			" corner=" + AIB_EventPos(continuedCorner) +
+			" target=" + AIB_EventPos(target) +
+			" route_dirt=" + AIB_CountDirtOnStoneRoute(blob, target, continuedCorner) +
+			" pos=" + AIB_EventPos(blob.getPosition()));
+		return true;
+	}
+
+	AIB_AbortStoneRouteToSurface(brain, blob, target, "no_legal_continuation");
+	return false;
 }
 
 void AIB_RecomputeStoneRouteAroundBlock(CBrain@ brain, CBlob@ blob, Vec2f target, Vec2f blockedTile)
@@ -2731,6 +3723,7 @@ void AIB_RecomputeStoneRouteAroundBlock(CBrain@ brain, CBlob@ blob, Vec2f target
 	if (replacement != Vec2f_zero && !sameCorner && !stillBlocked)
 	{
 		blob.set_Vec2f("ai builder stone route corner", replacement);
+		AIB_UpdateStoneReturnRoute(blob, target, replacement);
 		if (brain !is null) brain.EndPath();
 		AIB_EndBrainPath(blob);
 		blob.set_Vec2f("ai builder destination", Vec2f_zero);
@@ -2784,12 +3777,12 @@ Vec2f AIB_GetShaftTopForStone(Vec2f stone)
 	return Vec2f_zero;
 }
 
-Vec2f AIB_GetNextTunnelTile(CBlob@ blob, Vec2f target)
+Vec2f AIB_GetNextTunnelTile(CBlob@ blob, Vec2f oreTarget, Vec2f routeCorner, Vec2f target)
 {
 	CMap@ map = getMap();
 	if (map is null) return Vec2f_zero;
 
-	Vec2f clearance = AIB_GetPassageClearanceTile(blob, target);
+	Vec2f clearance = AIB_GetStoneRouteClearanceTile(blob, oreTarget, routeCorner, target);
 	if (clearance != Vec2f_zero) return clearance;
 
 	Vec2f hit = AIB_GetBlockingTileTowardStone(blob, target);
@@ -2825,6 +3818,75 @@ Vec2f AIB_GetNextTunnelTile(CBlob@ blob, Vec2f target)
 	if (AIB_IsMineableStonePathTile(head)) return head;
 
 	return target;
+}
+
+Vec2f AIB_GetStoneRouteClearanceTile(CBlob@ blob, Vec2f target, Vec2f routeCorner, Vec2f routeDestination)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null || target == Vec2f_zero || routeCorner == Vec2f_zero)
+		return AIB_GetPassageClearanceTile(blob, routeDestination);
+
+	Vec2f pos = blob.getPosition();
+	const int builderX = Maths::Floor(pos.x / map.tilesize);
+	const int builderY = Maths::Floor(pos.y / map.tilesize);
+	const int shaftX = Maths::Floor(routeCorner.x / map.tilesize);
+	const int targetX = Maths::Floor(target.x / map.tilesize);
+	const int targetY = Maths::Floor(target.y / map.tilesize);
+	const int destinationX = Maths::Floor(routeDestination.x / map.tilesize);
+	const int destinationY = Maths::Floor(routeDestination.y / map.tilesize);
+	const int side = targetX < shaftX ? -1 : 1;
+
+	if (!AIB_IsStoneRouteShaftColumn(builderX, shaftX, targetX))
+		return AIB_GetPassageClearanceTile(blob, routeDestination);
+
+	// During the vertical leg, sample the exact two planned shaft columns. Once
+	// the runner straddles their boundary, deriving clearance from floor(pos.x)
+	// would shift the second sample one tile off-route and could leave the real
+	// supporting lip untouched forever.
+	const bool verticalLeg = destinationX == shaftX && destinationY == targetY &&
+		(destinationX != targetX || Maths::Abs(builderY - targetY) > 1);
+	if (verticalLeg)
+	{
+		const int stepY = targetY >= builderY ? 1 : -1;
+		Vec2f first = Vec2f(shaftX * map.tilesize, (builderY + stepY) * map.tilesize);
+		Vec2f second = first + Vec2f(side * map.tilesize, 0.0f);
+		if (AIB_TileNeedsDigging(first)) return first;
+		if (AIB_TileNeedsDigging(second)) return second;
+		return Vec2f_zero;
+	}
+
+	// At ore depth, keep clearance on the canonical two-high cross-tunnel even
+	// if collision or a jump leaves the runner's floor row one tile above/below
+	// it. Choose the nearest remaining route cell, excluding the ore foot itself
+	// so normal target handling retains ownership of the final hit.
+	if (targetX == shaftX) return Vec2f_zero;
+	Vec2f best = Vec2f_zero;
+	f32 bestDistance = 999999.0f;
+	for (int x = shaftX + side; ; x += side)
+	{
+		Vec2f foot = Vec2f(x * map.tilesize, targetY * map.tilesize);
+		Vec2f head = foot - Vec2f(0.0f, map.tilesize);
+		if (x != targetX && AIB_TileNeedsDigging(foot))
+		{
+			const f32 distance = (AIB_TileCenter(foot) - pos).Length();
+			if (distance < bestDistance)
+			{
+				best = foot;
+				bestDistance = distance;
+			}
+		}
+		if (AIB_TileNeedsDigging(head))
+		{
+			const f32 distance = (AIB_TileCenter(head) - pos).Length();
+			if (distance < bestDistance)
+			{
+				best = head;
+				bestDistance = distance;
+			}
+		}
+		if (x == targetX) break;
+	}
+	return best;
 }
 
 Vec2f AIB_GetPassageClearanceTile(CBlob@ blob, Vec2f target)
@@ -2894,6 +3956,14 @@ bool AIB_MineTile(CBlob@ blob, Vec2f tilePos)
 	Material::fromTile(blob, type, 1.0f);
 	AIBG_RecordInteraction(blob);
 	blob.set_u32("ai builder next hit", gameTime + AIB_HIT_DELAY);
+	if (AIB_UsesDedicatedStoneRouteMovement(blob.get_u8("ai builder job"), blob.get_u8("ai builder state")))
+	{
+		// A stationary hit is real route progress. Keep thick stone and repeated
+		// clearance hits from consuming the direct-movement watchdog window.
+		blob.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, blob.getPosition());
+		blob.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, gameTime);
+		blob.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+	}
 
 	if (wasStone)
 	{
@@ -2932,6 +4002,7 @@ Vec2f AIB_GetNearbyStoneTile(CBlob@ blob, Vec2f center, const u8 radius)
 		{
 			Vec2f tile = centerTile + Vec2f(x * map.tilesize, y * map.tilesize);
 			if (!AIB_IsStoneTile(tile)) continue;
+			if (AIB_IsRejectedMiningRouteTarget(blob, tile)) continue;
 			if (hasSelectedStone && !AIB_IsSelectedStoneTile(tile)) continue;
 			if (!AIB_IsInsideCurrentBarrierZone(blob, AIB_TileCenter(tile))) continue;
 			if (!AIB_IsSafeResource(blob, AIB_TileCenter(tile))) continue;
@@ -3002,12 +4073,14 @@ Vec2f AIB_GetBestSelectedStoneTile(CBlob@ blob)
 	{
 		Vec2f tile = Vec2f(selected[i].x * map.tilesize, selected[i].y * map.tilesize);
 		if (!AIB_IsStoneTile(tile)) continue;
+		if (AIB_IsRejectedMiningRouteTarget(blob, tile)) continue;
 		if (!AIB_IsInsideCurrentBarrierZone(blob, AIB_TileCenter(tile))) continue;
 		if (!AIB_IsSafeResource(blob, AIB_TileCenter(tile))) continue;
 
 		const f32 distance = (AIB_TileCenter(tile) - builderPos).Length();
 		Vec2f routeCorner = AIB_GetBestStoneRouteCorner(blob, tile);
 		if (routeCorner == Vec2f_zero) continue;
+		if (AIB_IsStoneRouteReservedByOther(blob, routeCorner)) continue;
 		const f32 score = distance + AIB_CountDirtOnStoneRoute(blob, tile, routeCorner) * AIB_STONE_DIRT_PENALTY;
 		if (score < bestScore)
 		{
@@ -3049,15 +4122,19 @@ Vec2f AIB_GetApproachPositionForStone(CBlob@ blob, Vec2f target)
 
 	for (uint i = 0; i < offsets.length; i++)
 	{
-		Vec2f tile = target + offsets[i];
-		if (map.isTileSolid(tile)) continue;
-
-		Vec2f center = AIB_TileCenter(tile);
-		const f32 distance = (center - builderPos).Length();
-		if (distance < bestDistance)
+		for (u8 step = 1; step <= 3; step++)
 		{
-			bestDistance = distance;
-			best = center;
+			Vec2f tile = target + offsets[i] * step;
+			Vec2f center = AIB_TileCenter(tile);
+			// A farther clear cell is not an exposed approach if an intervening
+			// body-height cell is blocked. Stop this ray at the first obstruction.
+			if (!AIB_HasStoneApproachBodyClearance(blob, center)) break;
+			const f32 distance = (center - builderPos).Length();
+			if (distance < bestDistance)
+			{
+				bestDistance = distance;
+				best = center;
+			}
 		}
 	}
 
@@ -3110,6 +4187,7 @@ Vec2f AIB_GetBestVisibleGoldTileNear(CBlob@ blob, Vec2f clusterCenter, const u8 
 			if (x * x + y * y > AIB_GOLD_SIGHT_RADIUS * AIB_GOLD_SIGHT_RADIUS) continue;
 			Vec2f tile = origin + Vec2f(x * ts, y * ts);
 			if (!AIB_IsInsideMap(tile) || !AIB_IsGoldTile(tile)) continue;
+			if (AIB_IsRejectedMiningRouteTarget(blob, tile)) continue;
 			if (clusterCenter != Vec2f_zero && (tile - clusterCenter).Length() > radius * ts) continue;
 
 			Vec2f center = AIB_TileCenter(tile);
@@ -3133,6 +4211,22 @@ Vec2f AIB_GetBestVisibleGoldTileNear(CBlob@ blob, Vec2f clusterCenter, const u8 
 		}
 	}
 	return best;
+}
+
+bool AIB_IsRejectedMiningRouteTarget(CBlob@ blob, Vec2f tile)
+{
+	CMap@ map = getMap();
+	if (blob is null || map is null) return false;
+	const u32 until = blob.get_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY);
+	if (until != 0 && getGameTime() >= until)
+	{
+		blob.set_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY, Vec2f_zero);
+		blob.set_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY, 0);
+		return false;
+	}
+	return AIB_IsRejectedStoneRouteTarget(tile,
+		blob.get_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY), getGameTime(), until,
+		map.tilesize, AIB_REJECTED_ROUTE_CLUSTER_RADIUS);
 }
 
 Vec2f AIB_TileCenter(Vec2f tilePos)
@@ -3199,6 +4293,15 @@ bool AIB_IsEligibleLooseStoneMat(CBlob@ blob, CBlob@ candidate)
 	if (blob is null || !AIB_IsLooseWorldResource(candidate)) return false;
 	const bool baseStone = AIB_IsBaseStoneSource(blob, candidate);
 	if (AIB_IsDeliveredResourceAtHome(blob, candidate) && !baseStone) return false;
+	// Base output is eligible only while it remains at the exact home, storage,
+	// or supported-quarry boundary. Do not follow a tagged stack after it falls
+	// into a shaft and becomes a moving lure below the base.
+	if (!baseStone && (candidate.hasTag("aibuilder stone supply") ||
+		candidate.hasTag("aibuilder base stone source")))
+	{
+		AIB_LogResourceRejectionDelta(blob, candidate, "escaped_base_stone");
+		return false;
+	}
 
 	const f32 distance = (candidate.getPosition() - blob.getPosition()).Length();
 	CMap@ map = getMap();
@@ -3298,6 +4401,23 @@ bool AIB_CollectNearbyGold(CBlob@ blob)
 	return acquired;
 }
 
+bool AIB_HasSupportedBaseQuarryFoundation(CBlob@ home, Vec2f position)
+{
+	CMap@ map = getMap();
+	if (home is null || map is null || position == Vec2f_zero) return false;
+	if (!AIB_IsInsideCurrentBarrierZone(home, position)) return false;
+	const f32 ts = map.tilesize;
+	// Quarry.cfg is 40x24, matching a five-by-three workshop. Ore spawns one
+	// tile left of center, so complete five-column support also covers its output.
+	for (int x = -2; x <= 2; x++)
+	{
+		Vec2f foundation = position + Vec2f(x * ts, 2.0f * ts);
+		if (!AIB_IsInsideMap(foundation) ||
+			!map.isTileSolid(map.getTile(foundation).type)) return false;
+	}
+	return true;
+}
+
 bool AIB_IsBaseStoneSource(CBlob@ blob, CBlob@ stone)
 {
 	if (blob is null || !AIB_IsLooseWorldResource(stone)) return false;
@@ -3308,14 +4428,8 @@ bool AIB_IsBaseStoneSource(CBlob@ blob, CBlob@ stone)
 	if (home is null || stone.hasTag("aibuilder delivered resource")) return false;
 	Vec2f stonePosition = stone.getPosition();
 	if (!AIBR_IsOnSameBarrierSide(home, stonePosition)) return false;
-	CMap@ map = getMap();
-	const f32 baseEnvelope = AIB_BASE_WORKSHOP_EXISTING_RADIUS_TILES * (map is null ? 8.0f : map.tilesize);
-	if ((stone.hasTag("aibuilder stone supply") || stone.hasTag("aibuilder base stone source")) &&
-		(stonePosition - home.getPosition()).Length() <= baseEnvelope)
-	{
-		return true;
-	}
-	if ((stonePosition - AIB_GetHomeDropPoint(home)).Length() <= 56.0f)
+	if ((stonePosition - AIB_GetHomeDropPoint(home)).Length() <= 56.0f ||
+		(stonePosition - AIB_GetBaseStoragePoint(home)).Length() <= 56.0f)
 	{
 		stone.Tag("aibuilder base stone source");
 		return true;
@@ -3330,6 +4444,7 @@ bool AIB_IsBaseStoneSource(CBlob@ blob, CBlob@ stone)
 		if (quarry is null || quarry.hasTag("dead") || quarry.getTeamNum() != home.getTeamNum()) continue;
 		if (!AIBR_IsOnSameBarrierSide(home, quarry.getPosition())) continue;
 		if ((quarry.getPosition() - storage).Length() > 176.0f) continue;
+		if (!AIB_HasSupportedBaseQuarryFoundation(home, quarry.getPosition())) continue;
 		if ((stonePosition - quarry.getPosition()).Length() <= 40.0f)
 		{
 			stone.Tag("aibuilder base stone source");
@@ -3968,6 +5083,21 @@ bool AIB_IsNurseryState(const u8 state)
 	return state >= AIBuilderState::nursery_collect_wood && state <= AIBuilderState::nursery_wait_tree;
 }
 
+bool AIB_CanStartNurseryQuest(CBlob@ blob, CBlob@ home)
+{
+	if (blob is null || home is null) return false;
+	const u32 wood = u32(AIB_CountMaterial(blob, "mat_wood")) + u32(AIB_CountHomeMaterial(home, "mat_wood"));
+	const u32 stone = u32(AIB_CountMaterial(blob, "mat_stone")) + u32(AIB_CountHomeMaterial(home, "mat_stone"));
+	const bool canAcquireSeedStone = stone >= AIB_NURSERY_SEED_STONE_COST ||
+		AIB_GetNearestStoneMat(blob) !is null || AIB_GetBestStoneTile(blob) != Vec2f_zero;
+	CBlob@ nursery = AIB_GetNearestTeamBlob(blob, "nursery");
+	// A half-funded nursery diverts a wood runner forever and can consume the
+	// first harvest before the base has any useful reserve. Enter the durable
+	// quest only when its next material leg is already executable.
+	return nursery !is null ? canAcquireSeedStone :
+		wood >= AIB_NURSERY_WOOD_COST && canAcquireSeedStone;
+}
+
 void AIB_NurseryCollectWood(CBrain@ brain, CBlob@ blob)
 {
 	CBlob@ nursery = AIB_GetNearestTeamBlob(blob, "nursery");
@@ -4037,6 +5167,9 @@ void AIB_NurseryBuild(CBrain@ brain, CBlob@ blob)
 	@nursery = server_CreateBlob("nursery", blob.getTeamNum(), buildPos);
 	if (nursery is null)
 	{
+		string refundMaterial = "mat_wood";
+		u16 refundAmount = AIB_NURSERY_WOOD_COST;
+		Material::createFor(blob, refundMaterial, refundAmount);
 		AIB_SetState(blob, AIBuilderState::nursery_collect_wood, "nursery creation failed");
 		return;
 	}
@@ -4080,7 +5213,7 @@ void AIB_NurseryCollectStone(CBrain@ brain, CBlob@ blob)
 	Vec2f center = AIB_TileCenter(target);
 	Vec2f routeDestination = AIB_GetStoneRouteDestination(blob, target);
 	Vec2f routeCorner = blob.get_Vec2f("ai builder stone route corner");
-	Vec2f clearanceTile = AIB_GetPassageClearanceTile(blob, routeDestination);
+	Vec2f clearanceTile = AIB_GetStoneRouteClearanceTile(blob, target, routeCorner, routeDestination);
 	if (clearanceTile != Vec2f_zero && AIB_IsNonMineableStoneRouteBlock(clearanceTile) &&
 		AIB_IsTileOnStoneRoute(blob, target, routeCorner, clearanceTile))
 	{
@@ -4096,6 +5229,7 @@ void AIB_NurseryCollectStone(CBrain@ brain, CBlob@ blob)
 		}
 		else
 		{
+			if (AIB_DriveStoneRouteShaft(brain, blob, target, routeCorner)) return;
 			AIB_GoTo(brain, blob, clearanceCenter);
 		}
 		return;
@@ -4133,7 +5267,7 @@ void AIB_NurseryCollectStone(CBrain@ brain, CBlob@ blob)
 		brain.getState() == CBrain::stuck || brain.getState() == CBrain::wrong_path;
 	if (shouldDig)
 	{
-		Vec2f dig = AIB_GetNextTunnelTile(blob, routeDestination);
+		Vec2f dig = AIB_GetNextTunnelTile(blob, target, routeCorner, routeDestination);
 		if (dig != Vec2f_zero && AIB_IsNonMineableStoneRouteBlock(dig) &&
 			AIB_IsTileOnStoneRoute(blob, target, routeCorner, dig))
 		{
@@ -4149,6 +5283,7 @@ void AIB_NurseryCollectStone(CBrain@ brain, CBlob@ blob)
 			}
 			else
 			{
+				if (AIB_DriveStoneRouteShaft(brain, blob, target, routeCorner)) return;
 				AIB_GoTo(brain, blob, digCenter);
 			}
 			return;
@@ -4196,6 +5331,9 @@ void AIB_NurseryBuySeed(CBrain@ brain, CBlob@ blob)
 	CBlob@ seed = server_MakeSeed(blob.getPosition(), "tree_pine", 600, 2, 4);
 	if (seed is null)
 	{
+		string refundMaterial = "mat_stone";
+		u16 refundAmount = AIB_NURSERY_SEED_STONE_COST;
+		Material::createFor(blob, refundMaterial, refundAmount);
 		AIB_SetState(blob, AIBuilderState::nursery_collect_stone, "seed creation failed");
 		return;
 	}
@@ -4353,48 +5491,22 @@ Vec2f AIB_GetNurseryPlantPosition(CBlob@ blob)
 		anchor = tree.getPosition();
 	}
 
-	CMap@ map = getMap();
-	if (map is null) return Vec2f_zero;
-	const f32 ts = map.tilesize;
-	for (int radius = 2; radius <= 8; radius++)
-	{
-		for (int side = -1; side <= 1; side += 2)
-		{
-			for (int y = -4; y <= 4; y++)
-			{
-				Vec2f candidate = Vec2f(Maths::Floor(anchor.x / ts + side * radius) * ts + ts * 0.5f,
-					Maths::Floor(anchor.y / ts + y) * ts + ts * 0.5f);
-				if (AIB_IsValidSeedPosition(candidate)) return candidate;
-			}
-		}
-	}
-	return Vec2f_zero;
+	return AIBGuide_FindTreeFarmPosition(anchor);
 }
 
 bool AIB_IsValidSeedPosition(Vec2f pos)
 {
-	CMap@ map = getMap();
-	if (map is null || !AIB_IsInsideMap(pos) || !AIB_IsInsideCurrentBarrierZoneAt(pos)) return false;
-	if (map.isTileSolid(pos) || !map.isTileGround(map.getTile(pos + Vec2f(0.0f, map.tilesize)).type)) return false;
-	if (map.getSectorAtPosition(pos, "no build") !is null) return false;
-
-	CBlob@[] nearby;
-	if (map.getBlobsInRadius(pos, 18.0f, @nearby))
-	{
-		for (uint i = 0; i < nearby.length; i++)
-		{
-			CBlob@ other = nearby[i];
-			if (other !is null && (other.getName() == "seed" || other.hasTag("tree"))) return false;
-		}
-	}
-	return true;
+	return AIBGuide_IsNaturalTreeFarmPosition(pos);
 }
 
 bool AIB_TryMaintainBaseQuarry(CBrain@ brain, CBlob@ blob, CBlob@ home)
 {
 	if (brain is null || blob is null || home is null) return false;
 	if (AIB_GetBestStoneTile(blob) != Vec2f_zero) return false;
-	if (AIB_GetNearestStoneMat(blob) !is null) return false;
+	CBlob@ looseStone = AIB_GetNearestStoneMat(blob);
+	// Stone sitting at the exact resource home is construction funding, not
+	// evidence that a sustainable quarry source already exists.
+	if (looseStone !is null && !AIB_IsBaseStoneSource(blob, looseStone)) return false;
 
 	CBlob@ quarry = AIB_GetBestBaseQuarry(blob, home);
 	if (quarry is null)
@@ -4499,6 +5611,12 @@ bool AIB_TryUseBaseStoneSource(CBrain@ brain, CBlob@ blob)
 			AIB_GoTo(brain, blob, quarry.getPosition());
 			return true;
 		}
+		// Interaction-range waiting/refuelling is stationary work. Retire the
+		// completed approach so the monitor does not see stale movement intent.
+		brain.EndPath();
+		AIB_EndBrainPath(blob);
+		blob.set_Vec2f("ai builder destination", Vec2f_zero);
+		blob.set_bool("ai builder justgo", false);
 
 		const s16 fuel = quarry.get_s16("fuel_level");
 		if (fuel < AIB_QUARRY_REFUEL_BELOW && AIB_CountHomeMaterial(home, "mat_wood") >= AIB_QUARRY_FUEL_BATCH)
@@ -4529,6 +5647,14 @@ bool AIB_TryUseBaseStoneSource(CBrain@ brain, CBlob@ blob)
 		AIB_GoTo(brain, blob, waitPoint);
 		return true;
 	}
+	// The fallback supply timer is an explicit stationary wait. Retire the
+	// completed approach at its interaction radius just like the quarry branch;
+	// otherwise a route-reserved miner retains movement intent while correctly
+	// waiting for another shaft or the next generated supply batch.
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+	blob.set_bool("ai builder justgo", false);
 
 	if (AIB_CreateBaseStoneSupply(blob, home, waitPoint))
 	{
@@ -4573,14 +5699,40 @@ bool AIB_CreateBaseStoneSupply(CBlob@ blob, CBlob@ home, Vec2f point)
 CBlob@ AIB_BuildBaseQuarry(CBlob@ blob, CBlob@ home)
 {
 	if (blob is null || home is null) return null;
-	if (AIB_CountHomeMaterial(home, "mat_wood") < AIB_QUARRY_WOOD_COST + AIB_QUARRY_FUEL_BATCH) return null;
-	if (!AIB_TakeHomeMaterial(home, "mat_wood", AIB_QUARRY_WOOD_COST)) return null;
+	const u32 now = getGameTime();
+	const string retryKey = "ai builder next quarry site search";
+	if (now < blob.get_u32(retryKey)) return null;
+	// Raw server_CreateBlob bypasses the conversion shop's "no more" rule.
+	// Enforce KAG's one-quarry-per-team contract before site work or payment,
+	// including a quarry built by a player at another base.
+	if (!AIBGuide_CanCreateTeamQuarry(blob.getTeamNum()))
+	{
+		blob.set_u32(retryKey, now + AIB_BASE_WORKSHOP_RETRY_TICKS);
+		return null;
+	}
+	Vec2f buildPos = AIB_GetQuarryPoint(home);
+	if (buildPos == Vec2f_zero || !AIB_CanBuildBaseWorkshopAt(buildPos, home))
+	{
+		blob.set_u32(retryKey, now + AIB_BASE_WORKSHOP_RETRY_TICKS);
+		return null;
+	}
+	if (AIB_CountHomeMaterial(home, "mat_wood") < AIB_QUARRY_WOOD_COST + AIB_QUARRY_FUEL_BATCH ||
+		AIB_CountHomeMaterial(home, "mat_stone") < AIB_QUARRY_STONE_COST ||
+		AIB_CountHomeMaterial(home, "mat_gold") < AIB_QUARRY_GOLD_COST) return null;
+	if (!AIB_TakeHomeBlueprintMaterials(home, AIBP_QUARRY)) return null;
 
-	CBlob@ quarry = server_CreateBlob("quarry", blob.getTeamNum(), AIB_GetQuarryPoint(home));
-	if (quarry is null) return null;
+	CBlob@ quarry = server_CreateBlob("quarry", blob.getTeamNum(), buildPos);
+	if (quarry is null)
+	{
+		AIB_RefundHomeBlueprintMaterials(home, AIBP_QUARRY);
+		blob.set_u32(retryKey, now + AIB_BASE_WORKSHOP_RETRY_TICKS);
+		return null;
+	}
 
+	blob.set_u32(retryKey, 0);
 	quarry.Tag("aibuilder built quarry");
-	AIB_LogEvent("ai", "build_quarry", AIB_EventBlobRef(blob), "quarry=" + AIB_EventBlobRef(quarry) + " pos=" + AIB_EventPos(quarry.getPosition()) + " cost_wood=" + AIB_QUARRY_WOOD_COST);
+	AIB_LogEvent("ai", "build_quarry", AIB_EventBlobRef(blob), "quarry=" + AIB_EventBlobRef(quarry) +
+		" pos=" + AIB_EventPos(quarry.getPosition()) + " cost={" + AIBP_BlockCostSummary(AIBP_QUARRY) + "}");
 	return quarry;
 }
 
@@ -4599,6 +5751,7 @@ CBlob@ AIB_GetBestBaseQuarry(CBlob@ blob, CBlob@ home)
 		if (quarry is null || quarry.hasTag("dead")) continue;
 		if (quarry.getTeamNum() != home.getTeamNum()) continue;
 		if ((quarry.getPosition() - base).Length() > 176.0f) continue;
+		if (!AIB_HasSupportedBaseQuarryFoundation(home, quarry.getPosition())) continue;
 
 		const f32 score = (quarry.getPosition() - blob.getPosition()).Length();
 		if (score < bestScore)
@@ -4613,10 +5766,10 @@ CBlob@ AIB_GetBestBaseQuarry(CBlob@ blob, CBlob@ home)
 Vec2f AIB_GetQuarryPoint(CBlob@ home)
 {
 	if (home is null) return Vec2f_zero;
-
-	CMap@ map = getMap();
-	const f32 ts = map is null ? 8.0f : map.tilesize;
-	return AIB_GetBaseStoragePoint(home) + Vec2f(8.0f * ts, 0.0f);
+	// Quarry.cfg has the same 40x24 footprint as the base workshops and emits
+	// ore one tile left of center. Reuse the full supported-site selector so its
+	// complete footprint and output column stay over solid foundation.
+	return AIB_GetBuilderShopPoint(home);
 }
 
 u8 AIB_CountSeedsNear(Vec2f pos, const f32 radius)
@@ -4913,6 +6066,55 @@ bool AIB_TakeHomeMaterial(CBlob@ home, const string &in name, const u16 amount)
 	return remaining == 0;
 }
 
+bool AIB_HasHomeBlueprintMaterials(CBlob@ home, const u16 block)
+{
+	if (home is null) return false;
+	string[] materials = { "mat_wood", "mat_stone", "mat_gold" };
+	for (uint i = 0; i < materials.length; i++)
+	{
+		const u16 required = AIBP_BlockMaterialCost(block, materials[i]);
+		if (required > 0 && AIB_CountHomeMaterial(home, materials[i]) < required) return false;
+	}
+	return true;
+}
+
+void AIB_RefundHomeMaterial(CBlob@ home, const string &in material, const u16 amount)
+{
+	if (home is null || amount == 0) return;
+	CBlob@ refund = server_CreateBlob(material, home.getTeamNum(), AIB_GetHomeDropPoint(home));
+	if (refund is null) return;
+	refund.server_SetQuantity(amount);
+	refund.Tag("aibuilder delivered resource");
+}
+
+void AIB_RefundHomeBlueprintMaterials(CBlob@ home, const u16 block)
+{
+	AIB_RefundHomeMaterial(home, "mat_wood", AIBP_BlockMaterialCost(block, "mat_wood"));
+	AIB_RefundHomeMaterial(home, "mat_stone", AIBP_BlockMaterialCost(block, "mat_stone"));
+	AIB_RefundHomeMaterial(home, "mat_gold", AIBP_BlockMaterialCost(block, "mat_gold"));
+}
+
+bool AIB_TakeHomeBlueprintMaterials(CBlob@ home, const u16 block)
+{
+	if (!AIB_HasHomeBlueprintMaterials(home, block)) return false;
+	string[] materials = { "mat_wood", "mat_stone", "mat_gold" };
+	array<u16> paid(materials.length, 0);
+	for (uint i = 0; i < materials.length; i++)
+	{
+		const u16 required = AIBP_BlockMaterialCost(block, materials[i]);
+		if (required == 0) continue;
+		if (AIB_TakeHomeMaterial(home, materials[i], required))
+		{
+			paid[i] = required;
+			continue;
+		}
+		for (uint refundIndex = 0; refundIndex < paid.length; refundIndex++)
+			AIB_RefundHomeMaterial(home, materials[refundIndex], paid[refundIndex]);
+		return false;
+	}
+	return true;
+}
+
 CBlob@ AIB_GetHomeMaterial(CBlob@ blob, CBlob@ home, const string &in name)
 {
 	CBlob@[] mats;
@@ -4972,7 +6174,7 @@ void AIB_StashCarriedBlueprintMaterial(CBlob@ blob)
 {
 	CBlob@ carried = blob.getCarriedBlob();
 	if (carried is null) return;
-	if (carried.getName() != "mat_wood" && carried.getName() != "mat_stone") return;
+	if (carried.getName() != "mat_wood" && carried.getName() != "mat_stone" && carried.getName() != "mat_gold") return;
 
 	blob.server_PutInInventory(carried);
 }
@@ -5065,9 +6267,7 @@ Vec2f AIB_GetNearestBlueprintBuildTile(CBlob@ blob)
 			}
 
 			const u16 targetBlock = AIB_GetBlueprintTargetForTile(target, team);
-			const string material = AIB_BlueprintMaterial(targetBlock);
-			const u16 cost = AIB_BlueprintCost(targetBlock);
-			if ((material == "" || cost == 0 || AIB_CountMaterial(blob, material) >= cost) &&
+			if (AIB_HasBlueprintMaterials(blob, targetBlock) &&
 				distance < bestAffordableDistance)
 			{
 				bestAffordableDistance = distance;
@@ -5325,27 +6525,10 @@ bool AIB_PlaceBlueprintTile(CBlob@ blob, Vec2f tile)
 	const u16 tileY = u16(Maths::Floor(space.y));
 	if (AIBP_IsRepairablePlanOccupant(team, tileX, tileY, target))
 	{
-		const string repairMaterial = AIB_BlueprintMaterial(target);
-		const u16 repairCost = AIB_BlueprintCost(target);
-		CBlob@ repairStructure = null;
-		if (AIBP_IsBlobBlock(target))
-		{
-			@repairStructure = AIBP_GetMatchingPlanBlob(tileX, tileY, target, team);
-			if (repairStructure is null) return false;
-		}
-		if (repairMaterial == "" || repairCost == 0 || !AIB_TakeMaterial(blob, repairMaterial, repairCost)) return false;
-		if (AIBP_IsBlobBlock(target))
-		{
-			repairStructure.server_SetHealth(repairStructure.getInitialHealth());
-			const TileType background = repairStructure.get_TileType("background tile");
-			if (background != 0) map.server_SetTile(tile, background);
-		}
-		else
-		{
-			map.server_SetTile(tile, AIB_BlueprintTileType(target));
-		}
+		if (AIBP_IsBlobBlock(target) || !AIB_TakeBlueprintMaterials(blob, target)) return false;
+		map.server_SetTile(tile, AIB_BlueprintTileType(target));
 		AIB_LogEvent("ai", "repair", AIB_EventBlobRef(blob), "tile=" + AIB_EventPos(tile) +
-			" block=" + target + " material=" + repairMaterial + " cost=" + repairCost);
+			" block=" + target + " cost={" + AIBP_BlockCostSummary(target) + "}");
 		AIB_ClearBlueprintTargetForTile(tile, team);
 		blob.set_u32("ai builder next place", gameTime + AIB_GetBlueprintPlaceDelay(blob));
 		return true;
@@ -5361,10 +6544,8 @@ bool AIB_PlaceBlueprintTile(CBlob@ blob, Vec2f tile)
 		return AIB_PlaceBlueprintBlob(blob, tile, target);
 	}
 
-	const string material = AIB_BlueprintMaterial(target);
-	const u16 cost = AIB_BlueprintCost(target);
-	if (material == "" || cost == 0) return true;
-	if (!AIB_TakeMaterial(blob, material, cost)) return false;
+	if (AIB_BlueprintCost(target) == 0) return true;
+	if (!AIB_TakeBlueprintMaterials(blob, target)) return false;
 
 	// Replace the current tile in one server mutation.  In particular, do not
 	// clear grass with server_SetTile immediately before placing a backwall:
@@ -5389,16 +6570,19 @@ bool AIB_PlaceBlueprintBlob(CBlob@ blob, Vec2f tile, const u16 target)
 	// Revalidate immediately before creation so a workshop cannot bypass a
 	// changed no-build sector or foundation state after task selection.
 	if (AIBP_IsWorkshopBlock(target) &&
-		(AIB_WorkshopFootprintIntersectsNoBuild(tile) || AIB_GetNeededWorkshopSupportTile(tile) != Vec2f_zero))
+		(AIB_WorkshopFootprintIntersectsNoBuild(tile) || AIB_GetNeededWorkshopSupportTile(tile) != Vec2f_zero ||
+			!AIB_BlueprintWorkshopEnvironmentValid(tile, target)))
 	{
 		AIBG_RecordInvalidBuild(blob, "workshop_revalidation");
 		return false;
 	}
 
-	const string material = AIB_BlueprintMaterial(target);
-	const u16 cost = AIB_BlueprintCost(target);
 	const string blobName = AIBP_BlockBlobName(target);
 	if (blobName == "") { AIBG_RecordInvalidBuild(blob, "missing_blob_catalog"); return false; }
+	// Mixed-material structures must be all-or-nothing.  Preflight the entire
+	// catalog cost before creating a networked blob or clearing grass; the
+	// payment helper repeats the check immediately before removal.
+	if (!AIB_HasBlueprintMaterials(blob, target)) return false;
 	const TileType replacedTile = map.getTile(tile).type;
 	const bool replacesGrass = map.isTileGrass(replacedTile);
 	if (replacesGrass) map.server_SetTile(tile, CMap::tile_empty);
@@ -5409,7 +6593,7 @@ bool AIB_PlaceBlueprintBlob(CBlob@ blob, Vec2f tile, const u16 target)
 		if (replacesGrass) map.server_SetTile(tile, replacedTile);
 		return false;
 	}
-	if (!AIB_TakeMaterial(blob, material, cost))
+	if (!AIB_TakeBlueprintMaterials(blob, target))
 	{
 		placed.server_Die();
 		if (replacesGrass) map.server_SetTile(tile, replacedTile);
@@ -5418,6 +6602,11 @@ bool AIB_PlaceBlueprintBlob(CBlob@ blob, Vec2f tile, const u16 target)
 
 	const u16 rotation = AIB_BlueprintRotation(target);
 	placed.setAngleDegrees(rotation * 90.0f);
+	if (AIBP_RequiresStoneBackground(target))
+	{
+		placed.set_TileType("background tile", CMap::tile_castle_back);
+		map.server_SetTile(tile, CMap::tile_castle_back);
+	}
 	placed.set_u8(AIBP_BLUEPRINT_OWNER_TEAM_KEY, u8(blob.getTeamNum()));
 	placed.Sync(AIBP_BLUEPRINT_OWNER_TEAM_KEY, true);
 	placed.Tag("aibuilder blueprint structure");
@@ -5467,6 +6656,7 @@ bool AIB_CanPlaceBlueprintAt(Vec2f tile, const u16 block, const s16 expectedTeam
 	{
 		if (AIB_WorkshopFootprintIntersectsNoBuild(tile)) return false;
 		if (AIB_GetNeededWorkshopSupportTile(tile) != Vec2f_zero) return false;
+		if (!AIB_BlueprintWorkshopEnvironmentValid(tile, block)) return false;
 	}
 	if (AIBP_IsBlobBlock(block))
 	{
@@ -5581,6 +6771,24 @@ bool AIB_WorkshopFootprintIntersectsNoBuild(Vec2f tile)
 			Vec2f footprintTile = tile + Vec2f(x * ts, y * ts);
 			Vec2f center = AIB_TileCenter(footprintTile);
 			if (!AIB_IsInsideMap(center) || map.getSectorAtPosition(center, "no build") !is null) return true;
+		}
+	}
+	return false;
+}
+
+bool AIB_BlueprintWorkshopEnvironmentValid(Vec2f tile, const u16 block)
+{
+	if (AIBP_BlockId(block) != AIBP_BOAT_SHOP) return true;
+	CMap@ map = getMap();
+	if (map is null) return false;
+	const f32 ts = map.tilesize;
+	const Vec2f center = AIB_TileCenter(tile);
+	for (int offsetX = -3; offsetX <= 3; offsetX++)
+	{
+		for (int offsetY = -1; offsetY <= 3; offsetY++)
+		{
+			const Vec2f sample = Vec2f(center.x + offsetX * ts, center.y + offsetY * ts);
+			if (map.isInWater(sample)) return true;
 		}
 	}
 	return false;
@@ -5905,6 +7113,35 @@ bool AIB_TakeMaterial(CBlob@ blob, const string &in name, const u16 amount)
 	return true;
 }
 
+bool AIB_HasBlueprintMaterials(CBlob@ blob, const u16 block)
+{
+	if (blob is null) return false;
+	if (AIBU_IsAutoBuilder(blob)) return true;
+	string[] materials = { "mat_wood", "mat_stone", "mat_gold" };
+	for (uint i = 0; i < materials.length; i++)
+	{
+		const u16 required = AIBP_BlockMaterialCost(block, materials[i]);
+		if (required > 0 && AIB_CountMaterial(blob, materials[i]) < required) return false;
+	}
+	return true;
+}
+
+bool AIB_TakeBlueprintMaterials(CBlob@ blob, const u16 block)
+{
+	// Preflight every component before the first mutation. This keeps a mixed
+	// shop/stone-backed access task all-or-nothing even if only its final
+	// component is missing.
+	if (!AIB_HasBlueprintMaterials(blob, block)) return false;
+	if (AIBU_IsAutoBuilder(blob)) return true;
+	string[] materials = { "mat_wood", "mat_stone", "mat_gold" };
+	for (uint i = 0; i < materials.length; i++)
+	{
+		const u16 required = AIBP_BlockMaterialCost(block, materials[i]);
+		if (required > 0 && !AIB_TakeMaterial(blob, materials[i], required)) return false;
+	}
+	return true;
+}
+
 CBlob@ AIB_GetNearestTeamBlob(CBlob@ blob, const string &in name)
 {
 	CBlob@[] blobs;
@@ -6135,6 +7372,17 @@ bool AIB_IsAllowedByOverseerSelection(CBlob@ tree)
 	return tree !is null && tree.get_bool("aibuilder selected tree");
 }
 
+bool AIB_IsUrgentPlanCollector(CBlob@ blob)
+{
+	if (blob is null || !blob.get_bool("aib strategy assigned") || blob.get_u8("ai builder job") != AIB_JOB_WOOD) return false;
+	CRules@ rules = getRules();
+	const int team = blob.getTeamNum();
+	if (rules is null || team < 0 || team >= 8) return false;
+	return rules.get_u8(AIBP_PlanKey(u8(team), "status")) == 1 &&
+		rules.get_u8(AIBP_PlanKey(u8(team), "intent")) == AIBStrategyIntent::emergency_barrier &&
+		rules.get_u16(AIBP_PlanKey(u8(team), "pending")) > 0;
+}
+
 CBlob@ AIB_GetBestTreeForHome(CBlob@ blob, CBlob@[]@ candidates)
 {
 	CBlob@ home = AIB_GetTeamHome(blob);
@@ -6145,8 +7393,12 @@ CBlob@ AIB_GetBestTreeForHome(CBlob@ blob, CBlob@[]@ candidates)
 
 	CBlob@ best = null;
 	f32 bestScore = 999999.0f;
+	f32 bestClimbPenalty = 0.0f;
 	Vec2f homePos = home.getPosition();
 	Vec2f builderPos = blob.getPosition();
+	CMap@ map = getMap();
+	const bool urgentPlanCollector = AIB_IsUrgentPlanCollector(blob);
+	const f32 freeRise = (map is null ? 8.0f : map.tilesize) * AIB_URGENT_TREE_FREE_APPROACH_RISE_TILES;
 
 	for (uint i = 0; i < candidates.length; i++)
 	{
@@ -6160,14 +7412,19 @@ CBlob@ AIB_GetBestTreeForHome(CBlob@ blob, CBlob@[]@ candidates)
 		Vec2f treePos = candidate.getPosition();
 		const f32 homeDistance = (treePos - homePos).Length();
 		const f32 builderDistance = (treePos - builderPos).Length();
-		const f32 score = homeDistance + builderDistance * 0.20f;
+		const Vec2f hitPos = AIB_GetHitPosition(blob, candidate);
+		const f32 climbPenalty = urgentPlanCollector ?
+			Maths::Max(0.0f, builderPos.y - hitPos.y - freeRise) * AIB_URGENT_TREE_UPHILL_SCORE_PER_PIXEL : 0.0f;
+		const f32 score = homeDistance + builderDistance * 0.20f + climbPenalty;
 
 		if (score < bestScore)
 		{
 			bestScore = score;
+			bestClimbPenalty = climbPenalty;
 			@best = candidate;
 		}
 	}
+	blob.set_f32("ai builder selected tree climb penalty", bestClimbPenalty);
 
 	return best;
 }
@@ -6311,6 +7568,73 @@ bool AIB_FleeFromNearbyKnight(CBrain@ brain, CBlob@ blob)
 	AIB_ScaleObstacles(blob, pos + Vec2f(enemyPos.x > pos.x ? -64.0f : 64.0f, 0.0f));
 	blob.setAimPos(enemyPos);
 	return true;
+}
+
+bool AIB_FleeFromNearbyBomb(CBrain@ brain, CBlob@ blob)
+{
+	CBlob@ bomb = AIB_GetNearbyThreateningBomb(blob);
+	if (bomb is null)
+	{
+		blob.set_netid("ai builder bomb threat", 0);
+		return false;
+	}
+
+	blob.set_netid("ai builder bomb threat", bomb.getNetworkID());
+	if (blob.get_netid("ai builder bomb threat logged") != bomb.getNetworkID())
+	{
+		blob.set_netid("ai builder bomb threat logged", bomb.getNetworkID());
+		AIB_LogEvent("ai", "flee_bomb", AIB_EventBlobRef(blob), "bomb=" + AIB_EventBlobRef(bomb) +
+			" distance=" + blob.getDistanceTo(bomb) + " pos=" + AIB_EventPos(blob.getPosition()));
+	}
+
+	brain.EndPath();
+	AIB_EndBrainPath(blob);
+	brain.SetTarget(null);
+	blob.set_netid("ai builder target", 0);
+	blob.set_bool("ai builder justgo", true);
+	blob.set_Vec2f("ai builder destination", Vec2f_zero);
+
+	Vec2f pos = blob.getPosition();
+	Vec2f bombPos = bomb.getPosition();
+	const bool bombOnRight = bombPos.x > pos.x;
+	blob.setKeyPressed(bombOnRight ? key_left : key_right, true);
+	if (bombPos.y + getMap().tilesize < pos.y)
+	{
+		blob.setKeyPressed(key_down, true);
+	}
+	else if (bombPos.y > pos.y + getMap().tilesize)
+	{
+		blob.setKeyPressed(key_up, true);
+	}
+
+	AIB_ScaleObstacles(blob, pos + Vec2f(bombOnRight ? -64.0f : 64.0f, 0.0f));
+	blob.setAimPos(bombPos);
+	return true;
+}
+
+CBlob@ AIB_GetNearbyThreateningBomb(CBlob@ blob)
+{
+	CMap@ map = getMap();
+	if (map is null) return null;
+	CBlob@[] nearby;
+	if (!map.getBlobsInRadius(blob.getPosition(), AIB_BOMB_FEAR_RADIUS, @nearby)) return null;
+
+	CBlob@ best = null;
+	f32 bestDistance = 999999.0f;
+	for (uint i = 0; i < nearby.length; i++)
+	{
+		CBlob@ candidate = nearby[i];
+		if (candidate is null || candidate.getName() != "bomb" || candidate.hasTag("dead") || !candidate.hasTag("activated")) continue;
+		if (candidate.getTeamNum() == blob.getTeamNum()) continue;
+
+		const f32 distance = blob.getDistanceTo(candidate);
+		if (distance < bestDistance)
+		{
+			bestDistance = distance;
+			@best = candidate;
+		}
+	}
+	return best;
 }
 
 CBlob@ AIB_GetNearbyThreateningKnight(CBlob@ blob)
@@ -6601,6 +7925,8 @@ string AIB_StateName(const u8 state)
 		case AIBuilderState::nursery_buy_seed: return "nursery_buy_seed";
 		case AIBuilderState::nursery_plant_seed: return "nursery_plant_seed";
 		case AIBuilderState::nursery_wait_tree: return "nursery_wait_tree";
+		case AIBuilderState::visit_resupply: return "visit_resupply";
+		case AIBuilderState::deliver_log_to_saw: return "deliver_log_to_saw";
 	}
 
 	return "unknown";
@@ -6679,6 +8005,13 @@ void AIB_SetState(CBlob@ blob, const u8 next, const string &in reason)
 
 	if (previous != next)
 	{
+		if (next == AIBuilderState::collect_blueprint_resources &&
+			blob.getTeamNum() >= 0 && blob.getTeamNum() < 8)
+		{
+			// Material acquisition can take arbitrarily long and must never lock a
+			// task away from another ordinary worker or an infinite-resource orb.
+			AIBP_ReleaseBuilderReservation(u8(blob.getTeamNum()), blob.getNetworkID());
+		}
 		// State owns intent; paths and pressed keys from the previous state must
 		// not leak into the next controller. Targets/tile targets are preserved
 		// because transitions such as find_tree -> chop_tree and stone routing
@@ -6690,6 +8023,13 @@ void AIB_SetState(CBlob@ blob, const u8 next, const string &in reason)
 		blob.set_bool("ai builder justgo", false);
 		blob.set_u8("ai builder obstruction threshold", 0);
 		blob.set_Vec2f("ai builder jump peak", Vec2f_zero);
+		if (next != AIBuilderState::tunnel_to_stone)
+		{
+			blob.set_Vec2f(AIBM_STONE_EXPOSED_TARGET_KEY, Vec2f_zero);
+			blob.set_Vec2f(AIBM_STONE_EXPOSED_APPROACH_KEY, Vec2f_zero);
+		}
+		if (next != AIBuilderState::return_wood)
+			blob.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
 		blob.setKeyPressed(key_left, false);
 		blob.setKeyPressed(key_right, false);
 		blob.setKeyPressed(key_up, false);

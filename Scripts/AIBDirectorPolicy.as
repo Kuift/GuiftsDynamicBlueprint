@@ -47,9 +47,11 @@ bool AIBS_DefaultBootstrapForGamemode(const string &in gamemode)
 u8 AIBS_DefaultModeForGamemode(const string &in gamemode)
 {
 	// Automated fixtures opt in per scenario so the director cannot mutate
-	// their world unexpectedly. CTF is administrator-configurable; other modes
-	// remain suggestion-only so merely installing the mod does not seize them.
+	// their world unexpectedly. A CTF server explicitly launched with sv_test
+	// receives the same clean boundary; a wave plan arm opts back into auto only
+	// after its canonical pre-intervention fingerprint has been captured.
 	if (gamemode == "AIBTest") return AIBD_POLICY_MODE_OFF;
+	if (gamemode == "CTF" && sv_test) return AIBD_POLICY_MODE_OFF;
 	if (gamemode == "CTF")
 	{
 		AIBDirectorPolicy@ policy = AIBD_GetDirectorPolicy();

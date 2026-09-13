@@ -24,7 +24,12 @@ param(
 
     [switch]$CompilerForwarding,
 
-    [switch]$EventLog
+    [switch]$EventLog,
+
+    [switch]$ForceBaseSupplyRoute,
+
+    [ValidateRange(0,4800)]
+    [int]$ForceBaseSupplyDelayTicks = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,6 +38,12 @@ if ($Order -eq 'mixed' -and $BuilderCount -ne 4) {
 }
 if ($EventLog -and $Variant -ne 'diagnostic') {
     throw 'EventLog is diagnostic-only; comparable control/candidate episodes must run without it.'
+}
+if ($ForceBaseSupplyRoute -and ($Variant -ne 'diagnostic' -or $BuilderCount -ne 4 -or $Order -ne 'mixed')) {
+    throw 'ForceBaseSupplyRoute requires a diagnostic four-builder mixed-resource run.'
+}
+if (!$ForceBaseSupplyRoute -and $ForceBaseSupplyDelayTicks -ne 0) {
+    throw 'ForceBaseSupplyDelayTicks requires ForceBaseSupplyRoute.'
 }
 
 $modRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -110,6 +121,7 @@ try {
     $expect = 'AIBGYM\|RESULT\|run=' + [regex]::Escape($RunId)
     $fail = 'ERROR .*GuiftsDynamicBlueprint_vDev.*\.as:|Rules partially failed initialization|Script .* has errors|AIBGYM\|ABORT\|run=' + [regex]::Escape($RunId)
     $eventLogValue = $EventLog ? 'true' : 'false'
+    $forceBaseSupplyValue = $ForceBaseSupplyRoute ? 'true' : 'false'
     $arguments = @(
         $tcprSend,
         '--config', $rootConfig,
@@ -119,6 +131,8 @@ try {
         '--transcript', $TranscriptPath,
         '--command', 'getRules().SetCurrentState(GAME)',
         '--command', "getRules().set_bool(`"aib event log enabled`", $eventLogValue)",
+        '--command', "getRules().set_bool(`"aib gym force base supply route`", $forceBaseSupplyValue)",
+        '--command', "getRules().set_u32(`"aib gym force base supply delay ticks`", $ForceBaseSupplyDelayTicks)",
         '--command', "getRules().set_u8(`"aib gym team`", $Team)",
         '--command', "getRules().set_u8(`"aib gym builder count`", $BuilderCount)",
         '--command', "getRules().set_string(`"aib gym resource order`", `"$Order`")",

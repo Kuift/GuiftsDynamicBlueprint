@@ -1,0 +1,24 @@
+AIBGYM|ARMED|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718
+AIBGYM|START|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=2400
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=150|collected=50|delivered=50|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=300|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=450|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=600|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=750|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=900|collected=326|delivered=326|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1050|collected=326|delivered=326|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1200|collected=326|delivered=326|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1350|collected=326|delivered=326|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1500|collected=726|delivered=726|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1650|collected=1228|delivered=1228|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1800|collected=1394|delivered=1394|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=1950|collected=1394|delivered=1394|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=2100|collected=1394|delivered=1394|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=2250|collected=1394|delivered=1394|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|elapsed=2400|collected=1394|delivered=1394|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-3684685722-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=2400 elapsed=2400 collected_wood=550 collected_stone=768 collected_gold=76 collected_total=1394 delivered_wood=550 delivered_stone=768 delivered_gold=76 delivered_total=1394 stock_delta_wood=350 stock_delta_stone=718 stock_delta_gold=76 deaths=0 failure_flags=1 idle_ticks=0 travel_px=10597.9 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718 slot=0 collected_wood=150 collected_stone=0 collected_gold=0 collected_total=150 delivered_wood=150 delivered_stone=0 delivered_gold=0 delivered_total=150
+[AIBGYMB] schema=4 run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718 slot=1 collected_wood=0 collected_stone=402 collected_gold=36 collected_total=438 delivered_wood=0 delivered_stone=402 delivered_gold=36 delivered_total=438
+[AIBGYMB] schema=4 run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718 slot=2 collected_wood=400 collected_stone=0 collected_gold=0 collected_total=400 delivered_wood=400 delivered_stone=0 delivered_gold=0 delivered_total=400
+[AIBGYMB] schema=4 run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718 slot=3 collected_wood=0 collected_stone=366 collected_gold=40 collected_total=406 delivered_wood=0 delivered_stone=366 delivered_gold=40 delivered_total=406
+AIBGYM|RESULT|run=gloryhill_4b_return_savedcorner_wallhold_smoke_20260718|status=result|metric=resource_collection_smoke|collected=1394|delivered=1394|elapsed=2400|deaths=0|failures=1|reason=duration_complete

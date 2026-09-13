@@ -5,6 +5,10 @@
 const string AIBP_COMPAT_DATA = "aibuilder blueprint data";
 const string AIBP_COMPAT_WIDTH = "aibuilder blueprint width";
 const string AIBP_COMPAT_HEIGHT = "aibuilder blueprint height";
+// CustomRenderer owns the existing blueprint display command IDs. Server-only
+// consumers such as generated Challenge maps may use BlueprintData without
+// loading that renderer and must not attempt sends through absent IDs.
+const string AIBP_DISPLAY_COMMANDS_READY = "aib blueprint display commands ready";
 const string AIBP_TEAM_SUFFIX = " team ";
 const u16 AIBP_MAX_PREFAB_WIDTH = 64;
 const u16 AIBP_MAX_PREFAB_HEIGHT = 64;
@@ -112,7 +116,7 @@ u16 AIBP_BlockId(const u16 encoded) { return encoded & 0x3fff; }
 u8 AIBP_NormalizeRotationForId(const u16 id, const u8 rotation)
 {
 	// Doors and ordinary platforms only distinguish horizontal from vertical.
-	if (id == 3 || id == 6 || id == 9) return rotation & 1;
+	if (id == 3 || id == 6 || id == 9 || id == 92 || id == 93) return rotation & 1;
 	// Team bridges opt out of placement rotation in the base game. Tiles and
 	// workshops have no blob orientation at all.
 	if (id == 7 || id == 1 || id == 2 || id == 4 || id == 5 ||

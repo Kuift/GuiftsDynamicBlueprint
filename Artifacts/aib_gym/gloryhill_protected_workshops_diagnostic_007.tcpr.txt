@@ -1,0 +1,27 @@
+Game has been running slow for too long. Skipping 2.000000 ticks worth of simulation.
+TCPR: client 127.0.0.1:11509 is now authenticated.
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:11509 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:11509 :
+getRules().set_u8("aib infrastructure team", 1)
+RCON command from 127.0.0.1:11509 :
+getRules().set_string("aib infrastructure metric", "workshops")
+RCON command from 127.0.0.1:11509 :
+getRules().set_string("aib infrastructure variant", "diagnostic")
+RCON command from 127.0.0.1:11509 :
+getRules().set_string("aib infrastructure run id", "gloryhill_protected_workshops_diagnostic_007")
+RCON command from 127.0.0.1:11509 :
+getRules().set_u32("aib infrastructure readiness deadline", 0)
+RCON command from 127.0.0.1:11509 :
+getRules().set_bool("aib infrastructure stop requested", false)
+RCON command from 127.0.0.1:11509 :
+getRules().set_bool("aib infrastructure request", true)
+[AIBGYMI] AIBGYMI|WORKSHOP_SITES|run=gloryhill_protected_workshops_diagnostic_007|resource_home=197,35|sites=14@183,29:rise0:unreachable_tasks;18@179,33:rise7:no_build;22@175,33:rise7:no_build;26@171,33:rise7:no_approach;30@167,33:rise7:no_approach;34@163,33:rise1:unreachable_tasks;38@159,33:rise0:unreachable_tasks;42@155,40:rise0:no_build;46@151,42:rise3:no_build;50@147,42:rise1:no_build
+AIBGYMI|WORKSHOP_SITES|run=gloryhill_protected_workshops_diagnostic_007|resource_home=197,35|sites=14@183,29:rise0:unreachable_tasks;18@179,33:rise7:no_build;22@175,33:rise7:no_build;26@171,33:rise7:no_approach;30@167,33:rise7:no_approach;34@163,33:rise1:unreachable_tasks;38@159,33:rise0:unreachable_tasks;42@155,40:rise0:no_build;46@151,42:rise3:no_build;50@147,42:rise1:no_build
+[AIBGYMI] schema=3 status=abort run=gloryhill_protected_workshops_diagnostic_007 reason=no_valid_protected_workshops
+[AIBGYMI] schema=3 status=abort run=gloryhill_protected_workshops_diagnostic_007 reason=no_valid_protected_workshops
+AIBGYMI|ABORT|run=gloryhill_protected_workshops_diagnostic_007|reason=no_valid_protected_workshops
+RCON command from 127.0.0.1:11509 :
+tcpr("AIBGYMI|ARMED|run=gloryhill_protected_workshops_diagnostic_007")
+AIBGYMI|ARMED|run=gloryhill_protected_workshops_diagnostic_007

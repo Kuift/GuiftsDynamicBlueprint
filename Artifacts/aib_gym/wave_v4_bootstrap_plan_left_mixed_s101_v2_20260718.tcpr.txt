@@ -1,0 +1,3 @@
+AIBWAVE|ARMED|run=wave_v4_bootstrap_plan_left_mixed_s101_v2_20260718|template=emergency_barrier|anchor=65,42
+AIBWAVE|REQUESTED|run=wave_v4_bootstrap_plan_left_mixed_s101_v2_20260718
+AIBWAVE|ABORT|run=wave_v4_bootstrap_plan_left_mixed_s101_v2_20260718|reason=no_production_archer_shot

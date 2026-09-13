@@ -11,6 +11,7 @@ void onInit(CRules@ this)
 	AIBS_BuildStaticTerrain();
 	for (u8 team = 0; team < 8; team++)
 	{
+		AIBP_EnsureGuidePolicyVersion(this, team);
 		if (!this.exists(AIBP_ModeKey(team))) this.set_u8(AIBP_ModeKey(team), AIBS_DefaultModeForGamemode(this.gamemode_name));
 		AIBS_InitBootstrapPolicy(this, team);
 		AIBU_InitSpeedPolicy(this, team);
@@ -109,6 +110,10 @@ void AIBS_UpdateTeam(CRules@ rules, const u8 team)
 	if (shouldPlan)
 	{
 		const bool activeInvalid = rules.get_u8(AIBP_PlanKey(team, "status")) == 1 && AIBS_ActivePlanInvalid(world);
+		// Production selection runs every candidate through the shared placement
+		// validator, whose route and approach nodes represent the runner's complete
+		// 2x2 tile volume. The director must never score or publish a point-sized or
+		// merely 1x2-accessible prefab.
 		AIBPlanCandidate@ candidate = AIBS_SelectCandidate(world);
 		bool attemptedPublish = false;
 		bool published = false;

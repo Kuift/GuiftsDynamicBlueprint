@@ -1,6 +1,6 @@
 class AIBStrategyWeights
 {
-	u16 version = 1;
+	u16 version = 2;
 	f32 baseDefense = 20.0f;
 	f32 enemyKnightPressure = 9.0f;
 	f32 enemyArcherPressure = 6.0f;
@@ -31,6 +31,13 @@ class AIBStrategyWeights
 	f32 exposurePressure = 2.0f;
 	f32 friendlyRoutePenalty = 60.0f;
 	f32 nearBestFraction = 0.07f;
+	f32 guideHomeCorePriority = 420.0f;
+	f32 guideFallbackCorePriority = 260.0f;
+	f32 guideProtectedShopsPriority = 300.0f;
+	f32 guideHomeTunnelPriority = 220.0f;
+	f32 guideFrontTunnelPriority = 200.0f;
+	f32 guideQuarryStoragePriority = 160.0f;
+	f32 guideProgressiveBeforeHomePenalty = 360.0f;
 }
 
 AIBStrategyWeights AIBS_strategy_weights;
@@ -43,7 +50,7 @@ AIBStrategyWeights@ AIBS_GetStrategyWeights()
 	ConfigFile cfg = ConfigFile();
 	const string filename = CFileMatcher("AIBStrategyWeights.cfg").getFirst();
 	const bool loaded = filename != "" && cfg.loadFile(filename);
-	AIBS_strategy_weights.version = u16(cfg.read_s32("config_version", 1));
+	AIBS_strategy_weights.version = u16(cfg.read_s32("config_version", 2));
 	AIBS_strategy_weights.baseDefense = cfg.read_f32("base_defense", 20.0f);
 	AIBS_strategy_weights.enemyKnightPressure = cfg.read_f32("enemy_knight_pressure", 9.0f);
 	AIBS_strategy_weights.enemyArcherPressure = cfg.read_f32("enemy_archer_pressure", 6.0f);
@@ -74,6 +81,13 @@ AIBStrategyWeights@ AIBS_GetStrategyWeights()
 	AIBS_strategy_weights.exposurePressure = cfg.read_f32("exposure_pressure", 2.0f);
 	AIBS_strategy_weights.friendlyRoutePenalty = cfg.read_f32("friendly_route_penalty", 60.0f);
 	AIBS_strategy_weights.nearBestFraction = cfg.read_f32("near_best_fraction", 0.07f);
+	AIBS_strategy_weights.guideHomeCorePriority = cfg.read_f32("guide_home_core_priority", 420.0f);
+	AIBS_strategy_weights.guideFallbackCorePriority = cfg.read_f32("guide_fallback_core_priority", 260.0f);
+	AIBS_strategy_weights.guideProtectedShopsPriority = cfg.read_f32("guide_protected_shops_priority", 300.0f);
+	AIBS_strategy_weights.guideHomeTunnelPriority = cfg.read_f32("guide_home_tunnel_priority", 220.0f);
+	AIBS_strategy_weights.guideFrontTunnelPriority = cfg.read_f32("guide_front_tunnel_priority", 200.0f);
+	AIBS_strategy_weights.guideQuarryStoragePriority = cfg.read_f32("guide_quarry_storage_priority", 160.0f);
+	AIBS_strategy_weights.guideProgressiveBeforeHomePenalty = cfg.read_f32("guide_progressive_before_home_penalty", 360.0f);
 	if (isServer())
 	{
 		print("[AIBWEIGHTS] loaded=" + (loaded ? "true" : "false") +

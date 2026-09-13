@@ -1,0 +1,44 @@
+AIBGYM|ARMED|run=gloryhill_4b_return_control_002_20260718
+AIBGYM|START|run=gloryhill_4b_return_control_002_20260718|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=150|collected=50|delivered=50|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=300|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=450|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=600|collected=130|delivered=130|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=750|collected=254|delivered=254|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=900|collected=504|delivered=504|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1050|collected=504|delivered=504|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1200|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1350|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1500|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1650|collected=916|delivered=916|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1800|collected=916|delivered=916|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=1950|collected=916|delivered=916|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=2100|collected=1438|delivered=1438|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=2250|collected=1438|delivered=1438|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=2400|collected=1438|delivered=1438|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=2550|collected=1438|delivered=1438|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=2700|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=2850|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3000|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3150|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3300|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3450|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3600|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3750|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=3900|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4050|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4200|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4350|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4500|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4650|collected=1614|delivered=1534|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4800|collected=1764|delivered=1684|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=4950|collected=1764|delivered=1684|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=5100|collected=1764|delivered=1684|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=5250|collected=1764|delivered=1684|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_return_control_002_20260718|elapsed=5400|collected=1764|delivered=1684|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_return_control_002_20260718 variant=control metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-966511277-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=5400 elapsed=5400 collected_wood=740 collected_stone=944 collected_gold=80 collected_total=1764 delivered_wood=740 delivered_stone=864 delivered_gold=80 delivered_total=1684 stock_delta_wood=140 stock_delta_stone=942 stock_delta_gold=80 deaths=0 failure_flags=1 idle_ticks=0 travel_px=24749.4 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_return_control_002_20260718 slot=0 collected_wood=470 collected_stone=0 collected_gold=0 collected_total=470 delivered_wood=470 delivered_stone=0 delivered_gold=0 delivered_total=470
+[AIBGYMB] schema=4 run=gloryhill_4b_return_control_002_20260718 slot=1 collected_wood=0 collected_stone=368 collected_gold=44 collected_total=412 delivered_wood=0 delivered_stone=368 delivered_gold=44 delivered_total=412
+[AIBGYMB] schema=4 run=gloryhill_4b_return_control_002_20260718 slot=2 collected_wood=270 collected_stone=0 collected_gold=0 collected_total=270 delivered_wood=270 delivered_stone=0 delivered_gold=0 delivered_total=270
+[AIBGYMB] schema=4 run=gloryhill_4b_return_control_002_20260718 slot=3 collected_wood=0 collected_stone=576 collected_gold=36 collected_total=612 delivered_wood=0 delivered_stone=496 delivered_gold=36 delivered_total=532
+AIBGYM|RESULT|run=gloryhill_4b_return_control_002_20260718|status=result|metric=resource_collection_180s|collected=1764|delivered=1684|elapsed=5400|deaths=0|failures=1|reason=duration_complete

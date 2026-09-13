@@ -6,6 +6,44 @@ array<u16> AIBS_lane_width;
 array<u16> AIBS_wall_height;
 u16 AIBS_surface_width = 0;
 
+u16 AIBS_FindWalkableSurfaceAt(CMap@ map, const int x)
+{
+	if (map is null || map.tilemapwidth == 0 || map.tilemapheight == 0) return 0;
+	const int safeX = Maths::Clamp(x, 0, int(map.tilemapwidth) - 1);
+	// Some official CTF maps enclose the play space with a solid tile at y=0.
+	// The old first-solid-from-the-top scan treated that ceiling as ground and
+	// generated every prefab at row zero. A usable runner surface must have the
+	// complete two-tile-high player volume open immediately above it.
+	for (u16 y = 2; y < map.tilemapheight; y++)
+	{
+		Vec2f ground = Vec2f(safeX * map.tilesize + 4, y * map.tilesize + 4);
+		Vec2f feet = ground - Vec2f(0, map.tilesize);
+		Vec2f head = ground - Vec2f(0, map.tilesize * 2);
+		if (map.isTileSolid(map.getTile(ground).type) &&
+			!map.isTileSolid(map.getTile(feet).type) &&
+			!map.isTileSolid(map.getTile(head).type)) return y;
+	}
+	return map.tilemapheight - 1;
+}
+
+u16 AIBS_GroundBelowPosition(Vec2f position)
+{
+	CMap@ map = getMap();
+	if (map is null || map.tilemapwidth == 0 || map.tilemapheight == 0) return 0;
+	const int x = Maths::Clamp(int(position.x / map.tilesize), 0, int(map.tilemapwidth) - 1);
+	const int startY = Maths::Clamp(int(position.y / map.tilesize), 2, int(map.tilemapheight) - 1);
+	// A tent or hall may sit below an overhead ledge. Base infrastructure belongs
+	// on the floor supporting that resource home, not on the first walkable shelf
+	// encountered from the top of the map.
+	for (int y = startY; y < map.tilemapheight; y++)
+	{
+		Vec2f ground = Vec2f(x * map.tilesize + map.tilesize * 0.5f,
+			y * map.tilesize + map.tilesize * 0.5f);
+		if (map.isTileSolid(map.getTile(ground).type)) return u16(y);
+	}
+	return AIBS_FindWalkableSurfaceAt(map, x);
+}
+
 void AIBS_RecomputeTerrainFeatures(const int fromX, const int toX)
 {
 	CMap@ map = getMap();
@@ -111,18 +149,7 @@ void AIBS_BuildStaticTerrain()
 	AIBS_lane_width.set_length(AIBS_surface_width);
 	AIBS_wall_height.set_length(AIBS_surface_width);
 	for (u16 x = 0; x < AIBS_surface_width; x++)
-	{
-		u16 surface = map.tilemapheight - 1;
-		for (u16 y = 0; y < map.tilemapheight; y++)
-		{
-			if (map.isTileSolid(map.getTile(Vec2f(x * map.tilesize + 4, y * map.tilesize + 4)).type))
-			{
-				surface = y;
-				break;
-			}
-		}
-		AIBS_surface[x] = surface;
-	}
+		AIBS_surface[x] = AIBS_FindWalkableSurfaceAt(map, x);
 	AIBS_RecomputeTerrainFeatures(0, int(AIBS_surface_width) - 1);
 }
 
@@ -135,18 +162,7 @@ void AIBS_RefreshTerrainRegion(const int centerX, const int radius)
 	const int start = Maths::Max(0, centerX - radius);
 	const int end = Maths::Min(int(map.tilemapwidth) - 1, centerX + radius);
 	for (int x = start; x <= end; x++)
-	{
-		u16 surface = map.tilemapheight - 1;
-		for (u16 y = 0; y < map.tilemapheight; y++)
-		{
-			if (map.isTileSolid(map.getTile(Vec2f(x * map.tilesize + 4, y * map.tilesize + 4)).type))
-			{
-				surface = y;
-				break;
-			}
-		}
-		AIBS_surface[x] = surface;
-	}
+		AIBS_surface[x] = AIBS_FindWalkableSurfaceAt(map, x);
 	AIBS_RecomputeTerrainFeatures(start - 12, end + 12);
 }
 
@@ -186,7 +202,7 @@ u16 AIBS_CountStored(CBlob@ resourceHome, const string &in material)
 void AIBS_PublishAccessibleStock(CRules@ rules, const u8 team, const string &in material, const u16 amount)
 {
 	if (rules is null) return;
-	const string kind = material == "mat_stone" ? "stone" : "wood";
+	const string kind = material == "mat_stone" ? "stone" : (material == "mat_gold" ? "gold" : "wood");
 	const string key = "aib strategy accessible " + kind + " team " + int(team);
 	if (rules.exists(key) && rules.get_u16(key) == amount) return;
 	rules.set_u16(key, amount);
@@ -200,6 +216,7 @@ void AIBS_RefreshAccessibleStock(CRules@ rules, const u8 team)
 	CBlob@ resourceHome = AIBS_TeamResourceHomeBlob(team, strategicPosition);
 	AIBS_PublishAccessibleStock(rules, team, "mat_wood", AIBS_CountStored(resourceHome, "mat_wood"));
 	AIBS_PublishAccessibleStock(rules, team, "mat_stone", AIBS_CountStored(resourceHome, "mat_stone"));
+	AIBS_PublishAccessibleStock(rules, team, "mat_gold", AIBS_CountStored(resourceHome, "mat_gold"));
 }
 
 AIBWorldState@ AIBS_ObserveWorld(const u8 team)
@@ -217,8 +234,10 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 	world.enemyDirection = world.enemyHome == Vec2f_zero || world.enemyHome.x >= world.home.x ? 1 : -1;
 	world.storedWood = AIBS_CountStored(resourceHome, "mat_wood");
 	world.storedStone = AIBS_CountStored(resourceHome, "mat_stone");
+	world.storedGold = AIBS_CountStored(resourceHome, "mat_gold");
 	AIBS_PublishAccessibleStock(rules, team, "mat_wood", world.storedWood);
 	AIBS_PublishAccessibleStock(rules, team, "mat_stone", world.storedStone);
+	AIBS_PublishAccessibleStock(rules, team, "mat_gold", world.storedGold);
 	world.planPending = rules is null ? 0 : rules.get_u16(AIBP_PlanKey(team, "pending"));
 	world.planCompleted = rules is null ? 0 : rules.get_u16(AIBP_PlanKey(team, "completed"));
 	world.planDamaged = rules is null ? 0 : rules.get_u16(AIBP_PlanKey(team, "damaged"));
@@ -258,6 +277,7 @@ AIBWorldState@ AIBS_ObserveWorld(const u8 team)
 			world.enemyExplosives++;
 			if ((blob.getPosition() - world.home).Length() <= 320.0f) world.explosivePressure += name == "keg" ? 2.0f : 0.75f;
 		}
+		if (friendly && name == "quarry") world.friendlyQuarries++;
 		if ((name == "fire" || blob.hasTag("fire source")) && (blob.getPosition() - world.home).Length() <= 240.0f) world.firePressure += 0.5f;
 		if (!AIBS_IsCombatBlob(blob)) continue;
 		if (friendly)

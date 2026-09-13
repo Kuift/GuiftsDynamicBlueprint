@@ -19,6 +19,10 @@ const u8 AIBGM_WORKER_SPAWN_MAX_HOME_TILES = 22;
 const f32 AIBGM_WORKER_SPAWN_SEPARATION = 16.0f;
 const u16 AIBGM_SCHEMA_VERSION = 4;
 const u16 AIBGM_FIXTURE_VERSION = 1;
+const string AIBGM_SUPPLY_PROBE_TAG = "aib gym forced supply probe";
+const u32 AIBGM_SUPPLY_PROBE_SETTLE_TICKS = 2;
+const u32 AIBGM_SUPPLY_PROBE_TIMEOUT_TICKS = 600;
+const u32 AIBGM_SUPPLY_PROBE_SAMPLE_TICKS = 5;
 
 void AIBGM_ResetSession(CRules@ rules)
 {
@@ -28,6 +32,8 @@ void AIBGM_ResetSession(CRules@ rules)
 	rules.set_bool("aib gym running", false);
 	rules.set_bool("aib gym done", false);
 	rules.set_bool("aib gym stop requested", false);
+	rules.set_bool("aib gym force base supply route", false);
+	rules.set_u32("aib gym force base supply delay ticks", 0);
 	rules.set_string("aib gym status", "idle");
 	rules.set_string("aib gym failure", "");
 }
@@ -334,6 +340,7 @@ void AIBGM_StopWorkers(CRules@ rules)
 		CBlob@ worker = workers[i];
 		if (worker is null || worker.hasTag("dead") || worker.get_u32(AIBGM_WORKER_EPOCH_KEY) != rules.get_u32("aib gym epoch")) continue;
 		AIBM_ClearNavigationIntent(worker);
+		worker.set_Vec2f(AIBM_STONE_SURFACE_MEMORY_KEY, Vec2f_zero);
 		worker.set_u8("ai builder state", AIBM_STATE_IDLE);
 		worker.set_bool("ai builder job active", false);
 		worker.Sync("ai builder state", true);
@@ -457,6 +464,7 @@ bool AIBGM_PrepareResourceRun(CRules@ rules)
 		worker.set_u32(AIBGM_WORKER_EPOCH_KEY, rules.get_u32("aib gym epoch"));
 		worker.set_u8(AIBGM_WORKER_SLOT_KEY, slot);
 		worker.set_bool("ai builder starter materials granted", true);
+		worker.set_Vec2f("aib gym benchmark spawn", spawn);
 		worker.set_Vec2f("aib gym benchmark last position", spawn);
 		worker.set_f32("aib gym benchmark travel", 0.0f);
 		worker.set_u32("aib gym benchmark idle", 0);
@@ -657,6 +665,266 @@ void AIBGM_FinishResourceRun(CRules@ rules, const bool complete, const string &i
 	rules.set_string("aib gym status", status + ":delivered=" + delivered);
 }
 
+string AIBGM_SupplyProbePos(Vec2f position)
+{
+	return Maths::Round(position.x) + "," + Maths::Round(position.y);
+}
+
+CBlob@ AIBGM_GetSupplyProbeShop(const u8 team)
+{
+	CBlob@ best = null;
+	u16 bestID = 65535;
+	CBlob@[] shops;
+	getBlobsByName("buildershop", @shops);
+	for (uint i = 0; i < shops.length; i++)
+	{
+		CBlob@ shop = shops[i];
+		if (shop is null || shop.hasTag("dead") || shop.getTeamNum() != team ||
+			!shop.hasTag("aibuilder built storage shop")) continue;
+		const u16 id = shop.getNetworkID();
+		if (id >= bestID) continue;
+		bestID = id;
+		@best = shop;
+	}
+	return best;
+}
+
+u32 AIBGM_RetypeSupplyProbeOre()
+{
+	CMap@ map = getMap();
+	if (map is null) return 0;
+	u32 changed = 0;
+	for (u16 y = 0; y < map.tilemapheight; y++)
+	{
+		for (u16 x = 0; x < map.tilemapwidth; x++)
+		{
+			Vec2f position = Vec2f((x + 0.5f) * map.tilesize, (y + 0.5f) * map.tilesize);
+			const TileType type = map.getTile(position).type;
+			if (map.isTileBedrock(type) ||
+				(!map.isTileStone(type) && !map.isTileThickStone(type) && !map.isTileGold(type))) continue;
+			map.server_SetTile(position, CMap::tile_ground);
+			changed++;
+		}
+	}
+	return changed;
+}
+
+u16 AIBGM_RemoveSupplyProbeSources(const u8 team)
+{
+	u16 removed = 0;
+	CBlob@[] stone;
+	getBlobsByName("mat_stone", @stone);
+	for (uint i = 0; i < stone.length; i++)
+	{
+		CBlob@ material = stone[i];
+		if (material is null || material.hasTag("dead") || material.isInInventory() || material.isAttached()) continue;
+		material.server_Die();
+		removed++;
+	}
+	CBlob@[] quarries;
+	getBlobsByName("quarry", @quarries);
+	for (uint i = 0; i < quarries.length; i++)
+	{
+		CBlob@ quarry = quarries[i];
+		if (quarry is null || quarry.hasTag("dead") || quarry.getTeamNum() != team) continue;
+		quarry.server_Die();
+		removed++;
+	}
+	return removed;
+}
+
+void AIBGM_SuppressSupplyProbeQuarries(CRules@ rules)
+{
+	if (rules is null) return;
+	const u32 retryUntil = getGameTime() + AIBGM_SUPPLY_PROBE_TIMEOUT_TICKS + 300;
+	CBlob@[] workers;
+	getBlobsByTag(AIBGM_WORKER_TAG, @workers);
+	for (uint i = 0; i < workers.length; i++)
+	{
+		CBlob@ worker = workers[i];
+		if (worker is null || worker.hasTag("dead") ||
+			worker.get_u32(AIBGM_WORKER_EPOCH_KEY) != rules.get_u32("aib gym epoch")) continue;
+		worker.set_u32("ai builder next quarry site search", retryUntil);
+	}
+}
+
+u16 AIBGM_ClearSupplyProbeResources(CBlob@ worker)
+{
+	if (worker is null) return 0;
+	u16 removed = 0;
+	CInventory@ inventory = worker.getInventory();
+	string[] names = { "mat_wood", "mat_stone", "mat_gold" };
+	if (inventory !is null)
+	{
+		for (uint i = 0; i < names.length; i++)
+		{
+			const u16 count = inventory.getCount(names[i]);
+			if (count == 0) continue;
+			inventory.server_RemoveItems(names[i], count);
+			removed += count;
+		}
+	}
+	CBlob@ carried = worker.getCarriedBlob();
+	if (carried !is null && carried.hasTag("material"))
+	{
+		removed += carried.getQuantity();
+		carried.server_Die();
+	}
+	return removed;
+}
+
+bool AIBGM_BeginSupplyProbe(CRules@ rules, CBlob@ shop)
+{
+	if (rules is null || shop is null) return false;
+	CBlob@ probe = null;
+	CBlob@[] workers;
+	getBlobsByTag(AIBGM_WORKER_TAG, @workers);
+	for (uint i = 0; i < workers.length; i++)
+	{
+		CBlob@ worker = workers[i];
+		if (worker is null || worker.hasTag("dead") ||
+			worker.get_u32(AIBGM_WORKER_EPOCH_KEY) != rules.get_u32("aib gym epoch") ||
+			worker.get_u8(AIBGM_WORKER_SLOT_KEY) % 2 == 0) continue;
+		if (probe is null || worker.getNetworkID() < probe.getNetworkID()) @probe = worker;
+	}
+	if (probe is null) return false;
+
+	for (uint i = 0; i < workers.length; i++)
+	{
+		CBlob@ worker = workers[i];
+		if (worker is null || worker.hasTag("dead") || worker is probe ||
+			worker.get_u32(AIBGM_WORKER_EPOCH_KEY) != rules.get_u32("aib gym epoch") ||
+			worker.get_u8(AIBGM_WORKER_SLOT_KEY) % 2 == 0) continue;
+		AIBM_ClearNavigationIntent(worker);
+		worker.set_u8("ai builder state", AIBM_STATE_IDLE);
+		worker.set_bool("ai builder job active", false);
+		worker.Sync("ai builder state", true);
+		worker.Sync("ai builder job active", true);
+	}
+
+	AIBM_ClearNavigationIntent(probe);
+	const u16 removed = AIBGM_ClearSupplyProbeResources(probe);
+	Vec2f spawn = probe.get_Vec2f("aib gym benchmark spawn");
+	if (spawn != Vec2f_zero)
+	{
+		probe.setPosition(spawn);
+		probe.setVelocity(Vec2f_zero);
+	}
+	probe.Tag(AIBGM_SUPPLY_PROBE_TAG);
+	probe.set_u8("ai builder job", AIBM_JOB_STONE);
+	probe.set_u8("ai builder state", AIBM_STATE_FIND_STONE);
+	probe.set_bool("ai builder job active", true);
+	probe.set_u32("ai builder next quarry site search", getGameTime() + AIBGM_SUPPLY_PROBE_TIMEOUT_TICKS + 300);
+	probe.set_u32("ai builder next stone supply", getGameTime() + AIBGM_SUPPLY_PROBE_TIMEOUT_TICKS + 300);
+	probe.Sync("ai builder job", true);
+	probe.Sync("ai builder state", true);
+	probe.Sync("ai builder job active", true);
+
+	const f32 distance = (shop.getPosition() - probe.getPosition()).Length();
+	rules.set_netid("aib gym supply probe worker", probe.getNetworkID());
+	rules.set_u32("aib gym supply probe start", getGameTime());
+	rules.set_u32("aib gym supply probe next sample", getGameTime());
+	rules.set_f32("aib gym supply probe best distance", distance);
+	rules.set_u8("aib gym supply probe stage", 2);
+	tcpr("AIBGYM|SUPPLY_PROBE|BEGIN|worker=" + probe.getNetworkID() + "|shop=" + shop.getNetworkID() +
+		"|start=" + AIBGM_SupplyProbePos(probe.getPosition()) + "|target=" + AIBGM_SupplyProbePos(shop.getPosition()) +
+		"|distance=" + distance + "|removed_inventory=" + removed);
+	return true;
+}
+
+void AIBGM_EmitSupplyProbeSample(CRules@ rules, CBlob@ probe, CBlob@ shop)
+{
+	if (rules is null || probe is null || shop is null || getGameTime() < rules.get_u32("aib gym supply probe next sample")) return;
+	rules.set_u32("aib gym supply probe next sample", getGameTime() + AIBGM_SUPPLY_PROBE_SAMPLE_TICKS);
+	BrainPath@ path;
+	probe.get("ai builder brain path", @path);
+	const uint lowCount = path is null ? 0 : path.path.length;
+	const uint waypointCount = path is null ? 0 : path.waypoints.length;
+	Vec2f low0 = lowCount == 0 ? Vec2f_zero : path.path[0];
+	Vec2f way0 = waypointCount == 0 ? Vec2f_zero : path.waypoints[0];
+	Vec2f wayLast = waypointCount == 0 ? Vec2f_zero : path.waypoints[waypointCount - 1];
+	u8 keyMask = 0;
+	if (probe.isKeyPressed(key_left)) keyMask |= 1;
+	if (probe.isKeyPressed(key_right)) keyMask |= 2;
+	if (probe.isKeyPressed(key_up)) keyMask |= 4;
+	if (probe.isKeyPressed(key_down)) keyMask |= 8;
+	tcpr("AIBGYM|SUPPLY_PATH|t=" + getGameTime() + "|worker=" + probe.getNetworkID() +
+		"|state=" + probe.get_u8("ai builder state") + "|pos=" + AIBGM_SupplyProbePos(probe.getPosition()) +
+		"|destination=" + AIBGM_SupplyProbePos(probe.get_Vec2f("ai builder destination")) +
+		"|target=" + AIBGM_SupplyProbePos(shop.getPosition()) + "|low=" + lowCount + "|waypoints=" + waypointCount +
+		"|low0=" + AIBGM_SupplyProbePos(low0) + "|way0=" + AIBGM_SupplyProbePos(way0) +
+		"|way_last=" + AIBGM_SupplyProbePos(wayLast) + "|tail_gap=" + (wayLast - shop.getPosition()).Length() +
+		"|distance=" + (shop.getPosition() - probe.getPosition()).Length() + "|keys=" + keyMask);
+}
+
+bool AIBGM_UpdateForcedSupplyProbe(CRules@ rules)
+{
+	if (rules is null || !rules.get_bool("aib gym force base supply route")) return false;
+	const u8 team = rules.get_u8("aib gym team");
+	const u8 stage = rules.get_u8("aib gym supply probe stage");
+	if (stage == 0)
+	{
+		const u32 runElapsed = getGameTime() - rules.get_u32("aib gym start tick");
+		const u32 delayTicks = rules.get_u32("aib gym force base supply delay ticks");
+		if (runElapsed < delayTicks) return false;
+		CBlob@ shop = AIBGM_GetSupplyProbeShop(team);
+		if (shop is null) return false;
+		AIBGM_SuppressSupplyProbeQuarries(rules);
+		const u32 retyped = AIBGM_RetypeSupplyProbeOre();
+		const u16 removed = AIBGM_RemoveSupplyProbeSources(team);
+		rules.set_netid("aib gym supply probe shop", shop.getNetworkID());
+		rules.set_u32("aib gym supply probe settle until", getGameTime() + AIBGM_SUPPLY_PROBE_SETTLE_TICKS);
+		rules.set_u8("aib gym supply probe stage", 1);
+		tcpr("AIBGYM|SUPPLY_PROBE|SANITIZE|shop=" + shop.getNetworkID() + "|target=" +
+			AIBGM_SupplyProbePos(shop.getPosition()) + "|run_elapsed=" + runElapsed + "|delay=" + delayTicks +
+			"|ore_retyped=" + retyped + "|sources_removed=" + removed);
+		return false;
+	}
+
+	AIBGM_SuppressSupplyProbeQuarries(rules);
+	AIBGM_RemoveSupplyProbeSources(team);
+	CBlob@ shop = getBlobByNetworkID(rules.get_netid("aib gym supply probe shop"));
+	if (shop is null || shop.hasTag("dead"))
+	{
+		tcpr("AIBGYM|SUPPLY_PROBE|RESULT|outcome=shop_lost");
+		AIBGM_FinishResourceRun(rules, true, "supply_probe_shop_lost");
+		return true;
+	}
+	if (stage == 1)
+	{
+		if (getGameTime() < rules.get_u32("aib gym supply probe settle until")) return false;
+		if (!AIBGM_BeginSupplyProbe(rules, shop)) return false;
+		return false;
+	}
+
+	CBlob@ probe = getBlobByNetworkID(rules.get_netid("aib gym supply probe worker"));
+	if (probe is null || probe.hasTag("dead"))
+	{
+		tcpr("AIBGYM|SUPPLY_PROBE|RESULT|outcome=worker_lost");
+		AIBGM_FinishResourceRun(rules, true, "supply_probe_worker_lost");
+		return true;
+	}
+	const f32 distance = (shop.getPosition() - probe.getPosition()).Length();
+	if (distance < rules.get_f32("aib gym supply probe best distance"))
+		rules.set_f32("aib gym supply probe best distance", distance);
+	AIBGM_EmitSupplyProbeSample(rules, probe, shop);
+	const u32 elapsed = getGameTime() - rules.get_u32("aib gym supply probe start");
+	if (distance <= 34.0f)
+	{
+		tcpr("AIBGYM|SUPPLY_PROBE|RESULT|outcome=reached|elapsed=" + elapsed + "|worker=" + probe.getNetworkID() +
+			"|pos=" + AIBGM_SupplyProbePos(probe.getPosition()) + "|target=" + AIBGM_SupplyProbePos(shop.getPosition()) +
+			"|distance=" + distance + "|best=" + rules.get_f32("aib gym supply probe best distance"));
+		AIBGM_FinishResourceRun(rules, true, "supply_probe_reached");
+		return true;
+	}
+	if (elapsed < AIBGM_SUPPLY_PROBE_TIMEOUT_TICKS) return false;
+	tcpr("AIBGYM|SUPPLY_PROBE|RESULT|outcome=timeout|elapsed=" + elapsed + "|worker=" + probe.getNetworkID() +
+		"|pos=" + AIBGM_SupplyProbePos(probe.getPosition()) + "|target=" + AIBGM_SupplyProbePos(shop.getPosition()) +
+		"|distance=" + distance + "|best=" + rules.get_f32("aib gym supply probe best distance"));
+	AIBGM_FinishResourceRun(rules, true, "supply_probe_timeout");
+	return true;
+}
+
 void AIBGM_BeginRequest(CRules@ rules)
 {
 	if (rules is null) return;
@@ -671,6 +939,9 @@ void AIBGM_BeginRequest(CRules@ rules)
 	rules.set_u32("aib gym collected stone", 0);
 	rules.set_u32("aib gym collected gold", 0);
 	rules.set_u8("aib gym deaths", 0);
+	rules.set_u8("aib gym supply probe stage", 0);
+	rules.set_netid("aib gym supply probe shop", 0);
+	rules.set_netid("aib gym supply probe worker", 0);
 	if (rules.get_string("aib gym run id") == "") rules.set_string("aib gym run id", "run_" + rules.get_u32("aib gym epoch"));
 	if (rules.get_string("aib gym variant") == "") rules.set_string("aib gym variant", "manual");
 	u32 duration = rules.get_u32("aib gym duration ticks");
@@ -704,6 +975,7 @@ void onTick(CRules@ this)
 		if (getGameTime() >= this.get_u32("aib gym warmup until")) AIBGM_StartOrders(this);
 		return;
 	}
+	if (AIBGM_UpdateForcedSupplyProbe(this)) return;
 	CMap@ map = getMap();
 	if (map is null || u32(map.getMapName().getHash()) != this.get_u32("aib gym map hash"))
 	{

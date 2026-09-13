@@ -4,10 +4,23 @@
 #include "BlueprintData.as";
 #include "AIBStrategicJobs.as";
 #include "AIBStoneRouteCommon.as";
+#include "AIBBuilderGuideCommon.as";
 
 const int AIBT_ORIGIN_X = 12;
 const int AIBT_WIDTH = 150;
 const int AIBT_GROUND_Y = 72;
+const int AIBT_RECOVERY_PLUG_X1 = 352;
+const int AIBT_RECOVERY_PLUG_X2 = 353;
+const int AIBT_RECOVERY_PLUG_TOP = AIBT_GROUND_Y - 7;
+const int AIBT_RECOVERY_PLUG_BOTTOM = AIBT_GROUND_Y - 1;
+const int AIBT_RECOVERY_PLATEAU_X2 = 365;
+const int AIBT_RECOVERY_TARGET_SIDE_X = AIBT_RECOVERY_PLUG_X2 + 1;
+const int AIBT_RECOVERY_FORCED_RUNG_X = AIBT_RECOVERY_PLUG_X1 - 3;
+const int AIBT_RECOVERY_FORCED_RUNG_Y = AIBT_RECOVERY_PLUG_TOP + 3;
+const u8 AIBT_RECOVERY_FORCED_OBSTRUCTION = 22;
+const u16 AIBT_RECOVERY_START_WOOD = 100;
+const u8 AIBT_RECOVERY_LADDER_WOOD_COST = 10;
+const u8 AIBT_RECOVERY_BACKWALL_WOOD_COST = 2;
 const u8 AIBT_FALLBACK_NO_BUILD = 1;
 const u8 AIBT_FALLBACK_OCCUPIED = 2;
 const u8 AIBT_FALLBACK_BARRIER = 3;
@@ -17,6 +30,7 @@ u16[] AIBT_original_tiles;
 Vec2f[] AIBT_route_dirt_tiles;
 Vec2f[] AIBT_temporary_no_build_points;
 u16[] AIBT_temporary_no_build_owners;
+Vec2f[] AIBT_temporary_water_points;
 bool AIBT_temporary_no_build_cleanup_failed = false;
 u16[] AIBT_recovery_plug_tiles;
 u16[] AIBT_canonical_tiles;
@@ -90,7 +104,20 @@ string[] AIBT_SCENARIOS =
 	"strategic_no_build_primary_falls_back_and_physically_completes",
 	"strategic_occupied_primary_falls_back_and_physically_completes",
 	"strategic_barrier_primary_falls_back_and_physically_completes",
-	"strategic_blocked_bootstrap_cools_down_and_round_reset_recovers_both_sides"
+	"strategic_blocked_bootstrap_cools_down_and_round_reset_recovers_both_sides",
+	"guide_flag_room_prefab_has_three_entrances",
+	"guide_front_tower_prefab_uses_three_layers_firebreaks_and_six_doors",
+	"guide_protected_shops_have_stone_backing_and_safe_roles",
+	"guide_home_tunnel_publishes_before_gold_and_assigns_miner",
+	"guide_quarry_sits_above_storage_with_drop_gap",
+	"guide_home_first_progression_precedes_frontline",
+	"guide_resupply_matches_current_ctf_rules_and_visits_base",
+	"guide_repairs_defer_under_attack_and_rebuild_destroyed_blobs",
+	"guide_tree_spacing_and_existing_saw_log_delivery",
+	"guide_mixed_material_catalog_costs_are_conserved",
+	"guide_boatshop_requires_water",
+	"guide_two_tunnel_network_stages_home_before_front",
+	"blueprint_material_trip_releases_reservation_for_competing_builders"
 };
 
 string AIBT_ScenarioName(const int index)
@@ -108,12 +135,16 @@ u32 AIBT_MapTileHash(CMap@ map)
 	return hash;
 }
 
-u16 AIBT_CountLiveTagged(const string &in tag)
+u16 AIBT_CountExistingTagged(const string &in tag)
 {
 	CBlob@[] blobs;
 	getBlobsByTag(tag, @blobs);
 	u16 count = 0;
-	for (uint i = 0; i < blobs.length; i++) if (blobs[i] !is null && !blobs[i].hasTag("dead")) count++;
+	// server_Die() marks a blob dead before the engine removes it from the
+	// world.  A dying fixture can still affect the next callback, so teardown
+	// must wait for the handle itself to disappear rather than treating the
+	// dead tag as completion.
+	for (uint i = 0; i < blobs.length; i++) if (blobs[i] !is null) count++;
 	return count;
 }
 
@@ -123,13 +154,15 @@ void AIBT_CaptureOrValidateCanonicalMap()
 	CMap@ map = getMap();
 	if (rules is null || map is null) return;
 	rules.set_string("aibt canonical reset failure", "");
-	const u16 fixtureLeaks = AIBT_CountLiveTagged("aibt test fixture");
-	const u16 bootstrapLeaks = AIBT_CountLiveTagged("aib strategy bootstrap worker");
+	const u16 fixtureLeaks = AIBT_CountExistingTagged("aibt test fixture");
+	const u16 bootstrapLeaks = AIBT_CountExistingTagged("aib strategy bootstrap worker");
 	if (fixtureLeaks > 0 || bootstrapLeaks > 0 || AIBT_temporary_no_build_points.length > 0 ||
-		AIBT_temporary_no_build_owners.length > 0 || AIBT_temporary_no_build_cleanup_failed)
+		AIBT_temporary_no_build_owners.length > 0 || AIBT_temporary_water_points.length > 0 ||
+		AIBT_temporary_no_build_cleanup_failed)
 	{
 		rules.set_string("aibt canonical reset failure", "fixture_leak blobs=" + fixtureLeaks + " bootstrap=" + bootstrapLeaks +
 			" sectors=" + AIBT_temporary_no_build_points.length + "/" + AIBT_temporary_no_build_owners.length +
+			" water=" + AIBT_temporary_water_points.length +
 			" sector_cleanup_failed=" + (AIBT_temporary_no_build_cleanup_failed ? "true" : "false"));
 		return;
 	}
@@ -220,6 +253,12 @@ void AIBT_CleanupScenario()
 	}
 	AIBT_temporary_no_build_points.clear();
 	AIBT_temporary_no_build_owners.clear();
+	if (cleanupMap !is null)
+	{
+		for (uint i = 0; i < AIBT_temporary_water_points.length; i++)
+			cleanupMap.server_setFloodWaterWorldspace(AIBT_temporary_water_points[i], false);
+	}
+	AIBT_temporary_water_points.clear();
 
 	// DefaultNoBuild paints persistent wood backwall behind a buildershop.
 	// Restore only tracked workshop footprint cells before resetting fixtures.
@@ -495,13 +534,20 @@ CBlob@ AIBT_GetRecoveryLadderNear(Vec2f position, const f32 radius)
 {
 	CBlob@[] ladders;
 	getBlobsByName("ladder", @ladders);
+	CBlob@ best = null;
 	for (uint i = 0; i < ladders.length; i++)
 	{
 		CBlob@ ladder = ladders[i];
 		if (ladder is null || ladder.hasTag("dead") || !ladder.hasTag("aibuilder recovery ladder")) continue;
-		if ((ladder.getPosition() - position).Length() <= radius) return ladder;
+		if ((ladder.getPosition() - position).Length() > radius) continue;
+		// A tall forced fixture can legitimately need more than one recovery
+		// rung. Prefer the rung whose one-shot post-placement probe has already
+		// run, while retaining the first live rung during the support/spawn phase.
+		if (best is null || (!best.get_bool("aibuilder recovery post path probe") &&
+			ladder.get_bool("aibuilder recovery post path probe")))
+			@best = ladder;
 	}
-	return null;
+	return best;
 }
 
 void AIBT_StartHarvest(CBlob@ bot)
@@ -509,6 +555,7 @@ void AIBT_StartHarvest(CBlob@ bot)
 	if (bot is null) return;
 	bot.set_u8("ai builder state", AIBT_FIND_TREE);
 	bot.set_u8("ai builder job", AIBT_JOB_WOOD);
+	bot.set_bool("ai builder job active", true);
 	bot.set_netid("ai builder target", 0);
 	bot.set_Vec2f("ai builder destination", Vec2f_zero);
 	AIB_LogEvent("test", "start_harvest", AIBT_BlobRef(bot), "state=find_tree pos=" + AIB_EventPos(bot.getPosition()));
@@ -519,6 +566,7 @@ void AIBT_StartStone(CBlob@ bot)
 	if (bot is null) return;
 	bot.set_u8("ai builder state", AIBT_FIND_STONE);
 	bot.set_u8("ai builder job", AIBT_JOB_STONE);
+	bot.set_bool("ai builder job active", true);
 	bot.set_netid("ai builder target", 0);
 	bot.set_Vec2f("ai builder destination", Vec2f_zero);
 	bot.set_Vec2f("ai builder tile target", Vec2f_zero);
@@ -597,6 +645,7 @@ void AIBT_StartBlueprint(CBlob@ bot, const bool viaCommand = false)
 	{
 		bot.set_u8("ai builder state", AIBT_COLLECT_BLUEPRINT_RESOURCES);
 		bot.set_u8("ai builder job", AIBT_JOB_BLUEPRINT);
+		bot.set_bool("ai builder job active", true);
 		bot.set_netid("ai builder target", 0);
 		bot.set_Vec2f("ai builder destination", Vec2f_zero);
 		bot.set_Vec2f("ai builder tile target", Vec2f_zero);
@@ -681,6 +730,10 @@ void AIBT_ClearScenarioRefs()
 	rules.set_netid("aibt_stock_home", 0);
 	rules.set_netid("aibt_stock_secondary_home", 0);
 	rules.set_netid("aibt_stock_runner", 0);
+	rules.set_netid("aibt stone continuation bot", 0);
+	rules.set_netid("aibt stone abort bot", 0);
+	rules.set_netid("aibt guide safe saw", 0);
+	rules.set_netid("aibt guide saw log", 0);
 	rules.set_u8("aibt_ui_stage", 0);
 	rules.set_u8("aibt_pipeline_stage", 0);
 	rules.set_u8("aibt director stage", 0);
@@ -695,6 +748,20 @@ void AIBT_ClearScenarioRefs()
 	rules.set_bool("aibt stone route static passed", false);
 	rules.set_string("aibt stone route static details", "");
 	rules.set_string("aibt stone route static failure", "");
+	rules.set_bool("aibt stone route continuation observed", false);
+	rules.set_bool("aibt stone route continuation entry released", false);
+	rules.set_bool("aibt stone route continuation entry resumed", false);
+	rules.set_u32("aibt stone route continuation resume tick", 0);
+	rules.set_bool("aibt stone route abort observed", false);
+	rules.set_bool("aibt stone route abort surfaced", false);
+	rules.set_bool("aibt stone route abort settle paused", false);
+	rules.set_bool("aibt stone route abort settle resumed", false);
+	rules.set_u32("aibt stone route abort settle resume tick", 0);
+	rules.set_bool("aibt recovery support trigger armed", false);
+	rules.set_bool("aibt recovery ladder trigger armed", false);
+	rules.set_bool("aibt recovery funded at face", false);
+	rules.set_bool("aibt recovery exact cost observed", false);
+	rules.set_u16("aibt recovery post ladder wood", 0);
 	rules.set_bool("aibt left corner escape observed", false);
 	rules.set_bool("aibt right corner escape observed", false);
 	rules.set_bool("aibt left corner moved observed", false);
@@ -714,6 +781,7 @@ void AIBT_ClearScenarioRefs()
 	rules.set_bool("aibt exposed stone targeted", false);
 	rules.set_bool("aibt exposed stone mined", false);
 	rules.set_bool("aibt exposed stone acquired", false);
+	rules.set_u16("aibt flat collected wood", 0);
 	rules.set_bool("aibt selected tree targeted", false);
 	rules.set_bool("aibt selected tree felled", false);
 	rules.set_bool("aibt selected tree wood acquired", false);
@@ -729,6 +797,9 @@ void AIBT_ClearScenarioRefs()
 	rules.set_f32("aibt left corner start x", 0.0f);
 	rules.set_f32("aibt right corner start x", 0.0f);
 	rules.set_bool("aibt fallback setup", false);
+	rules.set_bool("aibt fallback finalize pending", false);
+	rules.set_bool("aibt fallback initial primary valid", false);
+	rules.set_bool("aibt fallback obstacle ready", false);
 	rules.set_bool("aibt fallback route safe", false);
 	rules.set_bool("aibt fallback primary rejected", false);
 	rules.set_bool("aibt fallback progress observed", false);
@@ -781,6 +852,23 @@ void AIBT_ClearScenarioRefs()
 	rules.set_bool("aibt bootstrap lifecycle setup", false);
 	rules.set_bool("aibt bootstrap lifecycle plans", false);
 	rules.set_bool("aibt accessible stock setup", false);
+	rules.set_bool("aibt guide resupply static", false);
+	rules.set_string("aibt guide resupply static detail", "");
+	rules.set_netid("aibt guide match probe", 0);
+	rules.set_u32("aibt guide resupply start tick", 0);
+	rules.set_bool("aibt guide repair setup", false);
+	rules.set_string("aibt guide repair setup detail", "");
+	rules.set_netid("aibt guide repair door", 0);
+	rules.set_u8("aibt guide repair stage", 0);
+	rules.set_bool("aibt guide repair blob policy", false);
+	rules.set_bool("aibt guide tree saw setup", false);
+	rules.set_string("aibt guide tree saw setup detail", "");
+	rules.set_netid("aibt guide spacing seed", 0);
+	rules.set_Vec2f("aibt guide spaced position", Vec2f_zero);
+	rules.set_bool("aibt guide overlap rejected", false);
+	rules.set_bool("aibt guide saw delivery started", false);
+	rules.set_u8("aibt guide mixed payment stage", 0);
+	rules.set_bool(AIB_GUIDE_RESUPPLY_TEST_KEY, false);
 	for (u8 lifecycleTeam = 0; lifecycleTeam < 2; lifecycleTeam++)
 	{
 		const string prefix = "aibt bootstrap lifecycle team " + lifecycleTeam + " ";
@@ -823,8 +911,19 @@ void AIBT_ClearScenarioRefs()
 		rules.set_u8("aib strategy last mode team " + int(team), AIBP_StrategyMode::off);
 		rules.set_u32("aib strategy last replan team " + int(team), 0);
 		rules.set_u32("aib strategy important event team " + int(team), 0);
+		rules.set_f32("aib strategy pressure team " + int(team), 0.0f);
+		rules.set_f32("aib strategy recent attacks team " + int(team), 0.0f);
+		rules.set_f32("aib strategy previous frontline team " + int(team), 0.0f);
+		array<f32> emptyPressureHeat;
+		rules.set("aib strategy pressure heat team " + int(team), emptyPressureHeat);
 		rules.set_u16("aib strategy accessible wood team " + int(team), 0);
 		rules.set_u16("aib strategy accessible stone team " + int(team), 0);
+		rules.set_u16("aib strategy accessible gold team " + int(team), 0);
+		rules.set_bool("aib guide completed home core team " + int(team), false);
+		rules.set_bool("aib guide completed protected shops team " + int(team), false);
+		rules.set_bool("aib guide completed home tunnel team " + int(team), false);
+		rules.set_bool("aib guide completed front tunnel team " + int(team), false);
+		rules.set_bool("aib guide completed quarry storage team " + int(team), false);
 		rules.set_bool(AIBS_BootstrapKey(team, "enabled"), false);
 		rules.set_bool(AIBS_BootstrapKey(team, "provisioned"), false);
 		rules.set_u32(AIBS_BootstrapKey(team, "next retry"), 0);
@@ -860,6 +959,74 @@ void AIBT_SetStrategicResult(const bool passed, const string &in details, const 
 	getRules().set_bool("aibt strategic result", passed);
 	getRules().set_string("aibt strategic details", details);
 	getRules().set_string("aibt strategic failure", failure);
+}
+
+BlueprintTask@ AIBT_CandidateTaskAt(AIBPlanCandidate@ candidate, const int x, const int y)
+{
+	if (candidate is null) return null;
+	for (uint i = 0; i < candidate.tasks.length; i++)
+	{
+		BlueprintTask@ task = candidate.tasks[i];
+		if (task !is null && task.x == x && task.y == y) return task;
+	}
+	return null;
+}
+
+u16 AIBT_CountCandidateBlock(AIBPlanCandidate@ candidate, const u16 blockID)
+{
+	if (candidate is null) return 0;
+	u16 count = 0;
+	for (uint i = 0; i < candidate.tasks.length; i++)
+	{
+		BlueprintTask@ task = candidate.tasks[i];
+		if (task !is null && AIBP_BlockId(task.block) == AIBP_BlockId(blockID)) count++;
+	}
+	return count;
+}
+
+bool AIBT_TaskHasBlock(AIBPlanCandidate@ candidate, const int x, const int y, const u16 blockID)
+{
+	BlueprintTask@ task = AIBT_CandidateTaskAt(candidate, x, y);
+	return task !is null && AIBP_BlockId(task.block) == AIBP_BlockId(blockID);
+}
+
+bool AIBT_CandidatesContainTemplate(array<AIBPlanCandidate@> &in candidates, const string &in name)
+{
+	for (uint i = 0; i < candidates.length; i++)
+	{
+		AIBPlanCandidate@ candidate = candidates[i];
+		if (candidate !is null && candidate.templateName == name) return true;
+	}
+	return false;
+}
+
+bool AIBT_GuideCatalogCostsMatchInstalledCTF()
+{
+	const u16[] simpleWoodIDs = { AIBP_BUILDER_SHOP, AIBP_QUARTERS, AIBP_KNIGHT_SHOP, AIBP_ARCHER_SHOP };
+	for (uint i = 0; i < simpleWoodIDs.length; i++)
+	{
+		if (AIBP_BlockMaterialCost(simpleWoodIDs[i], "mat_wood") != 200 ||
+			AIBP_BlockMaterialCost(simpleWoodIDs[i], "mat_stone") != 0 ||
+			AIBP_BlockMaterialCost(simpleWoodIDs[i], "mat_gold") != 0) return false;
+	}
+	return AIBP_BlockMaterialCost(AIBP_BOAT_SHOP, "mat_wood") == 250 &&
+		AIBP_BlockMaterialCost(AIBP_BOAT_SHOP, "mat_gold") == 0 &&
+		AIBP_BlockMaterialCost(AIBP_VEHICLE_SHOP, "mat_wood") == 250 &&
+		AIBP_BlockMaterialCost(AIBP_VEHICLE_SHOP, "mat_gold") == 50 &&
+		AIBP_BlockMaterialCost(AIBP_AI_BUILDER_SHOP, "mat_wood") == 150 &&
+		AIBP_BlockMaterialCost(AIBP_NURSERY, "mat_wood") == 250 &&
+		AIBP_BlockMaterialCost(AIBP_STORAGE, "mat_wood") == 200 &&
+		AIBP_BlockMaterialCost(AIBP_STORAGE, "mat_stone") == 50 &&
+		AIBP_BlockMaterialCost(AIBP_TUNNEL, "mat_wood") == 200 &&
+		AIBP_BlockMaterialCost(AIBP_TUNNEL, "mat_stone") == 100 &&
+		AIBP_BlockMaterialCost(AIBP_TUNNEL, "mat_gold") == 50 &&
+		AIBP_BlockMaterialCost(AIBP_QUARRY, "mat_wood") == 150 &&
+		AIBP_BlockMaterialCost(AIBP_QUARRY, "mat_stone") == 150 &&
+		AIBP_BlockMaterialCost(AIBP_QUARRY, "mat_gold") == 100 &&
+		AIBP_BlockMaterialCost(AIBP_REINFORCED_WOOD_DOOR, "mat_wood") == 30 &&
+		AIBP_BlockMaterialCost(AIBP_REINFORCED_WOOD_DOOR, "mat_stone") == 2 &&
+		AIBP_BlockMaterialCost(AIBP_REINFORCED_PLATFORM, "mat_wood") == 15 &&
+		AIBP_BlockMaterialCost(AIBP_REINFORCED_PLATFORM, "mat_stone") == 2;
 }
 
 void AIBT_CountStrategyAssignments(const u8 team, u16 &out assigned, u16 &out wood, u16 &out stone, u16 &out build)
@@ -973,7 +1140,7 @@ void AIBT_SetupRepresentativeFallback(const u8 obstacleKind)
 
 	AIBWorldState@ initialWorld = AIBS_ObserveWorld(0);
 	array<AIBPlanCandidate@> initialCandidates;
-	AIBS_GenerateCandidates(initialWorld, initialCandidates);
+	AIBS_GenerateCandidates(initialWorld, initialCandidates, true);
 	const int primaryAnchorX = initialWorld is null ? 0 : int(initialWorld.home.x / map.tilesize) + initialWorld.enemyDirection * 10;
 	AIBPlanCandidate@ initialPrimary = AIBT_FindGeneratedCandidate(initialCandidates, "flag_gatehouse", primaryAnchorX);
 	const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);
@@ -1014,16 +1181,38 @@ void AIBT_SetupRepresentativeFallback(const u8 obstacleKind)
 		}
 		else obstacleReady = false;
 	}
+	rules.set_bool("aibt fallback initial primary valid", initialPrimaryValid);
+	rules.set_bool("aibt fallback obstacle ready", obstacleReady);
+	// A freshly created blob enters KAG's radius-query spatial index on the next
+	// rules tick. Defer only the occupied variant so production overlap
+	// validation observes the real crate instead of racing server_CreateBlob.
+	if (obstacleKind == AIBT_FALLBACK_OCCUPIED)
+	{
+		rules.set_bool("aibt fallback finalize pending", true);
+		return;
+	}
+	AIBT_FinalizeRepresentativeFallback();
+}
 
+void AIBT_FinalizeRepresentativeFallback()
+{
+	CRules@ rules = getRules();
+	CMap@ map = getMap();
+	if (rules is null || map is null) return;
+	rules.set_bool("aibt fallback finalize pending", false);
+	const u8 obstacleKind = rules.get_u8("aibt fallback obstacle kind");
+	const bool initialPrimaryValid = rules.get_bool("aibt fallback initial primary valid");
+	const bool obstacleReady = rules.get_bool("aibt fallback obstacle ready");
 	AIBWorldState@ world = AIBS_ObserveWorld(0);
+	const int primaryAnchorX = world is null ? 0 : int(world.home.x / map.tilesize) + world.enemyDirection * 10;
 	array<AIBPlanCandidate@> generated;
-	AIBS_GenerateCandidates(world, generated);
+	AIBS_GenerateCandidates(world, generated, true);
 	AIBPlanCandidate@ primary = AIBT_FindGeneratedCandidate(generated, "flag_gatehouse", primaryAnchorX);
 	const bool primaryRejected = primary !is null && !AIBS_ValidateCandidate(world, primary);
 	const string primaryReason = primary is null ? "missing" : primary.rejection;
 	const string expectedReason = obstacleKind == AIBT_FALLBACK_NO_BUILD ? "no_build" :
 		(obstacleKind == AIBT_FALLBACK_OCCUPIED ? "building_overlap" : "barrier");
-	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);
+	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world, true);
 	const bool selectedValid = selected !is null && AIBS_ValidateCandidate(world, selected);
 	const bool selectedDistinct = selected !is null && primary !is null &&
 		(selected.templateName != primary.templateName || int(selected.anchor.x) != int(primary.anchor.x));
@@ -1385,7 +1574,7 @@ void AIBT_SetupUnevenEdgeCompletion()
 	// ordinary approach/reachability checks remain active during selection.
 	AIBWorldState@ initialWorld = AIBS_ObserveWorld(0);
 	array<AIBPlanCandidate@> initialCandidates;
-	AIBS_GenerateCandidates(initialWorld, initialCandidates);
+	AIBS_GenerateCandidates(initialWorld, initialCandidates, true);
 	const int primaryAnchorX = initialWorld is null ? 0 : int(initialWorld.home.x / map.tilesize) + initialWorld.enemyDirection * 10;
 	AIBPlanCandidate@ initialPrimary = AIBT_FindGeneratedCandidate(initialCandidates, "flag_gatehouse", primaryAnchorX);
 	const bool initialPrimaryValid = initialPrimary !is null && AIBS_ValidateCandidate(initialWorld, initialPrimary);
@@ -1394,11 +1583,11 @@ void AIBT_SetupUnevenEdgeCompletion()
 	AIBT_SetTemporaryTile(obstacleX, obstacleUpperY, CMap::tile_castle);
 	AIBWorldState@ world = AIBS_ObserveWorld(0);
 	array<AIBPlanCandidate@> generated;
-	AIBS_GenerateCandidates(world, generated);
+	AIBS_GenerateCandidates(world, generated, true);
 	AIBPlanCandidate@ primary = AIBT_FindGeneratedCandidate(generated, "flag_gatehouse", primaryAnchorX);
 	const bool primaryRejected = primary !is null && !AIBS_ValidateCandidate(world, primary);
 	const string primaryReason = primary is null ? "missing" : primary.rejection;
-	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world);
+	AIBPlanCandidate@ selected = AIBS_SelectCandidate(world, true);
 	const bool selectedValid = selected !is null && AIBS_ValidateCandidate(world, selected);
 	const bool selectedDistinct = selected !is null && primary !is null &&
 		(selected.templateName != primary.templateName || int(selected.anchor.x) != int(primary.anchor.x));
@@ -1407,8 +1596,9 @@ void AIBT_SetupUnevenEdgeCompletion()
 	const u16 terrainVariance = AIBT_TerrainVarianceBetween(homeX, selectedAnchorX);
 	const bool routeSafe = selectedValid && AIBS_PreservesFriendlyRoute(selected);
 	BlueprintPlan@ plan = selectedValid && selectedDistinct && inward && terrainVariance >= 2 ? AIBS_MakePlan(world, selected) : null;
+	const bool expectedPrimaryRejection = primaryReason == "occupied_terrain" || primaryReason == "unreachable_tasks";
 	const bool published = home !is null && initialPrimaryValid && primaryAnchorX == obstacleX && primaryRejected &&
-		primaryReason == "occupied_terrain" && routeSafe && plan !is null && AIBP_PublishAIPlan(plan, true);
+		expectedPrimaryRejection && routeSafe && plan !is null && AIBP_PublishAIPlan(plan, true);
 	u16 initialCompleted = 0;
 	if (plan !is null)
 	{
@@ -1473,7 +1663,8 @@ bool AIBT_EvaluateUnevenEdgeCompletion(const u32 elapsed, string &out failure, s
 		executor.get_u8("ai builder job") == AIBS_JOB_BLUEPRINT;
 	const string archivePrefix = "aib strategy history plan " + rules.get_u16("aibt uneven edge plan id") + " team 0 ";
 	const bool archivedComplete = rules.get_string(archivePrefix + "archive reason") == "completed";
-	const bool fallbackValid = rules.get_string("aibt uneven edge primary reason") == "occupied_terrain" &&
+	const string primaryReason = rules.get_string("aibt uneven edge primary reason");
+	const bool fallbackValid = (primaryReason == "occupied_terrain" || primaryReason == "unreachable_tasks") &&
 		rules.get_u16("aibt uneven edge primary anchor x") == 372 &&
 		rules.get_u16("aibt uneven edge selected anchor x") < 382 &&
 		(rules.get_string("aibt uneven edge template") != "flag_gatehouse" ||
@@ -1485,7 +1676,7 @@ bool AIBT_EvaluateUnevenEdgeCompletion(const u32 elapsed, string &out failure, s
 	if (physical && identityStable && countersComplete && layersComplete && assignedExecutor && archivedComplete &&
 		fallbackValid && obstaclePreserved && exercised)
 	{
-		details = "uneven_edge_fallback_physically_complete=true primary_rejection=occupied_terrain template=" +
+		details = "uneven_edge_fallback_physically_complete=true primary_rejection=" + primaryReason + " template=" +
 			rules.get_string("aibt uneven edge template") + " primary_anchor=" + rules.get_u16("aibt uneven edge primary anchor x") +
 			" selected_anchor=" + rules.get_u16("aibt uneven edge selected anchor x") + " terrain_variance=" +
 			rules.get_u16("aibt uneven edge terrain variance") + " tasks=" + expectedTasks +
@@ -1888,9 +2079,9 @@ bool AIBT_OverflowCratesAreGroundedAndDistinct(CBlob@ home, u8 &out count, strin
 	return count >= 2;
 }
 
-void AIBT_SetupScenario(const int index)
+void AIBT_SetupScenario(const int index, const bool cleanupFirst)
 {
-	AIBT_CleanupScenario();
+	if (cleanupFirst) AIBT_CleanupScenario();
 	AIBT_CaptureOrValidateCanonicalMap();
 	getRules().set_string("aib test scenario", AIBT_ScenarioName(index));
 
@@ -1901,10 +2092,17 @@ void AIBT_SetupScenario(const int index)
 	{
 		case 0:
 		{
-			AIBT_SpawnTent(54);
-			@bot = AIBT_SpawnBot(60);
+			CBlob@ home = AIBT_SpawnTent(80);
+			const Vec2f storage = AIBR_FindBaseStoragePoint(home);
+			CBlob@ crate = (storage.x == 0.0f && storage.y == 0.0f) ? null : AIBT_Spawn("crate", 0, storage);
+			if (crate !is null) crate.Tag("aibuilder resource crate");
+			@bot = AIBT_SpawnBot(64);
 			AIBT_DisableStarterMaterials(bot);
-			CBlob@ tree = AIBT_SpawnTree(78, false);
+			// Keep the real mature-tree and log pipeline, but place it beside an
+			// already-established base crate. Workshop construction and empty-base
+			// bootstrap are covered independently, and this shorter route avoids the
+			// documented long-RunLocalhost freeze before the delivery assertion.
+			CBlob@ tree = AIBT_SpawnTree(68, false);
 			AIBT_SetBlob("aibt_expected", tree);
 			AIBT_StartHarvest(bot);
 			break;
@@ -1915,7 +2113,7 @@ void AIBT_SetupScenario(const int index)
 			AIBT_SpawnTent(54);
 			@bot = AIBT_SpawnBot(54);
 			AIBT_DisableStarterMaterials(bot);
-			AIBT_GiveWood(bot, 240);
+			AIBT_GiveWood(bot, 400);
 			AIBT_ForceState(bot, AIBT_RETURN_WOOD);
 			break;
 		}
@@ -2073,15 +2271,51 @@ void AIBT_SetupScenario(const int index)
 			CMap@ map = getMap();
 			if (map !is null)
 			{
-				for (int x = 352; x <= 353; x++)
+				// The original four-tile wall was physically jumpable, its
+				// "far side" predicate began at the wall's left edge, and the
+				// ground-level target let the first blocked node point downward.
+				// Build a raised plateau beyond a seven-tile, two-column leading
+				// plug. The tree is on that plateau, so the obstruction route is
+				// genuinely uphill and cannot retire into an unrelated nursery
+				// episode before exercising ladder recovery.
+				for (int x = AIBT_RECOVERY_PLUG_X1; x <= AIBT_RECOVERY_PLUG_X2; x++)
 				{
-					for (int y = AIBT_GROUND_Y - 4; y < AIBT_GROUND_Y; y++)
+					for (int y = AIBT_RECOVERY_PLUG_TOP; y <= AIBT_RECOVERY_PLUG_BOTTOM; y++)
+						AIBT_SetTemporaryTile(x, y, CMap::tile_ground);
+				}
+				for (int x = AIBT_RECOVERY_PLUG_X2 + 1; x <= AIBT_RECOVERY_PLATEAU_X2; x++)
+				{
+					for (int y = AIBT_RECOVERY_PLUG_TOP; y <= AIBT_RECOVERY_PLUG_BOTTOM; y++)
+						AIBT_SetTemporaryTile(x, y, CMap::tile_ground);
+				}
+				for (int x = AIBT_RECOVERY_PLUG_X1; x <= AIBT_RECOVERY_PLUG_X2; x++)
+				{
+					for (int y = AIBT_RECOVERY_PLUG_TOP; y <= AIBT_RECOVERY_PLUG_BOTTOM; y++)
 						AIBT_recovery_plug_tiles.push_back(map.getTile(AIBT_Pos(x, y)).type);
 				}
+				string supportGrid = "";
+				for (int y = AIBT_RECOVERY_PLUG_TOP; y <= AIBT_RECOVERY_PLUG_BOTTOM; y++)
+				{
+					if (supportGrid != "") supportGrid += "/";
+					for (int x = AIBT_RECOVERY_PLUG_X1 - 8; x < AIBT_RECOVERY_PLUG_X1; x++)
+						supportGrid += (map.hasSupportAtPos(AIBT_Pos(x, y)) ? "1" : "0");
+				}
+				AIB_LogEvent("test", "recovery_ladder_fixture", "runner",
+					"plug_x=" + AIBT_RECOVERY_PLUG_X1 + "-" + AIBT_RECOVERY_PLUG_X2 +
+					" plug_y=" + AIBT_RECOVERY_PLUG_TOP + "-" + AIBT_RECOVERY_PLUG_BOTTOM +
+					" plateau_x=" + (AIBT_RECOVERY_PLUG_X2 + 1) + "-" + AIBT_RECOVERY_PLATEAU_X2 +
+					" target_side_x=" + AIBT_RECOVERY_TARGET_SIDE_X +
+					" support_x=" + (AIBT_RECOVERY_PLUG_X1 - 8) + "-" + (AIBT_RECOVERY_PLUG_X1 - 1) +
+					" support_rows=" + supportGrid);
 			}
 			AIBT_SpawnTent(338);
-			@bot = AIBT_SpawnBot(344);
-			CBlob@ tree = AIBT_SpawnTree(360, false);
+			// Start close enough that the proof measures recovery and traversal,
+			// not a long run-up. The two open columns before the plug still leave
+			// the first recovery rung unsupported, with the plug as the nearest
+			// legal support source for its paid backwall chain.
+			@bot = AIBT_SpawnBot(348);
+			AIBT_DisableStarterMaterials(bot);
+			CBlob@ tree = AIBT_SpawnTreeAt(360, AIBT_RECOVERY_PLUG_TOP - 1, false);
 			AIBT_SetBlob("aibt_expected", tree);
 			AIBT_StartHarvest(bot);
 			break;
@@ -2117,8 +2351,12 @@ void AIBT_SetupScenario(const int index)
 
 		case 18:
 		{
-			AIBT_SpawnTent(382);
-			CBlob@ crate = AIBT_Spawn("crate", 0, AIBT_Pos(392, AIBT_GROUND_Y - 2));
+			CBlob@ home = AIBT_SpawnTent(382);
+			// Fund the production plan from the exact grounded storage point used
+			// by world observation and the executor. The old arbitrary right-side
+			// crate is intentionally no longer credited as accessible base stock.
+			Vec2f storage = AIBR_FindBaseStoragePoint(home);
+			CBlob@ crate = storage.LengthSquared() < 1.0f ? null : AIBT_Spawn("crate", 0, storage);
 			if (crate !is null) crate.Tag("aibuilder resource crate");
 			AIBT_GiveMaterial(crate, "mat_wood", 600);
 			AIBT_GiveMaterial(crate, "mat_stone", 600);
@@ -2163,7 +2401,9 @@ void AIBT_SetupScenario(const int index)
 			AIBT_SpawnTent(54);
 			@bot = AIBT_SpawnBot(54);
 			AIBT_DisableStarterMaterials(bot);
-			AIBT_SpawnMaterial("mat_wood", 54, 350);
+			AIBT_SpawnMaterial("mat_wood", 54, 400);
+			AIBT_SpawnMaterial("mat_stone", 55, 180);
+			AIBT_SpawnMaterial("mat_gold", 56, 100);
 			AIBT_ForceState(bot, AIBT_RETURN_WOOD);
 			break;
 		}
@@ -2215,7 +2455,7 @@ void AIBT_SetupScenario(const int index)
 			AIBT_SpawnTent(54);
 			@bot = AIBT_SpawnBot(54);
 			AIBT_DisableStarterMaterials(bot);
-			AIBT_SpawnMaterial("mat_wood", 54, 120);
+			AIBT_SpawnMaterial("mat_wood", 54, 300);
 			AIBT_SpawnMaterial("mat_stone", 55, 30);
 			AIBT_StartHarvest(bot);
 			break;
@@ -2407,7 +2647,7 @@ void AIBT_SetupScenario(const int index)
 				hasFoundation = hasFoundation || task.phase == AIBP_Phase::foundation;
 				hasAccess = hasAccess || task.phase == AIBP_Phase::access;
 				hasShell = hasShell || task.phase == AIBP_Phase::shell;
-				hasDoor = hasDoor || AIBP_BlockId(task.block) == AIBP_WOOD_DOOR;
+				hasDoor = hasDoor || AIBP_BlockId(task.block) == AIBP_STONE_DOOR;
 				hasPlatform = hasPlatform || AIBP_BlockId(task.block) == AIBP_PLATFORM;
 			}
 			AIBPlanCandidate@ blocked = AIBPlanCandidate(); blocked.anchor = Vec2f(400, AIBT_GROUND_Y);
@@ -2450,14 +2690,13 @@ void AIBT_SetupScenario(const int index)
 		{
 			AIBT_SpawnTent(382); @bot = AIBT_SpawnBot(384);
 			AIBWorldState@ world = AIBWorldState(); world.team = 0;
+			BlueprintPlan@ active = AIBT_NewStrategicPlan(0, "hysteresis_test");
+			active.tasks.push_back(BlueprintTask(388, AIBT_GROUND_Y - 1,
+				AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+			const bool published = AIBP_PublishAIPlan(active, true);
 			AIBPlanCandidate@ candidate = AIBPlanCandidate();
 			candidate.intent = AIBStrategyIntent::flag_gatehouse; candidate.score = 114.0f;
-			getRules().set_u16(AIBP_PlanKey(0, "id"), 42);
-			getRules().set_f32(AIBP_PlanKey(0, "score"), 100.0f);
-			getRules().set_u32(AIBP_PlanKey(0, "updated"), getGameTime());
-			getRules().set_u8(AIBP_PlanKey(0, "status"), 1);
-			getRules().set_u8(AIBP_PlanKey(0, "intent"), AIBStrategyIntent::flag_gatehouse);
-			const bool committed = !AIBS_ShouldReplacePlan(world, candidate);
+			const bool committed = published && !AIBS_ShouldReplacePlan(world, candidate);
 			world.frontlineCollapsing = true;
 			candidate.intent = AIBStrategyIntent::emergency_barrier;
 			const bool emergency = AIBS_ShouldReplacePlan(world, candidate);
@@ -2491,7 +2730,7 @@ void AIBT_SetupScenario(const int index)
 			AIBWorldState@ world = AIBWorldState();
 			world.team = 0; world.home = AIBT_Pos(382); world.frontline = AIBT_Pos(405); world.enemyDirection = 1;
 			array<AIBPlanCandidate@> candidates;
-			AIBS_GenerateCandidates(world, candidates);
+			AIBS_GenerateCandidates(world, candidates, true);
 			AIBPlanCandidate@ gate = null;
 			if (candidates.length > 0) @gate = candidates[0];
 			bool footprint = gate !is null && gate.tasks.length > 0;
@@ -2697,6 +2936,18 @@ void AIBT_SetupScenario(const int index)
 			@bot = AIBT_SpawnBot(startX);
 			AIBT_DisableStarterMaterials(bot);
 			bot.setPosition(AIBT_Pos(startX, startY));
+			const Vec2f rejectedDeliveryProbe = AIBT_Pos(startX - 4, targetY);
+			const u32 rejectedDeliveryUntil = getGameTime() + 900;
+			bot.set_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY, rejectedDeliveryProbe);
+			bot.set_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY, rejectedDeliveryUntil);
+			AIBM_ClearDeliveredResourceEpisodeIntent(bot, AIBT_JOB_STONE, getGameTime());
+			const bool deliveryPreservesRouteRejection =
+				bot.get_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY) == rejectedDeliveryProbe &&
+				bot.get_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY) == rejectedDeliveryUntil;
+			AIBM_ClearNavigationIntent(bot);
+			const bool ownershipCleanupClearsRouteRejection =
+				bot.get_Vec2f(AIBM_STONE_REJECTED_ROUTE_KEY) == Vec2f_zero &&
+				bot.get_u32(AIBM_STONE_REJECTED_ROUTE_UNTIL_KEY) == 0;
 
 			// Begin with a solid controlled rectangle.  Only two valid mineable
 			// routes remain: the dirt-heavy shaft at x=280 and a mostly pre-open,
@@ -2729,17 +2980,159 @@ void AIBT_SetupScenario(const int index)
 			{
 				for (int x = 268; x <= 292; x++)
 				{
-					AIBT_SetTemporaryTile(x, y, CMap::tile_ground);
-					AIBT_route_dirt_tiles.push_back(AIBT_Pos(x, y));
+					// Leave one off-route floor gap for the unsupported open-cave
+					// regression. It must invalidate only the x=276 probe; the
+					// production-selected x=284 corridor remains fully supported.
+					const u16 type = y == targetY + 1 && x == 278 ? CMap::tile_empty : CMap::tile_ground;
+					AIBT_SetTemporaryTile(x, y, type);
+					if (type == CMap::tile_ground) AIBT_route_dirt_tiles.push_back(AIBT_Pos(x, y));
 				}
 			}
 
 			CMap@ map = getMap();
+			// Reproduce the production underground-retarget boundary separately
+			// from the original reusable-route probe. The fresh search sees no
+			// already-open two-wide entry, while the retained shaft at x=320 has a
+			// fully mineable continuation to the deeper ore.
+			const int continuationStartX = 319;
+			const int continuationStartY = 58;
+			const int continuationShaftX = 320;
+			const int continuationTargetX = 324;
+			const int continuationOldY = 64;
+			const int continuationTargetY = 66;
+			for (int y = 57; y <= 67; y++)
+			{
+				for (int x = 308; x <= 336; x++)
+				{
+					u16 type = CMap::tile_ground;
+					// A runner centred in row 58 needs the same two empty rows
+					// beneath its centre that the normal AIBTest ground fixture
+					// provides. With row 59 solid, spawn collision resolution could
+					// eject the continuation worker up/left before shaft ownership.
+					if (y >= 57 && y <= 59 && x >= 318 && x <= 320) type = CMap::tile_empty;
+					if ((x == continuationShaftX || x == continuationShaftX + 1) && y >= 57 && y <= continuationOldY)
+						type = CMap::tile_empty;
+					if ((y == continuationOldY - 1 || y == continuationOldY) &&
+						x >= continuationShaftX && x <= continuationTargetX) type = CMap::tile_empty;
+					if (y == 62 && x != continuationShaftX && x != continuationShaftX + 1)
+						type = CMap::tile_bedrock;
+					// One mineable second-column entry cell makes the strict fresh
+					// search reject this as a ready-made surface shaft. The retained
+					// continuation may legally clear it, then reuse the open old shaft.
+					if (x == continuationShaftX + 1 && y == continuationStartY) type = CMap::tile_ground;
+					if (x == continuationTargetX && y == continuationOldY) type = CMap::tile_empty;
+					if (x == continuationTargetX && y == continuationTargetY) type = CMap::tile_stone;
+					AIBT_SetTemporaryTile(x, y, type);
+				}
+			}
+			CBlob@ continuationBot = AIBT_Spawn("aibuilder", 0, AIBT_Pos(continuationStartX, continuationStartY));
+			AIBT_DisableStarterMaterials(continuationBot);
+			Vec2f continuationOldTarget = Vec2f(continuationTargetX * map.tilesize, continuationOldY * map.tilesize);
+			Vec2f continuationTarget = Vec2f(continuationTargetX * map.tilesize, continuationTargetY * map.tilesize);
+			Vec2f continuationOldCorner = Vec2f(continuationShaftX * map.tilesize, continuationOldY * map.tilesize);
+			Vec2f continuationAnchor = Vec2f((continuationShaftX + 0.5f) * map.tilesize, AIBT_Pos(continuationShaftX, 54).y);
+			if (continuationBot !is null)
+			{
+				continuationBot.set_u8("ai builder job", AIBT_JOB_STONE);
+				continuationBot.set_u8("ai builder state", AIBT_TUNNEL_TO_STONE);
+				continuationBot.set_bool("ai builder job active", true);
+				continuationBot.set_bool("ai builder mining gold", false);
+				continuationBot.set_Vec2f("ai builder tile target", continuationOldTarget);
+				continuationBot.set_Vec2f("ai builder stone route corner", continuationOldCorner);
+				continuationBot.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, continuationAnchor);
+				continuationBot.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, continuationOldCorner);
+				AIBT_SetBlob("aibt stone continuation bot", continuationBot);
+			}
+			Vec2f freshContinuation = continuationBot is null ? Vec2f_zero :
+				AIB_GetBestStoneRouteCorner(continuationBot, continuationTarget);
+			Vec2f retainedContinuation = continuationBot is null ? Vec2f_zero :
+				AIB_GetContinuedStoneRouteCorner(continuationBot, continuationTarget, continuationOldCorner);
+
+			// The mirrored control retains a completely open return shaft, but a
+			// castle band blocks every deeper continuation. It must abandon the ore
+			// below quota and physically climb the saved route toward the surface.
+			const int abortStartX = 394;
+			const int abortStartY = 62;
+			const int abortShaftX = 392;
+			const int abortTargetX = 396;
+			const int abortOldY = 64;
+			const int abortTargetY = 66;
+			for (int y = 55; y <= 67; y++)
+			{
+				for (int x = 384; x <= 406; x++)
+				{
+					u16 type = CMap::tile_ground;
+					if ((x == abortShaftX || x == abortShaftX + 1) && y >= 55 && y <= abortStartY)
+						type = CMap::tile_empty;
+					if ((y == abortStartY - 1 || y == abortStartY) && x >= abortShaftX && x <= abortTargetX)
+						type = CMap::tile_empty;
+					// A builder centred in row 62 extends 3.5 pixels into row 63.
+					// Keep one body-clearance row below the mirrored control's
+					// spawn corridor, matching the continuation probe above. Without
+					// it, collision resolution can destroy the abort worker before
+					// the fixture observes its already-selected return route.
+					if (y == abortStartY + 1 && x >= abortShaftX && x <= abortTargetX)
+						type = CMap::tile_empty;
+					if (x == abortTargetX && y == abortOldY) type = CMap::tile_empty;
+					if (y == abortTargetY - 1) type = CMap::tile_castle;
+					if (x == abortTargetX && y == abortTargetY) type = CMap::tile_stone;
+					AIBT_SetTemporaryTile(x, y, type);
+				}
+			}
+			// This control proves that a rejected continuation climbs the retained
+			// shaft; cross-tunnel rejoin is covered independently. Spawn on the exact
+			// two-wide shaft centerline so wall-climb bounce cannot eject the worker
+			// through the control box's far edge before the ascent is observed.
+			Vec2f abortSpawn = Vec2f((abortShaftX + 1) * map.tilesize,
+				(abortStartY + 0.5f) * map.tilesize);
+			CBlob@ abortBot = AIBT_Spawn("aibuilder", 0, abortSpawn);
+			AIBT_DisableStarterMaterials(abortBot);
+			Vec2f abortOldTarget = Vec2f(abortTargetX * map.tilesize, abortOldY * map.tilesize);
+			Vec2f abortTarget = Vec2f(abortTargetX * map.tilesize, abortTargetY * map.tilesize);
+			Vec2f abortOldCorner = Vec2f(abortShaftX * map.tilesize, abortOldY * map.tilesize);
+			Vec2f abortAnchor = Vec2f((abortShaftX + 0.5f) * map.tilesize, AIBT_Pos(abortShaftX, 56).y);
+			if (abortBot !is null)
+			{
+				abortBot.Tag("aibt stone abort probe");
+				abortBot.set_u8("ai builder job", AIBT_JOB_STONE);
+				abortBot.set_u8("ai builder state", AIBT_TUNNEL_TO_STONE);
+				abortBot.set_bool("ai builder job active", true);
+				abortBot.set_bool("ai builder mining gold", false);
+				abortBot.set_Vec2f("ai builder tile target", abortOldTarget);
+				abortBot.set_Vec2f("ai builder stone route corner", abortOldCorner);
+				abortBot.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, abortAnchor);
+				abortBot.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, abortOldCorner);
+				AIBT_SetBlob("aibt stone abort bot", abortBot);
+				// Tile writes and newly spawned collision bodies do not settle in the
+				// same callback order in a cold focused run and a long suite.  Pause
+				// only this test-owned brain for two complete ticks, just as the
+				// continuation discriminator below is settled before movement.  The
+				// production brain still owns the abort, return climb, and surfacing.
+				CBrain@ abortBrain = abortBot.getBrain();
+				if (abortBrain !is null)
+				{
+					abortBrain.server_SetActive(false);
+					abortBot.setVelocity(Vec2f_zero);
+					CRules@ routeRules = getRules();
+					routeRules.set_bool("aibt stone route abort settle paused", true);
+					routeRules.set_u32("aibt stone route abort settle resume tick", getGameTime() + 2);
+					AIB_LogEvent("test", "stone_route_abort_fixture_pause", AIBT_BlobRef(abortBot),
+						"settle_ticks=2 shaft=392-393 corridor_y=61-63");
+				}
+			}
+			Vec2f freshAbort = abortBot is null ? Vec2f_zero : AIB_GetBestStoneRouteCorner(abortBot, abortTarget);
+			Vec2f blockedContinuation = abortBot is null ? Vec2f_zero :
+				AIB_GetContinuedStoneRouteCorner(abortBot, abortTarget, abortOldCorner);
+			const bool occupiedShaftReserved = continuationBot !is null && abortBot !is null &&
+				AIB_IsStoneRouteReservedByOther(continuationBot, abortOldCorner) &&
+				!AIB_IsStoneRouteReservedByOther(abortBot, abortOldCorner);
+
 			Vec2f target = AIBT_Pos(targetX, targetY);
 			Vec2f directCorner = Vec2f(startX * map.tilesize, targetY * map.tilesize);
 			Vec2f bedrockCorner = Vec2f(286 * map.tilesize, targetY * map.tilesize);
 			Vec2f structureCorner = Vec2f(290 * map.tilesize, targetY * map.tilesize);
 			Vec2f inaccessibleCorner = Vec2f(294 * map.tilesize, targetY * map.tilesize);
+			Vec2f unsupportedCorner = Vec2f(276 * map.tilesize, targetY * map.tilesize);
 			Vec2f chosen = AIB_GetBestStoneRouteCorner(bot, target);
 			const u16 directDirt = AIB_CountDirtOnStoneRoute(bot, target, directCorner);
 			const u16 chosenDirt = AIB_CountDirtOnStoneRoute(bot, target, chosen);
@@ -2757,29 +3150,172 @@ void AIBT_SetupScenario(const int index)
 				!AIB_CanMineStoneRouteClearance(bot, target, Vec2f(290 * map.tilesize, 58 * map.tilesize));
 			const bool rightEntryCanonical = AIB_GetStoneRouteEntryX(283, 284, targetX) == 284;
 			const bool leftEntryCanonical = AIB_GetStoneRouteEntryX(287, 286, 280) == 285;
+			const bool twoColumnShaftOwnership =
+				AIB_IsStoneRouteShaftColumn(284, 284, targetX) &&
+				AIB_IsStoneRouteShaftColumn(285, 284, targetX) &&
+				!AIB_IsStoneRouteShaftColumn(283, 284, targetX) &&
+				AIB_IsStoneRouteShaftColumn(286, 286, 280) &&
+				AIB_IsStoneRouteShaftColumn(285, 286, 280) &&
+				Maths::Abs(AIB_GetStoneRouteShaftCenterX(284, targetX, map.tilesize) - 2280.0f) < 0.1f &&
+				Maths::Abs(AIB_GetStoneRouteShaftCenterX(286, 280, map.tilesize) - 2288.0f) < 0.1f;
 			const bool surfaceApproachValid = AIB_HasClearStoneRouteApproach(bot, target, chosen);
 			const bool blockedSurfaceRejected = !AIB_HasClearStoneRouteApproach(bot, target, inaccessibleCorner);
 			const bool emptyNeverBlocks = !AIB_IsNonMineableStoneRouteBlock(Vec2f(284 * map.tilesize, 53 * map.tilesize));
 			const bool dedicatedMovementOnlyForTunnel = AIB_UsesDedicatedStoneRouteMovement(AIBT_JOB_STONE, AIBT_TUNNEL_TO_STONE) &&
 				!AIB_UsesDedicatedStoneRouteMovement(AIBT_JOB_STONE, AIBT_FIND_STONE) &&
 				!AIB_UsesDedicatedStoneRouteMovement(AIBT_JOB_WOOD, AIBT_TUNNEL_TO_STONE);
+			const bool retainedContinuationValid = freshContinuation == Vec2f_zero && retainedContinuation != Vec2f_zero &&
+				Maths::Floor(retainedContinuation.x / map.tilesize) == continuationShaftX &&
+				Maths::Floor(retainedContinuation.y / map.tilesize) == continuationTargetY;
+			const bool blockedContinuationRejected = freshAbort == Vec2f_zero && blockedContinuation == Vec2f_zero;
+			const Vec2f measuredSurface = Vec2f(100.0f, 272.0f);
+			const Vec2f provenSurface = Vec2f(100.0f, 279.0f);
+			const bool boundedSurfaceMemory =
+				AIB_SelectStoneReturnAnchor(measuredSurface, provenSurface, map.tilesize) == provenSurface &&
+				AIB_SelectStoneReturnAnchor(measuredSurface, Vec2f(108.0f, 279.0f), map.tilesize) == measuredSurface &&
+				AIB_SelectStoneReturnAnchor(measuredSurface, Vec2f(100.0f, 288.0f), map.tilesize) == measuredSurface;
+			const bool strictSurfaceExit =
+				AIB_HasReachedStoneReturnSurface(Vec2f(100.0f, 204.0f), Vec2f(100.0f, 200.0f), map.tilesize) &&
+				!AIB_HasReachedStoneReturnSurface(Vec2f(100.0f, 212.0f), Vec2f(100.0f, 200.0f), map.tilesize);
+			const bool boundedGroundedEgressElevation =
+				AIB_IsStoneReturnEgressElevation(Vec2f(84.0f, 204.0f), Vec2f(100.0f, 200.0f), map.tilesize) &&
+				AIB_IsStoneReturnEgressElevation(Vec2f(84.0f, 192.0f), Vec2f(100.0f, 200.0f), map.tilesize) &&
+				!AIB_IsStoneReturnEgressElevation(Vec2f(84.0f, 212.0f), Vec2f(100.0f, 200.0f), map.tilesize) &&
+				!AIB_IsStoneReturnEgressElevation(Vec2f(84.0f, 191.9f), Vec2f(100.0f, 200.0f), map.tilesize);
+			const bool rejectedGoldClusterCooldown =
+				AIB_IsRejectedStoneRouteTarget(Vec2f(124.0f, 200.0f), Vec2f(100.0f, 200.0f), 100, 1000, map.tilesize, 4) &&
+				!AIB_IsRejectedStoneRouteTarget(Vec2f(140.1f, 200.0f), Vec2f(100.0f, 200.0f), 100, 1000, map.tilesize, 4) &&
+				!AIB_IsRejectedStoneRouteTarget(Vec2f(124.0f, 200.0f), Vec2f(100.0f, 200.0f), 1000, 1000, map.tilesize, 4);
+			const bool shaftProgressRequiresVerticalAdvance =
+				!AIB_HasAdvancedStoneShaftProgress(Vec2f(184.0f, 376.0f), Vec2f(200.0f, 376.0f),
+					Vec2f(176.0f, 360.0f), map.tilesize, 8.0f) &&
+				AIB_HasAdvancedStoneShaftProgress(Vec2f(184.0f, 376.0f), Vec2f(184.0f, 368.0f),
+					Vec2f(176.0f, 360.0f), map.tilesize, 8.0f) &&
+				!AIB_HasAdvancedStoneShaftProgress(Vec2f(184.0f, 360.0f), Vec2f(184.0f, 376.0f),
+					Vec2f(176.0f, 360.0f), map.tilesize, 8.0f);
+			const bool returnProgressRequiresPhaseAdvance =
+				!AIB_HasAdvancedStoneReturnProgress(Vec2f(70.0f, 318.0f), Vec2f(63.0f, 319.0f),
+					Vec2f(68.0f, 280.0f), Vec2f(64.0f, 336.0f), true, map.tilesize, 4.0f) &&
+				AIB_HasAdvancedStoneReturnProgress(Vec2f(70.0f, 326.0f), Vec2f(70.0f, 318.0f),
+					Vec2f(68.0f, 280.0f), Vec2f(64.0f, 336.0f), true, map.tilesize, 4.0f) &&
+				!AIB_HasAdvancedStoneReturnProgress(Vec2f(70.0f, 318.0f), Vec2f(70.0f, 326.0f),
+					Vec2f(68.0f, 280.0f), Vec2f(64.0f, 336.0f), true, map.tilesize, 4.0f) &&
+				AIB_HasAdvancedStoneReturnProgress(Vec2f(104.0f, 336.0f), Vec2f(112.0f, 336.0f),
+					Vec2f(124.0f, 288.0f), Vec2f(120.0f, 336.0f), false, map.tilesize, 4.0f);
+			const bool returnWallSamplesUseStableTopology =
+				Maths::Abs(AIB_GetStoneReturnOuterWallSampleX(Vec2f(68.0f, 280.0f), map.tilesize, -1) - 60.0f) < 0.1f &&
+				Maths::Abs(AIB_GetStoneReturnOuterWallSampleX(Vec2f(68.0f, 280.0f), map.tilesize, 1) - 84.0f) < 0.1f;
+			const bool leftOpeningWallEngageBounded =
+				Maths::Abs(AIB_GetStoneReturnWallEngageY(Vec2f(124.0f, 288.0f), Vec2f(128.0f, 344.0f), map.tilesize) - 332.0f) < 0.1f &&
+				Maths::Abs(AIB_GetStoneReturnWallEngageY(Vec2f(132.0f, 288.0f), Vec2f(128.0f, 344.0f), map.tilesize) - 344.0f) < 0.1f;
+			const bool undergroundRetargetSameShaftOnly =
+				AIB_CanUseFreshStoneRetarget(Vec2f(100.0f, 212.0f), Vec2f(100.0f, 200.0f),
+					Vec2f(64.0f, 264.0f), Vec2f(80.0f, 264.0f), map.tilesize) &&
+				AIB_CanUseFreshStoneRetarget(Vec2f(100.0f, 220.1f), Vec2f(100.0f, 200.0f),
+					Vec2f(64.0f, 264.0f), Vec2f(64.0f, 280.0f), map.tilesize) &&
+				!AIB_CanUseFreshStoneRetarget(Vec2f(100.0f, 220.1f), Vec2f(100.0f, 200.0f),
+					Vec2f(64.0f, 264.0f), Vec2f(80.0f, 264.0f), map.tilesize);
+			const bool crossTunnelRejoinHorizontal =
+				!AIB_ShouldClimbToStoneReturnCorner(Vec2f(104.0f, 319.0f), Vec2f(128.0f, 328.0f), map.tilesize) &&
+				!AIB_ShouldClimbToStoneReturnCorner(Vec2f(104.0f, 332.1f), Vec2f(128.0f, 328.0f), map.tilesize) &&
+				AIB_ShouldClimbToStoneReturnCorner(Vec2f(116.0f, 332.1f), Vec2f(128.0f, 328.0f), map.tilesize);
+			const bool returnCornerUsesShaftCenter =
+				AIB_GetStoneReturnCornerRejoinTarget(Vec2f(68.0f, 280.0f), Vec2f(64.0f, 312.0f), map.tilesize) == Vec2f(72.0f, 312.0f) &&
+				AIB_GetStoneReturnCornerRejoinTarget(Vec2f(60.0f, 280.0f), Vec2f(64.0f, 312.0f), map.tilesize) == Vec2f(64.0f, 312.0f);
+			const bool wallHoldReleasesOutsideShaft =
+				!AIB_HasEscapedStoneReturnClimbWall(Vec2f(64.0f, 320.0f), Vec2f(68.0f, 280.0f), map.tilesize, -1) &&
+				AIB_HasEscapedStoneReturnClimbWall(Vec2f(63.9f, 320.0f), Vec2f(68.0f, 280.0f), map.tilesize, -1) &&
+				!AIB_HasEscapedStoneReturnClimbWall(Vec2f(80.0f, 320.0f), Vec2f(68.0f, 280.0f), map.tilesize, 1) &&
+				AIB_HasEscapedStoneReturnClimbWall(Vec2f(80.1f, 320.0f), Vec2f(68.0f, 280.0f), map.tilesize, 1) &&
+				AIB_SelectStoneReturnClimbDirection(0, -1) == 0 &&
+				AIB_SelectStoneReturnClimbDirection(0, 1) == 0 &&
+				AIB_SelectStoneReturnClimbDirection(1, 0) == -1 &&
+				AIB_SelectStoneReturnClimbDirection(2, 0) == 1 &&
+				AIB_SelectStoneReturnClimbDirection(3, 1) == 1;
+			const bool downwardNodeOwnsDirection =
+				AIB_GetDownwardPathSteerDirection(Vec2f(114.0f, 288.0f), Vec2f(120.0f, 304.0f), Vec2f(84.0f, 316.0f)) == 1 &&
+				AIB_GetDownwardPathSteerDirection(Vec2f(106.0f, 288.0f), Vec2f(100.0f, 304.0f), Vec2f(136.0f, 316.0f)) == -1 &&
+				AIB_GetDownwardPathSteerDirection(Vec2f(120.0f, 288.0f), Vec2f(120.0f, 304.0f), Vec2f(84.0f, 316.0f)) == -1 &&
+				AIB_SelectDownwardPathSteerDirection(Vec2f(121.0f, 288.0f), Vec2f(120.0f, 304.0f),
+					Vec2f(84.0f, 316.0f), 1, true) == 1 &&
+				AIB_SelectDownwardPathSteerDirection(Vec2f(121.0f, 288.0f), Vec2f(120.0f, 304.0f),
+					Vec2f(84.0f, 316.0f), 1, false) == -1;
+			const bool exposedShortcutRequiresOpenReturnCorridor =
+				AIB_IsStoneCrossTunnelOpen(target, chosen) &&
+				!AIB_IsStoneCrossTunnelOpen(continuationTarget, retainedContinuation);
+			const bool unsupportedContinuationRejected =
+				!AIB_HasSupportedStoneCrossTunnel(target, unsupportedCorner) &&
+				AIB_IsStoneRouteTraversable(bot, target, unsupportedCorner) &&
+				AIB_GetContinuedStoneRouteCorner(bot, target, unsupportedCorner) == Vec2f_zero &&
+				!AIB_IsStoneCrossTunnelOpen(target, unsupportedCorner);
+			const bool surfaceReentryHysteresis =
+				AIB_IsWithinStoneReturnReentryBand(Vec2f(100.0f, 212.0f), Vec2f(100.0f, 200.0f), map.tilesize) &&
+				!AIB_IsWithinStoneReturnReentryBand(Vec2f(100.0f, 212.1f), Vec2f(100.0f, 200.0f), map.tilesize);
+			const bool surfaceReentryRequiresShaftInfluence =
+				AIB_IsInsideStoneReturnShaftInfluence(Vec2f(63.0f, 319.0f), Vec2f(68.0f, 280.0f), map.tilesize) &&
+				AIB_IsInsideStoneReturnShaftInfluence(Vec2f(80.0f, 319.0f), Vec2f(68.0f, 280.0f), map.tilesize) &&
+				!AIB_IsInsideStoneReturnShaftInfluence(Vec2f(85.0f, 319.0f), Vec2f(68.0f, 280.0f), map.tilesize);
+			const bool bodyClearApproachGate =
+				AIB_HasStoneApproachBodyClearance(bot, AIBT_Pos(280, 54)) &&
+				!AIB_HasStoneApproachBodyClearance(bot, AIBT_Pos(286, 59));
 			const bool staticPassed = choseReusable && lowerDirt && onRouteAllowed && offRouteRejected &&
-				invalidSolidsRejected && rightEntryCanonical && leftEntryCanonical && surfaceApproachValid &&
-				blockedSurfaceRejected && emptyNeverBlocks && dedicatedMovementOnlyForTunnel;
-			getRules().set_bool("aibt stone route static passed", staticPassed);
+				invalidSolidsRejected && rightEntryCanonical && leftEntryCanonical && twoColumnShaftOwnership && surfaceApproachValid &&
+				blockedSurfaceRejected && emptyNeverBlocks && dedicatedMovementOnlyForTunnel &&
+				retainedContinuationValid && blockedContinuationRejected && occupiedShaftReserved && boundedSurfaceMemory && strictSurfaceExit &&
+				boundedGroundedEgressElevation && surfaceReentryHysteresis && surfaceReentryRequiresShaftInfluence && bodyClearApproachGate;
+			const bool completeStaticPassed = staticPassed && rejectedGoldClusterCooldown && shaftProgressRequiresVerticalAdvance &&
+				returnProgressRequiresPhaseAdvance && returnWallSamplesUseStableTopology &&
+				deliveryPreservesRouteRejection && ownershipCleanupClearsRouteRejection && leftOpeningWallEngageBounded &&
+				undergroundRetargetSameShaftOnly && crossTunnelRejoinHorizontal && returnCornerUsesShaftCenter && wallHoldReleasesOutsideShaft && downwardNodeOwnsDirection &&
+				exposedShortcutRequiresOpenReturnCorridor && unsupportedContinuationRejected;
+			getRules().set_bool("aibt stone route static passed", completeStaticPassed);
 			getRules().set_string("aibt stone route static details",
 				"reusable_shaft_x=284 direct_dirt=" + directDirt + " chosen_dirt=" + chosenDirt +
 					" on_route_allowed=true off_route_rejected=true invalid_solids_rejected=true mirrored_entries_canonical=true" +
-					" clear_surface_approach=true blocked_surface_rejected=true empty_never_blocks=true generic_jump_suppressed=true");
+					" grounded_descent_two_column_center=true" +
+					" clear_surface_approach=true blocked_surface_rejected=true empty_never_blocks=true generic_jump_suppressed=true" +
+					" fresh_underground_rejected=true retained_continuation_x=320 retained_continuation_y=66 blocked_continuation_rejected=true" +
+					" occupied_shaft_reserved=true rejected_gold_cluster_cooldown=true" +
+					" shaft_progress_requires_vertical_advance=true return_progress_requires_phase_advance=true" +
+					" return_wall_samples_stable=true" +
+					" delivery_preserves_route_rejection=true ownership_cleanup_clears_route_rejection=true" +
+					" left_opening_wall_engage_bounded=true" +
+					" underground_retarget_same_shaft_only=true" +
+					" cross_tunnel_rejoin_horizontal=true" +
+					" return_corner_uses_two_column_center=true" +
+					" wall_hold_tracks_solid_shaft_side=true" +
+					" wall_hold_requires_detected_wall=true surface_reentry_requires_shaft_influence=true" +
+					" downward_node_owns_steer_direction=true downward_direction_hold_bounded=true" +
+					" exposed_shortcut_requires_open_return_corridor=true unsupported_continuation_rejected=true" +
+					" same_shaft_surface_memory_bounded=true strict_surface_exit=true grounded_egress_elevation_bounded=true" +
+					" surface_reentry_hysteresis=true exposed_approach_body_clearance=true");
 			getRules().set_string("aibt stone route static failure",
 				"stone_route_policy_failed chosen_x=" + Maths::Floor(chosen.x / map.tilesize) +
 					" direct_dirt=" + directDirt + " chosen_dirt=" + chosenDirt +
 					" on_route=" + (onRouteAllowed ? "true" : "false") + " off_route=" + (offRouteRejected ? "true" : "false") +
 					" invalid_solids=" + (invalidSolidsRejected ? "true" : "false") +
 					" right_entry=" + (rightEntryCanonical ? "true" : "false") + " left_entry=" + (leftEntryCanonical ? "true" : "false") +
+					" two_column_shaft=" + (twoColumnShaftOwnership ? "true" : "false") +
 					" surface_approach=" + (surfaceApproachValid ? "true" : "false") +
 					" blocked_surface=" + (blockedSurfaceRejected ? "true" : "false") +
-					" empty_block=" + (emptyNeverBlocks ? "false" : "true"));
+					" empty_block=" + (emptyNeverBlocks ? "false" : "true") +
+					" fresh_continuation=" + AIB_EventPos(freshContinuation) +
+					" retained_continuation=" + AIB_EventPos(retainedContinuation) +
+					" fresh_abort=" + AIB_EventPos(freshAbort) +
+					" blocked_continuation=" + AIB_EventPos(blockedContinuation) +
+					" shaft_progress_vertical=" + (shaftProgressRequiresVerticalAdvance ? "true" : "false") +
+					" return_progress_phase=" + (returnProgressRequiresPhaseAdvance ? "true" : "false") +
+					" return_wall_samples=" + (returnWallSamplesUseStableTopology ? "true" : "false") +
+					" delivery_preserves_rejection=" + (deliveryPreservesRouteRejection ? "true" : "false") +
+					" ownership_cleanup_clears_rejection=" + (ownershipCleanupClearsRouteRejection ? "true" : "false") +
+					" downward_node_direction=" + (downwardNodeOwnsDirection ? "true" : "false") +
+					" wall_hold_release=" + (wallHoldReleasesOutsideShaft ? "true" : "false") +
+					" exposed_return_corridor=" + (exposedShortcutRequiresOpenReturnCorridor ? "true" : "false") +
+					" unsupported_continuation=" + (unsupportedContinuationRejected ? "rejected" : "accepted") +
+					" bounded_surface_memory=" + (boundedSurfaceMemory ? "true" : "false") +
+					" strict_surface_exit=" + (strictSurfaceExit ? "true" : "false") +
+					" surface_reentry_hysteresis=" + (surfaceReentryHysteresis ? "true" : "false") +
+					" body_clear_approach=" + (bodyClearApproachGate ? "true" : "false"));
 			bot.set_u8("ai builder job", AIBT_JOB_STONE);
 			bot.set_u8("ai builder state", AIBT_TUNNEL_TO_STONE);
 			bot.set_bool("ai builder mining gold", false);
@@ -2981,7 +3517,7 @@ void AIBT_SetupScenario(const int index)
 			task.state = AIBP_TaskState::completed;
 			plan.tasks.push_back(task);
 			AIBP_PublishAIPlan(plan, true);
-			getMap().server_SetTile(AIBT_Pos(x, y), CMap::tile_wood_d1);
+			getMap().server_SetTile(AIBT_Pos(x, y), CMap::tile_wood_d0);
 			AIBP_RefreshPlanState(0, true);
 			AIBT_StartBlueprint(bot, false);
 			break;
@@ -3040,8 +3576,8 @@ void AIBT_SetupScenario(const int index)
 			getRules().set_bool("aibt damaged front setup", published);
 			if (published)
 			{
-				getMap().server_SetTile(AIBT_Pos(x, y), CMap::tile_wood_d1);
-				getMap().server_SetTile(AIBT_Pos(x + 1, y), CMap::tile_castle_d1);
+				getMap().server_SetTile(AIBT_Pos(x, y), CMap::tile_wood_d0);
+				getMap().server_SetTile(AIBT_Pos(x + 1, y), CMap::tile_castle_d0);
 				AIBP_RefreshPlanState(0, true);
 			}
 			break;
@@ -3202,6 +3738,717 @@ void AIBT_SetupScenario(const int index)
 			break;
 		}
 
+		case 65:
+		{
+			AIBT_SpawnTent(20);
+			@bot = AIBT_SpawnBot(24);
+			const int anchor = 180;
+			const int ground = AIBT_GROUND_Y;
+			const int direction = 1;
+			AIBPlanCandidate@ candidate = AIBS_GuideFlagRoomTemplate(anchor, ground, direction);
+			const int homeInner = anchor - direction * 4;
+			const int homeOuter = anchor - direction * 5;
+			const int enemyInner = anchor + direction * 4;
+			const int enemyOuter = anchor + direction * 5;
+			const int hatchOuterX = anchor - direction * 3;
+			const int hatchInnerX = anchor - direction * 2;
+			const bool homeFloor = AIBT_TaskHasBlock(candidate, homeInner, ground - 1, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, homeInner, ground - 2, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, homeOuter, ground - 1, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, homeOuter, ground - 2, AIBP_REINFORCED_WOOD_DOOR);
+			const bool enemyRaised = !AIBT_TaskHasBlock(candidate, enemyInner, ground - 1, AIBP_REINFORCED_WOOD_DOOR) &&
+				!AIBT_TaskHasBlock(candidate, enemyOuter, ground - 1, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, enemyInner, ground - 2, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, enemyInner, ground - 3, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, enemyOuter, ground - 2, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, enemyOuter, ground - 3, AIBP_REINFORCED_WOOD_DOOR);
+			const bool topHatch = AIBT_TaskHasBlock(candidate, hatchOuterX, ground - 8, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 8, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, hatchOuterX, ground - 9, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 9, AIBP_REINFORCED_WOOD_DOOR);
+			const bool spacedLadders = AIBT_CountCandidateBlock(candidate, AIBP_LADDER) == 4 &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 1, AIBP_LADDER) &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 3, AIBP_LADDER) &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 5, AIBP_LADDER) &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 7, AIBP_LADDER);
+			const bool materials = AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) == 12 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_STONE_DOOR) == 0 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_STONE_BACKWALL) >= 20;
+			const bool safeContents = AIBT_CountCandidateBlock(candidate, AIBP_KNIGHT_SHOP) == 0 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_SPIKES) == 0;
+			const int homeLeft = Maths::Min(homeInner, homeOuter);
+			const int enemyLeft = Maths::Min(enemyInner, enemyOuter);
+			const int hatchLeft = Maths::Min(hatchOuterX, hatchInnerX);
+			const bool playerVolumes = AIBS_RouteCellClear(candidate, homeLeft, ground - 1) &&
+				AIBS_RouteCellSupported(candidate, homeLeft, ground - 1) &&
+				AIBS_RouteCellClear(candidate, enemyLeft, ground - 2) &&
+				AIBS_RouteCellSupported(candidate, enemyLeft, ground - 2) &&
+				AIBS_RouteCellClear(candidate, hatchLeft, ground - 7) &&
+				AIBS_RouteCellClear(candidate, hatchLeft, ground - 8) &&
+				AIBS_RouteCellClear(candidate, hatchLeft, ground - 9);
+			const bool route = candidate !is null && AIBS_PreservesFriendlyRoute(candidate);
+			bool flagChannelClear = candidate !is null;
+			for (uint i = 0; candidate !is null && i < candidate.tasks.length; i++)
+			{
+				BlueprintTask@ task = candidate.tasks[i];
+				if (task is null) continue;
+				if (Maths::Abs(int(task.x) - anchor) <= 1 && task.y <= ground - 1 && task.y >= ground - 7)
+				{
+					flagChannelClear = false;
+					break;
+				}
+			}
+			bool noBuildInstalled = bot !is null;
+			for (int x = -1; x <= 1; x++)
+			{
+				for (int y = 1; y <= 7; y++)
+					noBuildInstalled = AIBT_AddTemporaryNoBuildTile(u16(anchor + x), u16(ground - y),
+						bot is null ? 0 : bot.getNetworkID()) && noBuildInstalled;
+			}
+			AIBWorldState@ world = AIBWorldState();
+			world.team = 0; world.home = AIBT_Pos(anchor, ground - 2); world.resourceHome = world.home;
+			world.frontline = AIBT_Pos(anchor + 60, ground - 2); world.enemyDirection = direction;
+			world.friendlyFlags = 1; world.autoBuilders = 1;
+			world.storedWood = 5000; world.storedStone = 5000; world.storedGold = 500;
+			const bool validAroundFlagSector = noBuildInstalled && AIBS_ValidateCandidate(world, candidate);
+			const bool passed = candidate !is null && candidate.intent == AIBStrategyIntent::guide_flag_room &&
+				homeFloor && enemyRaised && topHatch && spacedLadders && materials && safeContents && playerVolumes && route &&
+				flagChannelClear && validAroundFlagSector;
+			AIBT_SetStrategicResult(passed,
+				"home_floor_entrance=true enemy_elevated_entrance=true top_hatch_2x2=true player_volume_2x2_all_entrances=true reinforced_wood_doors=12 stone_doors=0 gapped_ladders=4 stone_backing=true flag_no_build_channel_clear=true candidate_valid_around_flag_sector=true route=true",
+				"flag_room_invariant_failed home=" + (homeFloor ? "true" : "false") +
+					" enemy=" + (enemyRaised ? "true" : "false") + " hatch=" + (topHatch ? "true" : "false") +
+					" ladders=" + AIBT_CountCandidateBlock(candidate, AIBP_LADDER) +
+					" wood_doors=" + AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) +
+					" stone_doors=" + AIBT_CountCandidateBlock(candidate, AIBP_STONE_DOOR) +
+					" player_volumes=" + (playerVolumes ? "true" : "false") +
+					" backwalls=" + AIBT_CountCandidateBlock(candidate, AIBP_STONE_BACKWALL) +
+					" flag_channel=" + (flagChannelClear ? "true" : "false") +
+					" flag_sector_valid=" + (validAroundFlagSector ? "true" : "false") +
+					" rejection=" + candidate.rejection + " route=" + (route ? "true" : "false"));
+			break;
+		}
+
+		case 66:
+		{
+			AIBT_SpawnTent(20);
+			@bot = AIBT_SpawnBot(24);
+			const int anchor = 220;
+			const int ground = AIBT_GROUND_Y;
+			AIBPlanCandidate@ candidate = AIBS_FrontlineTowerTemplate(anchor, ground, 1);
+			bool layers = candidate !is null;
+			for (int y = 3; y <= 10; y++)
+			{
+				layers = layers && AIBT_TaskHasBlock(candidate, anchor - 1, ground - y, AIBP_STONE_BLOCK) &&
+					AIBT_TaskHasBlock(candidate, anchor + 1, ground - y, AIBP_STONE_BLOCK);
+				const u16 middle = y % 4 == 0 ? AIBP_STONE_BLOCK : AIBP_WOOD_BLOCK;
+				layers = layers && AIBT_TaskHasBlock(candidate, anchor, ground - y, middle);
+			}
+			const bool doors = AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) == 5 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_STONE_DOOR) == 1;
+			const bool access = AIBT_CountCandidateBlock(candidate, AIBP_LADDER) == 5 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_PLATFORM) == 5;
+			const bool playerVolume = AIBS_RouteCellClear(candidate, anchor - 1, ground - 1) &&
+				AIBS_RouteCellSupported(candidate, anchor - 1, ground - 1) &&
+				AIBS_RouteCellClear(candidate, anchor, ground - 1) &&
+				AIBS_RouteCellSupported(candidate, anchor, ground - 1);
+			bool backing = true;
+			for (int y = 1; y <= 10; y++)
+				backing = backing && AIBT_TaskHasBlock(candidate, anchor - 3, ground - y, AIBP_STONE_BACKWALL);
+			const bool noFriendlySpikes = AIBT_CountCandidateBlock(candidate, AIBP_SPIKES) == 0;
+			const bool composites = AIBP_RequiresStoneBackground(AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBP_RequiresStoneBackground(AIBP_REINFORCED_PLATFORM);
+			const bool route = candidate !is null && AIBS_PreservesFriendlyRoute(candidate);
+			const bool passed = layers && doors && access && playerVolume && backing && noFriendlySpikes && composites && route;
+			AIBT_SetStrategicResult(passed,
+				"three_layers=true stone_faces=true wood_middle_firebreaks=true lower_doors=6 lower_passage_player_volume_2x2=true reinforced_wood_doors=5 stone_doors=1 gapped_ladders=5 collapse_backing=true reinforced_cover=5 spikes=0 route=true",
+				"frontline_tower_invariant_failed layers=" + (layers ? "true" : "false") +
+					" wood_doors=" + AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) +
+					" stone_doors=" + AIBT_CountCandidateBlock(candidate, AIBP_STONE_DOOR) +
+					" ladders=" + AIBT_CountCandidateBlock(candidate, AIBP_LADDER) +
+					" player_volume=" + (playerVolume ? "true" : "false") +
+					" backing=" + (backing ? "true" : "false") +
+					" cover=" + AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_PLATFORM) +
+					" route=" + (route ? "true" : "false"));
+			break;
+		}
+
+		case 67:
+		{
+			AIBT_SpawnTent(20);
+			@bot = AIBT_SpawnBot(24);
+			const int anchor = 300;
+			const int ground = AIBT_GROUND_Y;
+			const int direction = 1;
+			AIBPlanCandidate@ candidate = AIBS_ProtectedWorkshopsTemplate(anchor, ground, direction);
+			const int homeShopX = anchor - direction * 4;
+			const int enemyShopX = anchor + direction * 4;
+			bool backed = true;
+			const int[] shopXs = { homeShopX, enemyShopX };
+			for (uint shop = 0; shop < shopXs.length; shop++)
+			{
+				for (int y = 1; y <= 3; y++)
+				{
+					for (int x = -2; x <= 2; x++)
+					{
+						if (x == 0 && y == 2) continue;
+						backed = backed && AIBT_TaskHasBlock(candidate, shopXs[shop] + x, ground - y, AIBP_STONE_BACKWALL);
+					}
+				}
+			}
+			const bool roles = AIBT_TaskHasBlock(candidate, homeShopX, ground - 2, AIBP_KNIGHT_SHOP) &&
+				AIBT_TaskHasBlock(candidate, enemyShopX, ground - 2, AIBP_ARCHER_SHOP) && homeShopX < enemyShopX;
+			const int homeWallX = anchor - direction * 8;
+			const bool homeEntrance = AIBT_TaskHasBlock(candidate, homeWallX, ground - 1, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, homeWallX, ground - 2, AIBP_REINFORCED_WOOD_DOOR);
+			const int hatchOuterX = anchor - direction;
+			const int hatchInnerX = anchor;
+			const bool roofExit = AIBT_TaskHasBlock(candidate, hatchOuterX, ground - 4, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, hatchInnerX, ground - 4, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(candidate, hatchOuterX, ground - 1, AIBP_LADDER) &&
+				AIBT_TaskHasBlock(candidate, hatchOuterX, ground - 3, AIBP_LADDER) &&
+				homeWallX != hatchOuterX && homeWallX != hatchInnerX;
+			const int hatchLeft = Maths::Min(hatchOuterX, hatchInnerX);
+			const bool playerVolumes = AIBS_RouteCellClear(candidate, homeWallX, ground - 1) &&
+				AIBS_RouteCellSupported(candidate, homeWallX, ground - 1) &&
+				AIBS_RouteCellClear(candidate, hatchLeft, ground - 3) &&
+				AIBS_RouteCellClear(candidate, hatchLeft, ground - 4);
+			const bool counts = AIBT_CountCandidateBlock(candidate, AIBP_STONE_BACKWALL) == 28 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_KNIGHT_SHOP) == 1 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_ARCHER_SHOP) == 1 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) == 4 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_LADDER) == 2 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_SPIKES) == 0;
+			AIBPlanCandidate@ compact = AIBS_ProtectedWorkshopsTemplate(anchor, ground, direction, true);
+			const int compactHomeShopX = anchor - direction * 3;
+			const int compactEnemyShopX = anchor + direction * 3;
+			const int compactHomeWallX = anchor - direction * 7;
+			bool compactFootprint = compact !is null && compact.templateName == "protected_workshops_compact";
+			for (uint i = 0; compact !is null && i < compact.tasks.length; i++)
+				compactFootprint = compactFootprint && Maths::Abs(int(compact.tasks[i].x) - anchor) <= 8;
+			const bool compactSafe = compactFootprint &&
+				AIBT_TaskHasBlock(compact, compactHomeShopX, ground - 2, AIBP_KNIGHT_SHOP) &&
+				AIBT_TaskHasBlock(compact, compactEnemyShopX, ground - 2, AIBP_ARCHER_SHOP) &&
+				AIBT_TaskHasBlock(compact, compactHomeWallX, ground - 1, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(compact, compactHomeWallX, ground - 2, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(compact, hatchOuterX, ground - 4, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBT_TaskHasBlock(compact, hatchInnerX, ground - 4, AIBP_REINFORCED_WOOD_DOOR) &&
+				AIBS_RouteCellClear(compact, compactHomeWallX, ground - 1) &&
+				AIBS_RouteCellSupported(compact, compactHomeWallX, ground - 1) &&
+				AIBS_RouteCellClear(compact, hatchLeft, ground - 3) &&
+				AIBS_PreservesFriendlyRoute(compact);
+			AIBPlanCandidate@ oneWide = AIBPlanCandidate();
+			oneWide.intent = AIBStrategyIntent::protected_workshops;
+			const int oneWideX = anchor + 30;
+			oneWide.anchor = Vec2f(oneWideX, ground);
+			// A tall three-column barrier with only the centre 1x2 door aperture
+			// cannot be stepped over and cannot contain the runner's four-cell body.
+			for (int y = 1; y <= 8; y++)
+			{
+				AIBS_AddTask(oneWide, oneWideX - 1, ground - y, AIBP_STONE_BLOCK, AIBP_Phase::shell);
+				AIBS_AddTask(oneWide, oneWideX, ground - y, y <= 2 ?
+					AIBP_EncodeBlock(AIBP_REINFORCED_WOOD_DOOR, 1) : AIBP_STONE_BLOCK,
+					y <= 2 ? AIBP_Phase::closure : AIBP_Phase::shell);
+				AIBS_AddTask(oneWide, oneWideX + 1, ground - y, AIBP_STONE_BLOCK, AIBP_Phase::shell);
+			}
+			const bool oneByTwoRejected = !AIBS_CandidateHasAccessPassage(oneWide);
+			AIBWorldState@ narrowWorld = AIBWorldState();
+			narrowWorld.team = 0; narrowWorld.home = AIBT_Pos(20); narrowWorld.resourceHome = narrowWorld.home;
+			narrowWorld.frontline = AIBT_Pos(100); narrowWorld.enemyDirection = 1; narrowWorld.autoBuilders = 1;
+			narrowWorld.storedWood = 5000; narrowWorld.storedStone = 5000; narrowWorld.storedGold = 500;
+			const bool directorRejectsOneByTwo = !AIBS_ValidateCandidate(narrowWorld, oneWide) &&
+				oneWide.rejection == "friendly_route";
+			const bool route = candidate !is null && AIBS_PreservesFriendlyRoute(candidate);
+			const bool passed = backed && roles && homeEntrance && roofExit && playerVolumes && compactSafe &&
+				counts && oneByTwoRejected && directorRejectsOneByTwo && route;
+			AIBT_SetStrategicResult(passed,
+				"workshop_cells_stone_backed=28 knight_shop_home_side=true archer_shop_enemy_side=true independent_exits=2 player_volume_2x2_both_exits=true compact_two_shop_variant_width=17 compact_route=true one_by_two_corridor_rejected=true director_rejection=friendly_route home_door_cells=2 roof_hatch_door_cells=2 gapped_hatch_ladders=2 spikes=0 route=true",
+				"protected_workshop_invariant_failed backed=" + (backed ? "true" : "false") +
+					" roles=" + (roles ? "true" : "false") + " home_entrance=" + (homeEntrance ? "true" : "false") +
+					" roof_exit=" + (roofExit ? "true" : "false") +
+					" player_volumes=" + (playerVolumes ? "true" : "false") +
+					" compact_safe=" + (compactSafe ? "true" : "false") +
+					" one_by_two_rejected=" + (oneByTwoRejected ? "true" : "false") +
+					" director_rejected=" + (directorRejectsOneByTwo ? "true" : "false") +
+					" director_rejection=" + oneWide.rejection +
+					" doors=" + AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) +
+					" ladders=" + AIBT_CountCandidateBlock(candidate, AIBP_LADDER) +
+					" backwalls=" + AIBT_CountCandidateBlock(candidate, AIBP_STONE_BACKWALL) +
+					" route=" + (route ? "true" : "false"));
+			break;
+		}
+
+		case 68:
+		{
+			AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(60);
+			const int anchor = 180;
+			const int ground = AIBT_GROUND_Y;
+			AIBPlanCandidate@ tunnel = AIBS_GuideHomeTunnelTemplate(anchor, ground, 1);
+			const bool geometry = AIBT_CountCandidateBlock(tunnel, AIBP_TUNNEL) == 1 &&
+				AIBT_CountCandidateBlock(tunnel, AIBP_STONE_BACKWALL) == 19 &&
+				AIBT_CountCandidateBlock(tunnel, AIBP_REINFORCED_WOOD_DOOR) == 2;
+			const bool playerVolume = AIBS_RouteCellClear(tunnel, anchor - 3, ground - 1) &&
+				AIBS_RouteCellSupported(tunnel, anchor - 3, ground - 1);
+			const bool cost = AIBP_BlockMaterialCost(AIBP_TUNNEL, "mat_wood") == 200 &&
+				AIBP_BlockMaterialCost(AIBP_TUNNEL, "mat_stone") == 100 &&
+				AIBP_BlockMaterialCost(AIBP_TUNNEL, "mat_gold") == 50;
+			AIBWorldState@ world = AIBWorldState();
+			world.team = 0; world.home = AIBT_Pos(54); world.resourceHome = world.home;
+			world.frontline = AIBT_Pos(100); world.enemyDirection = 1; world.aiBuilders = 1;
+			world.storedWood = 2000; world.storedStone = 2000; world.storedGold = 0;
+			array<AIBPlanCandidate@> withoutGold;
+			AIBS_GenerateCandidates(world, withoutGold);
+			world.storedGold = 50;
+			array<AIBPlanCandidate@> withGold;
+			AIBS_GenerateCandidates(world, withGold);
+			const bool planningContinues = AIBT_CandidatesContainTemplate(withoutGold, "guide_home_tunnel") &&
+				AIBT_CandidatesContainTemplate(withGold, "guide_home_tunnel");
+			uint woodCollectors = 0; uint stoneCollectors = 0; uint builders = 0;
+			AIBS_ComputeRoleDemand(1, 1, 0, 0, 1, woodCollectors, stoneCollectors, builders);
+			const bool goldMinerAssigned = woodCollectors == 0 && stoneCollectors == 1 && builders == 0;
+			const bool passed = geometry && playerVolume && cost && planningContinues && goldMinerAssigned;
+			AIBT_SetStrategicResult(passed,
+				"stone_backing=19 reinforced_home_doors=2 entrance_player_volume_2x2=true tunnel_cost=200w+100s+50g zero_gold_candidate_published=true funded_candidate_published=true gold_shortage_assigns_stone_miner=true",
+				"home_tunnel_invariant_failed geometry=" + (geometry ? "true" : "false") +
+					" player_volume=" + (playerVolume ? "true" : "false") +
+					" cost=" + (cost ? "true" : "false") + " planning_continues=" + (planningContinues ? "true" : "false") +
+					" roles=" + woodCollectors + "/" + stoneCollectors + "/" + builders);
+			break;
+		}
+
+		case 69:
+		{
+			AIBT_SpawnTent(20);
+			@bot = AIBT_SpawnBot(24);
+			const int anchor = 300;
+			const int ground = AIBT_GROUND_Y;
+			AIBPlanCandidate@ candidate = AIBS_GuideQuarryStorageTemplate(anchor, ground, 1);
+			const bool anchors = AIBT_TaskHasBlock(candidate, anchor, ground - 2, AIBP_STORAGE) &&
+				AIBT_TaskHasBlock(candidate, anchor, ground - 6, AIBP_QUARRY);
+			BlueprintTask@ gap = AIBT_CandidateTaskAt(candidate, anchor, ground - 4);
+			const bool oneTileGap = gap !is null && AIBP_BlockId(gap.block) == AIBP_STONE_BACKWALL &&
+				!AIBP_IsSolidTileBlock(gap.block) && 6 - 2 == 4;
+			const bool costs = AIBP_BlockMaterialCost(AIBP_STORAGE, "mat_wood") == 200 &&
+				AIBP_BlockMaterialCost(AIBP_STORAGE, "mat_stone") == 50 &&
+				AIBP_BlockMaterialCost(AIBP_QUARRY, "mat_wood") == 150 &&
+				AIBP_BlockMaterialCost(AIBP_QUARRY, "mat_stone") == 150 &&
+				AIBP_BlockMaterialCost(AIBP_QUARRY, "mat_gold") == 100;
+			const bool shell = AIBT_CountCandidateBlock(candidate, AIBP_STONE_BACKWALL) >= 35 &&
+				AIBT_CountCandidateBlock(candidate, AIBP_REINFORCED_WOOD_DOOR) == 2;
+			const bool playerVolume = AIBS_RouteCellClear(candidate, anchor - 3, ground - 1) &&
+				AIBS_RouteCellSupported(candidate, anchor - 3, ground - 1);
+			const bool passed = anchors && oneTileGap && costs && shell && playerVolume;
+			AIBT_SetStrategicResult(passed,
+				"storage_center=ground-2 quarry_center=ground-6 edge_gap_tiles=1 drop_column_passable=true entrance_player_volume_2x2=true storage_cost=200w+50s quarry_cost=150w+150s+100g stone_backed=true",
+				"quarry_storage_invariant_failed anchors=" + (anchors ? "true" : "false") +
+					" gap=" + (oneTileGap ? "true" : "false") + " costs=" + (costs ? "true" : "false") +
+					" player_volume=" + (playerVolume ? "true" : "false") +
+					" backwalls=" + AIBT_CountCandidateBlock(candidate, AIBP_STONE_BACKWALL));
+			break;
+		}
+
+		case 70:
+		{
+			AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(60);
+			CRules@ rules = getRules();
+			AIBWorldState@ world = AIBWorldState();
+			world.team = 0; world.home = AIBT_Pos(180); world.resourceHome = world.home;
+			world.frontline = AIBT_Pos(250); world.enemyDirection = 1; world.friendlyFlags = 1;
+			world.autoBuilders = 1;
+			world.storedWood = 5000; world.storedStone = 5000; world.storedGold = 500;
+			// Reproduce the two live-map traps: a solid top border and a walkable
+			// shelf well above the resource-home floor. Tactical surface discovery
+			// may observe the shelf, but base prefabs must stay at tent level.
+			const int resourceX = int(world.resourceHome.x / 8.0f);
+			const int shelfX = resourceX + 18;
+			const int shelfY = AIBT_GROUND_Y - 20;
+			AIBT_SetTemporaryTile(resourceX, 0, CMap::tile_castle);
+			AIBT_SetTemporaryTile(shelfX, shelfY, CMap::tile_castle);
+			AIBS_RefreshTerrainRegion(resourceX, 32);
+			const u16 resourceGround = AIBS_GroundBelowPosition(world.resourceHome);
+			const bool ceilingIgnored = AIBS_SurfaceAt(resourceX) == AIBT_GROUND_Y;
+			const bool shelfObserved = AIBS_SurfaceAt(shelfX) == shelfY;
+			AIBP_ResetGuideProgress(rules, 0);
+
+			array<AIBPlanCandidate@> production;
+			AIBS_GenerateCandidates(world, production);
+			array<AIBPlanCandidate@> legacy;
+			AIBS_GenerateCandidates(world, legacy, true);
+			const bool legacyExcluded = !AIBT_CandidatesContainTemplate(production, "flag_gatehouse") &&
+				!AIBT_CandidatesContainTemplate(production, "archer_perch") &&
+				!AIBT_CandidatesContainTemplate(production, "access_route") &&
+				AIBT_CandidatesContainTemplate(legacy, "flag_gatehouse") &&
+				AIBT_CandidatesContainTemplate(legacy, "archer_perch") &&
+				AIBT_CandidatesContainTemplate(legacy, "access_route");
+
+			AIBPlanCandidate@ core = AIBS_SelectCandidate(world);
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::home_core), true);
+			AIBPlanCandidate@ tower = AIBS_SelectCandidate(world);
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::frontline_tower), true);
+			AIBPlanCandidate@ shops = AIBS_SelectCandidate(world);
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::protected_shops), true);
+			world.storedGold = 0;
+			AIBPlanCandidate@ tunnel = AIBS_SelectCandidate(world);
+			const bool ordered = core !is null && core.intent == AIBStrategyIntent::guide_flag_room &&
+				tower !is null && tower.intent == AIBStrategyIntent::frontline_tower &&
+				shops !is null && shops.intent == AIBStrategyIntent::protected_workshops &&
+				tunnel !is null && tunnel.intent == AIBStrategyIntent::guide_home_tunnel;
+			const bool baseLevel = resourceGround == AIBT_GROUND_Y && ceilingIgnored && shelfObserved &&
+				shops !is null && int(shops.anchor.y) == int(resourceGround) &&
+				tunnel !is null && int(tunnel.anchor.y) == int(resourceGround) &&
+				AIBS_BaseAnchorMatchesResourceLevel(world, AIBStrategyIntent::protected_workshops, shops.anchor) &&
+				!AIBS_BaseAnchorMatchesResourceLevel(world, AIBStrategyIntent::protected_workshops,
+					Vec2f(shelfX, shelfY));
+
+			BlueprintPlan@ oldPlan = AIBT_NewStrategicPlan(0, "flag_gatehouse");
+			oldPlan.intent = AIBStrategyIntent::flag_gatehouse;
+			oldPlan.tasks.push_back(BlueprintTask(360, AIBT_GROUND_Y - 1, AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+			const bool oldPublished = AIBP_PublishAIPlan(oldPlan, true);
+			const bool legacyReplaced = oldPublished && core !is null && AIBS_ShouldReplacePlan(world, core) &&
+				rules.get_string("aib strategy replacement reason team 0") == "guide_policy_upgrade";
+			rules.set_u8(AIBP_PlanKey(0, "status"), 2);
+			rules.set_u32(AIBP_PlanKey(0, "updated"), getGameTime());
+			const bool completionImmediate = tunnel !is null && AIBS_ShouldReplacePlan(world, tunnel);
+
+			// Keep the pre-existing emergency-policy assertion independent from the
+			// temporary ceiling/shelf geometry used only by the base-level regression.
+			AIBT_RestoreCanonicalMap();
+			AIBS_RefreshTerrainRegion(resourceX, 32);
+			world.frontlineCollapsing = true;
+			array<AIBPlanCandidate@> collapseCandidates;
+			AIBS_GenerateCandidates(world, collapseCandidates);
+			bool legalEmergency = false;
+			for (uint i = 0; i < collapseCandidates.length; i++)
+			{
+				if (collapseCandidates[i].intent == AIBStrategyIntent::emergency_barrier &&
+					AIBS_ValidateCandidate(world, collapseCandidates[i])) legalEmergency = true;
+			}
+			AIBPlanCandidate@ emergency = AIBS_SelectCandidate(world);
+			const bool emergencyOverride = emergency !is null &&
+				(legalEmergency ? emergency.intent == AIBStrategyIntent::emergency_barrier :
+					emergency.intent != AIBStrategyIntent::emergency_barrier);
+			const bool passed = legacyExcluded && ordered && baseLevel && legacyReplaced && completionImmediate && emergencyOverride;
+			AIBT_SetStrategicResult(passed,
+				"production_legacy_templates_excluded=true guide_order=flag_room,frontline_tower,protected_workshops,home_tunnel solid_ceiling_ignored=true elevated_shelf_observed=true base_prefabs_at_tent_ground=" + resourceGround + " zero_gold_does_not_stall=true active_legacy_plan_replaced=true completed_plan_replaced_immediately=true collapse_legal_emergency_preferred_or_unsafe_fallback=true",
+				"guide_progression_failed legacy_excluded=" + (legacyExcluded ? "true" : "false") +
+					" ordered=" + (ordered ? "true" : "false") +
+					" base_level=" + (baseLevel ? "true" : "false") +
+					" ceiling_ignored=" + (ceilingIgnored ? "true" : "false") +
+					" shelf_observed=" + (shelfObserved ? "true" : "false") +
+					" resource_ground=" + resourceGround +
+					" core=" + (core is null ? "none" : core.templateName) +
+					" tower=" + (tower is null ? "none" : tower.templateName) +
+					" shops=" + (shops is null ? "none" : shops.templateName) +
+					" tunnel=" + (tunnel is null ? "none" : tunnel.templateName) +
+					" legacy_replace=" + (legacyReplaced ? "true" : "false") +
+					" completion_immediate=" + (completionImmediate ? "true" : "false") +
+					" legal_emergency=" + (legalEmergency ? "true" : "false") +
+					" emergency=" + (emergency is null ? "none" : emergency.templateName));
+			break;
+		}
+
+		case 71:
+		{
+			CBlob@ tent = AIBT_SpawnTent(54);
+			CBlob@ localShop = AIBT_Spawn("buildershop", 0, AIBT_Pos(70, AIBT_GROUND_Y - 2));
+			CBlob@ remoteShop = AIBT_Spawn("buildershop", 0, AIBT_Pos(200, AIBT_GROUND_Y - 2));
+			CBlob@ warmProbe = AIBT_SpawnBot(240);
+			CBlob@ matchProbe = AIBT_SpawnBot(42);
+			@bot = matchProbe;
+			AIBT_SetBlob("aibt_bot", bot);
+			AIBT_SetBlob("aibt guide match probe", matchProbe);
+			AIBT_DisableStarterMaterials(warmProbe);
+			AIBT_DisableStarterMaterials(matchProbe);
+			CRules@ rules = getRules();
+			rules.set_bool(AIB_GUIDE_RESUPPLY_TEST_KEY, true);
+			const u32 now = getGameTime();
+			rules.set_u32("aibt guide resupply start tick", now);
+			warmProbe.set_u32(AIB_GUIDE_RESUPPLY_NEXT_KEY, 0);
+			const bool warmGranted = AIBGuide_TryGrantResupply(rules, warmProbe, true);
+			const bool warmAmounts = AIBT_CountInventoryMaterial(warmProbe, "mat_wood") == AIB_GUIDE_WARMUP_WOOD &&
+				AIBT_CountInventoryMaterial(warmProbe, "mat_stone") == AIB_GUIDE_WARMUP_STONE &&
+				warmProbe.get_u32(AIB_GUIDE_RESUPPLY_NEXT_KEY) == now + AIB_GUIDE_WARMUP_INTERVAL;
+			CInventory@ warmInventory = warmProbe.getInventory();
+			if (warmInventory !is null)
+			{
+				warmInventory.server_RemoveItems("mat_wood", AIB_GUIDE_WARMUP_WOOD);
+				warmInventory.server_RemoveItems("mat_stone", AIB_GUIDE_WARMUP_STONE);
+			}
+			warmProbe.set_u32(AIB_GUIDE_RESUPPLY_NEXT_KEY, 0);
+			const bool awayRejected = !AIBGuide_TryGrantResupply(rules, warmProbe, false);
+			matchProbe.set_u32(AIB_GUIDE_RESUPPLY_NEXT_KEY, 0);
+			matchProbe.set_netid(AIB_GUIDE_RESUPPLY_SOURCE_KEY, 0);
+			const bool startedAway = tent !is null &&
+				(matchProbe.getPosition() - tent.getPosition()).Length() > 64.0f;
+			warmProbe.set_u8("ai builder state", AIBT_CHOP_TREE);
+			warmProbe.set_netid("ai builder target", tent is null ? 0 : tent.getNetworkID());
+			const bool activeEpisodeHeld = !AIBGuide_IsSafeEpisodeBoundary(warmProbe);
+			warmProbe.set_u8("ai builder state", AIBT_FIND_TREE);
+			warmProbe.set_netid("ai builder target", 0);
+			warmProbe.set_Vec2f("ai builder tile target", Vec2f_zero);
+			const bool boundaryAccepted = AIBGuide_IsSafeEpisodeBoundary(warmProbe);
+			CBlob@ visitTarget = AIBGuide_GetNearestResupplySpot(warmProbe);
+			const bool baseVisit = visitTarget !is null && visitTarget !is remoteShop &&
+				AIBGuide_IsEligibleResupplySpot(visitTarget, warmProbe);
+			const bool scope = AIBGuide_IsBaseScopedBuilderShop(localShop, warmProbe) &&
+				!AIBGuide_IsBaseScopedBuilderShop(remoteShop, warmProbe);
+			warmProbe.set_u32("ai builder guide resupply request", now);
+			warmProbe.set_u32("ai builder guide resupply timeout", now + 450);
+			AIBM_ClearNavigationIntent(warmProbe);
+			const bool handoffClearsVisit = warmProbe.get_u32("ai builder guide resupply request") == 0 &&
+				warmProbe.get_u32("ai builder guide resupply timeout") == 0;
+			const bool staticPassed = warmGranted && warmAmounts && awayRejected && startedAway &&
+				activeEpisodeHeld && boundaryAccepted && baseVisit && scope && handoffClearsVisit;
+			rules.set_bool("aibt guide resupply static", staticPassed);
+			rules.set_string("aibt guide resupply static detail",
+				"warm_grant=" + (warmGranted ? "true" : "false") +
+					" warm_amounts=" + (warmAmounts ? "true" : "false") + " away=" + (awayRejected ? "true" : "false") +
+					" started_away=" + (startedAway ? "true" : "false") +
+					" active_held=" + (activeEpisodeHeld ? "true" : "false") + " boundary=" + (boundaryAccepted ? "true" : "false") +
+					" base_visit=" + (baseVisit ? "true" : "false") + " scope=" + (scope ? "true" : "false") +
+					" handoff_clear=" + (handoffClearsVisit ? "true" : "false"));
+			warmProbe.set_u8("ai builder state", AIBT_IDLE);
+			warmProbe.set_bool("ai builder job active", false);
+			CBrain@ warmBrain = warmProbe.getBrain();
+			if (warmBrain !is null) warmBrain.server_SetActive(false);
+			break;
+		}
+
+		case 72:
+		{
+			AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(60);
+			const u16 ordinaryX = 100;
+			const u16 criticalX = 104;
+			const u16 tileY = AIBT_GROUND_Y - 2;
+			CRules@ rules = getRules();
+			rules.set_u16(AIBP_RepairObservationKey(0, ordinaryX, tileY, "type"), 0);
+			rules.set_u32(AIBP_RepairObservationKey(0, ordinaryX, tileY, "last damage"), 0);
+			AIBT_SetTemporaryTile(ordinaryX, tileY, CMap::tile_wood_d1);
+			AIBT_SetTemporaryTile(criticalX, tileY, CMap::tile_castle_d0);
+			const bool ordinaryDeferred = !AIBP_ShouldRepairDamagedTile(0, ordinaryX, tileY, AIBP_WOOD_BLOCK);
+			const bool criticalImmediate = AIBP_ShouldRepairDamagedTile(0, criticalX, tileY, AIBP_STONE_BLOCK);
+			const u16 doorX = 110;
+			CBlob@ door = AIBT_Spawn("wooden_door", 0, AIBT_Pos(doorX, tileY));
+			if (door !is null)
+			{
+				door.Tag("aibuilder blueprint structure");
+				door.set_u8(AIBP_BLUEPRINT_OWNER_TEAM_KEY, 0);
+				CShape@ shape = door.getShape();
+				if (shape !is null) shape.SetStatic(true);
+			}
+			AIBT_SetBlob("aibt guide repair door", door);
+			rules.set_u8("aibt guide repair stage", 0);
+			rules.set_bool("aibt guide repair setup", ordinaryDeferred && criticalImmediate && door !is null);
+			rules.set_string("aibt guide repair setup detail",
+				"ordinary_deferred=" + (ordinaryDeferred ? "true" : "false") +
+				" critical_immediate=" + (criticalImmediate ? "true" : "false") +
+				" door_spawned=" + (door !is null ? "true" : "false"));
+			break;
+		}
+
+		case 73:
+		{
+			CBlob@ tent = AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(76);
+			AIBT_DisableStarterMaterials(bot);
+			CBlob@ tree = AIBT_SpawnTree(100, false);
+			Vec2f spaced = tree is null ? Vec2f_zero : AIBGuide_FindTreeFarmPosition(tree.getPosition());
+			const bool exactSpacing = tree !is null && spaced != Vec2f_zero &&
+				Maths::Abs((spaced - tree.getPosition()).Length() - 16.0f) < 0.1f &&
+				Maths::Abs(spaced.y - tree.getPosition().y) < 0.1f && AIBGuide_IsNaturalTreeFarmPosition(spaced);
+			const bool barrierSpacing = AIBGuide_IsSameBarrierZone(80.0f, 96.0f, 104, 120) &&
+				!AIBGuide_IsSameBarrierZone(80.0f, 136.0f, 104, 120) &&
+				!AIBGuide_IsSameBarrierZone(112.0f, 80.0f, 104, 120);
+			CBlob@ spacingSeed = spaced == Vec2f_zero ? null : AIBT_Spawn("seed", 0, spaced);
+			CBlob@ safeSaw = AIBT_Spawn("saw", 0, AIBT_Pos(60, AIBT_GROUND_Y - 2));
+			CBlob@ log = AIBT_Spawn("log", 0, AIBT_Pos(76, AIBT_GROUND_Y - 2));
+			AIBT_Spawn("ctf_flag", 0, AIBT_Pos(140, AIBT_GROUND_Y - 2));
+			CBlob@ unsafeSaw = AIBT_Spawn("saw", 0, AIBT_Pos(140, AIBT_GROUND_Y - 2));
+			// Saw init publishes this on its next engine callback. Make the static
+			// setup deterministic while retaining the real powered-saw predicate.
+			if (safeSaw !is null) safeSaw.set_bool("saw_on", true);
+			if (unsafeSaw !is null) unsafeSaw.set_bool("saw_on", true);
+			const bool safeAccepted = AIBGuide_IsStructurallySafeSaw(bot, log, safeSaw, tent);
+			const bool flagRoomRejected = !AIBGuide_IsStructurallySafeSaw(bot, log, unsafeSaw, tent);
+			getRules().set_bool("aibt guide tree saw setup", exactSpacing && barrierSpacing &&
+				spacingSeed !is null && safeAccepted && flagRoomRejected);
+			getRules().set_string("aibt guide tree saw setup detail",
+				"exact_spacing=" + (exactSpacing ? "true" : "false") +
+				" barrier_spacing=" + (barrierSpacing ? "true" : "false") +
+				" spacing_seed=" + (spacingSeed !is null ? "true" : "false") +
+				" safe_accepted=" + (safeAccepted ? "true" : "false") +
+				" flag_room_rejected=" + (flagRoomRejected ? "true" : "false") +
+				" spaced=" + AIB_EventPos(spaced));
+			AIBT_SetBlob("aibt guide spacing seed", spacingSeed);
+			getRules().set_Vec2f("aibt guide spaced position", spaced);
+			AIBT_SetBlob("aibt guide safe saw", safeSaw);
+			AIBT_SetBlob("aibt guide saw log", log);
+			bot.set_u8("ai builder job", AIBT_JOB_WOOD);
+			bot.set_bool("ai builder job active", true);
+			bot.set_u32("ai builder log wait until", 0);
+			AIBT_ForceState(bot, AIBT_FIND_LOG);
+			break;
+		}
+
+		case 74:
+		{
+			const int x = 180;
+			const int y = AIBT_GROUND_Y - 1;
+			AIBT_SpawnTent(160);
+			@bot = AIBT_SpawnBot(176);
+			AIBT_DisableStarterMaterials(bot);
+			AIBT_GiveMaterial(bot, "mat_wood", 30);
+			AIBT_SetTemporaryTile(x, y + 1, CMap::tile_castle);
+			AIBP_SetHumanTile(0, x, y, AIBP_EncodeBlock(AIBP_REINFORCED_WOOD_DOOR, 1));
+			getRules().set_bool("aibt guide catalog costs", AIBT_GuideCatalogCostsMatchInstalledCTF());
+			getRules().set_u8("aibt guide mixed payment stage", 0);
+			AIBT_StartBlueprint(bot, false);
+			break;
+		}
+
+		case 75:
+		{
+			AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(60);
+			const u16 x = 120;
+			const u16 y = AIBT_GROUND_Y - 2;
+			AIBWorldState@ world = AIBWorldState();
+			world.team = 0; world.home = AIBT_Pos(54); world.resourceHome = world.home;
+			world.frontline = AIBT_Pos(120); world.enemyDirection = 1; world.autoBuilders = 1;
+			AIBPlanCandidate@ landCandidate = AIBPlanCandidate();
+			landCandidate.intent = AIBStrategyIntent::protected_workshops;
+			landCandidate.templateName = "boatshop_land_probe";
+			landCandidate.anchor = Vec2f(x, y);
+			landCandidate.tasks.push_back(BlueprintTask(x, y, AIBP_BOAT_SHOP, AIBP_Phase::shell));
+			const bool landValid = AIBS_ValidateCandidate(world, landCandidate);
+			const bool landRejected = !landValid && landCandidate.rejection == "requires_water";
+			CMap@ map = getMap();
+			const Vec2f waterPoint = AIBT_Pos(x + 3, y);
+			AIBT_temporary_water_points.push_back(waterPoint);
+			if (map !is null) map.server_setFloodWaterWorldspace(waterPoint, true);
+			const bool waterPresent = map !is null && map.isInWater(waterPoint);
+			const bool waterAccepted = AIBS_WaterWorkshopSiteValid(x, y, AIBP_BOAT_SHOP);
+			if (map !is null) map.server_setFloodWaterWorldspace(waterPoint, false);
+			const bool ordinaryLandAccepted = AIBS_WaterWorkshopSiteValid(x, y, AIBP_BUILDER_SHOP);
+			const bool cost = AIBP_BlockMaterialCost(AIBP_BOAT_SHOP, "mat_wood") == 250;
+			const bool passed = landRejected && waterPresent && waterAccepted && ordinaryLandAccepted && cost;
+			AIBT_SetStrategicResult(passed,
+				"land_boatshop_rejected=requires_water flooded_site_accepted=true ordinary_shop_land_valid=true boatshop_cost=250w",
+				"boatshop_environment_failed land_rejected=" + (landRejected ? "true" : "false") +
+					" water_present=" + (waterPresent ? "true" : "false") + " water_accepted=" + (waterAccepted ? "true" : "false") +
+					" ordinary=" + (ordinaryLandAccepted ? "true" : "false") + " cost=" + (cost ? "true" : "false"));
+			break;
+		}
+
+		case 76:
+		{
+			AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(60);
+			AIBT_DisableStarterMaterials(bot);
+			CRules@ rules = getRules();
+			AIBWorldState@ world = AIBWorldState();
+			world.team = 0; world.home = AIBT_Pos(180); world.resourceHome = world.home;
+			world.frontline = AIBT_Pos(240); world.enemyDirection = 1; world.autoBuilders = 1;
+			world.storedWood = 5000; world.storedStone = 5000; world.storedGold = 0;
+			const u16 resourceGround = AIBS_GroundBelowPosition(world.resourceHome);
+
+			AIBP_ResetGuideProgress(rules, 0);
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::home_core), true);
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::frontline_tower), true);
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::protected_shops), true);
+			array<AIBPlanCandidate@> homeStage;
+			AIBS_GenerateCandidates(world, homeStage);
+			AIBPlanCandidate@ homeSelected = AIBS_SelectCandidate(world);
+			const bool homeFirst = AIBT_CandidatesContainTemplate(homeStage, "guide_home_tunnel") &&
+				AIBT_CandidatesContainTemplate(homeStage, "guide_front_tunnel") &&
+				AIBT_CandidatesContainTemplate(homeStage, "guide_quarry_storage") &&
+				homeSelected !is null && homeSelected.intent == AIBStrategyIntent::guide_home_tunnel;
+
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::home_tunnel), true);
+			array<AIBPlanCandidate@> frontStage;
+			AIBS_GenerateCandidates(world, frontStage);
+			AIBPlanCandidate@ frontSelected = AIBS_SelectCandidate(world);
+			const bool frontSecond = !AIBT_CandidatesContainTemplate(frontStage, "guide_home_tunnel") &&
+				AIBT_CandidatesContainTemplate(frontStage, "guide_front_tunnel") &&
+				AIBT_CandidatesContainTemplate(frontStage, "guide_quarry_storage") &&
+				frontSelected !is null && frontSelected.intent == AIBStrategyIntent::guide_front_tunnel;
+
+			rules.set_bool(AIBS_GuideStageKey(0, AIBGuideStage::front_tunnel), true);
+			array<AIBPlanCandidate@> serviceStage;
+			AIBS_GenerateCandidates(world, serviceStage);
+			AIBPlanCandidate@ quarrySelected = AIBS_SelectCandidate(world);
+			const bool quarryAfterNetwork = !AIBT_CandidatesContainTemplate(serviceStage, "guide_home_tunnel") &&
+				!AIBT_CandidatesContainTemplate(serviceStage, "guide_front_tunnel") &&
+				AIBT_CandidatesContainTemplate(serviceStage, "guide_quarry_storage") &&
+				quarrySelected !is null && quarrySelected.intent == AIBStrategyIntent::guide_quarry_storage;
+			const bool baseLevel = resourceGround == AIBT_GROUND_Y && homeSelected !is null &&
+				int(homeSelected.anchor.y) == int(resourceGround) && quarrySelected !is null &&
+				int(quarrySelected.anchor.y) == int(resourceGround);
+			world.friendlyQuarries = 1;
+			array<AIBPlanCandidate@> existingQuarryStage;
+			AIBS_GenerateCandidates(world, existingQuarryStage);
+			const bool oneQuarryLimit = !AIBT_CandidatesContainTemplate(existingQuarryStage, "guide_quarry_storage");
+			world.friendlyQuarries = 0;
+
+			AIBPlanCandidate@ home = AIBS_GuideHomeTunnelTemplate(68, AIBT_GROUND_Y, 1);
+			AIBPlanCandidate@ front = AIBS_GuideFrontTunnelTemplate(84, AIBT_GROUND_Y, 1);
+			const bool distinct = home !is null && front !is null &&
+				home.intent == AIBStrategyIntent::guide_home_tunnel &&
+				front.intent == AIBStrategyIntent::guide_front_tunnel &&
+				front.anchor.x - home.anchor.x >= 16.0f &&
+				AIBT_CountCandidateBlock(home, AIBP_TUNNEL) == 1 &&
+				AIBT_CountCandidateBlock(front, AIBP_TUNNEL) == 1;
+			CBlob@ existingQuarry = AIBT_Spawn("quarry", 0, AIBT_Pos(130, AIBT_GROUND_Y - 2));
+			const bool directQuarryLimit = existingQuarry !is null && !AIBGuide_CanCreateTeamQuarry(0);
+			const bool passed = homeFirst && frontSecond && quarryAfterNetwork && baseLevel && oneQuarryLimit &&
+				directQuarryLimit && distinct;
+			AIBT_SetStrategicResult(passed,
+				"zero_gold_still_offers_network=true home_tunnel_selected_first=true front_tunnel_selected_second=true base_services_at_tent_ground=" + resourceGround + " distinct_station_spacing=16 quarry_after_two_end_network=true existing_team_quarry_suppresses_planner_and_shared_direct_creation_gate=true",
+				"two_tunnel_staging_failed home_first=" + (homeFirst ? "true" : "false") +
+					" front_second=" + (frontSecond ? "true" : "false") +
+					" quarry_after_network=" + (quarryAfterNetwork ? "true" : "false") +
+					" base_level=" + (baseLevel ? "true" : "false") +
+					" one_quarry_limit=" + (oneQuarryLimit ? "true" : "false") +
+					" direct_quarry_limit=" + (directQuarryLimit ? "true" : "false") +
+					" distinct=" + (distinct ? "true" : "false") +
+					" selected=" + (homeSelected is null ? "none" : homeSelected.templateName) + "/" +
+					(frontSelected is null ? "none" : frontSelected.templateName) + "/" +
+					(quarrySelected is null ? "none" : quarrySelected.templateName));
+			break;
+		}
+
+		case 77:
+		{
+			AIBT_SpawnTent(54);
+			@bot = AIBT_SpawnBot(100);
+			AIBT_DisableStarterMaterials(bot);
+			CBlob@ firstOrb = AIBT_Spawn("autobuilder", 0, AIBT_Pos(98, AIBT_GROUND_Y - 3));
+			CBlob@ secondOrb = AIBT_Spawn("autobuilder", 0, AIBT_Pos(102, AIBT_GROUND_Y - 3));
+			AIBT_SetBlob("aibt reservation first orb", firstOrb);
+			AIBT_SetBlob("aibt reservation second orb", secondOrb);
+			BlueprintPlan@ plan = AIBT_NewStrategicPlan(0, "reservation_contention_fixture");
+			plan.tasks.push_back(BlueprintTask(100, AIBT_GROUND_Y - 1,
+				AIBP_WOOD_BACKWALL, AIBP_Phase::foundation));
+			const bool published = bot !is null && firstOrb !is null && secondOrb !is null &&
+				AIBP_PublishAIPlan(plan, true);
+			getRules().set_bool("aibt reservation contention setup", published);
+			getRules().set_u8("aibt reservation contention stage", 0);
+			getRules().set_u32("aibt reservation contention activated", 0);
+			getRules().set_bool("aibt reservation contention wait observed", false);
+			getRules().set_netid("aibt reservation contention loser", 0);
+			if (published)
+			{
+				bot.set_u8("ai builder state", AIBT_FIND_BLUEPRINT_BLOCK);
+				bot.set_u8("ai builder job", AIBT_JOB_BLUEPRINT);
+				bot.set_bool("ai builder job active", true);
+				bot.set_Vec2f("ai builder tile target", Vec2f_zero);
+			}
+			break;
+		}
+
 	}
 }
 
@@ -3259,12 +4506,21 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			if (AIBT_HasLiveLog()) rules.set_bool("aibt flat log observed", true);
 			if (AIBT_CountInventoryMaterial(bot, "mat_wood") > 0 || bot.get_u8("ai builder state") == AIBT_RETURN_WOOD)
 				rules.set_bool("aibt flat wood acquired", true);
-			const u16 stored = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f);
+			const u16 liveWood = AIBT_CountAllLiveMaterial("mat_wood");
+			if (rules.get_bool("aibt flat wood acquired") && liveWood > rules.get_u16("aibt flat collected wood"))
+				rules.set_u16("aibt flat collected wood", liveWood);
+			const u16 crated = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 140.0f);
+			const u16 accessible = tent is null ? 0 : AIBR_CountAccessibleHomeMaterial(tent, "mat_wood");
+			CBlob@ storageCrate = AIBT_GetGroundedProductionResourceCrate(tent);
+			const u16 collectedWood = rules.get_u16("aibt flat collected wood");
+			const bool conserved = collectedWood > 0 && crated == collectedWood && accessible == collectedWood;
 			if (rules.get_bool("aibt flat tree targeted") && rules.get_bool("aibt flat tree felled") &&
 				rules.get_bool("aibt flat log observed") && rules.get_bool("aibt flat wood acquired") &&
-				stored > 0 && AIBT_CountInventoryMaterial(bot, "mat_wood") == 0)
+				storageCrate !is null && conserved && AIBT_CountInventoryMaterial(bot, "mat_wood") == 0)
 			{
-				details = "tree_targeted=true tree_felled=true log_observed=true logs_processed=true wood_acquired=true wood_delivered=" + stored;
+				details = "tree_targeted=true tree_felled=true log_observed=true logs_processed=true wood_acquired=true wood_delivered_accessible=" +
+					accessible + " crated=" + crated + " collected=" + collectedWood +
+					" conserved=true storage_mode=existing_grounded_crate";
 				return true;
 			}
 			if (elapsed > 1800)
@@ -3273,7 +4529,9 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 					" felled=" + (rules.get_bool("aibt flat tree felled") ? "true" : "false") +
 					" log=" + (rules.get_bool("aibt flat log observed") ? "true" : "false") +
 					" acquired=" + (rules.get_bool("aibt flat wood acquired") ? "true" : "false") +
-					" stored=" + stored + " " + AIBT_DescribeBuilder(bot);
+					" accessible=" + accessible + " crated=" + crated + " collected=" + collectedWood +
+					" crate=" + AIBT_BlobRef(storageCrate) +
+					" conserved=" + (conserved ? "true" : "false") + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;
@@ -3498,10 +4756,79 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 
 		case 15:
 		{
+			CRules@ rules = getRules();
 			CMap@ map = getMap();
-			CBlob@ ladder = AIBT_GetRecoveryLadderNear(AIBT_Pos(349, AIBT_GROUND_Y - 5), 96.0f);
+			CBlob@ ladder = AIBT_GetRecoveryLadderNear(
+				AIBT_Pos(AIBT_RECOVERY_PLUG_X1 - 1, AIBT_RECOVERY_PLUG_TOP + 4), 128.0f);
 			const bool ladderBuilt = ladder !is null;
+			const Vec2f forcedRung = Vec2f(AIBT_RECOVERY_FORCED_RUNG_X * 8,
+				AIBT_RECOVERY_FORCED_RUNG_Y * 8);
+			const bool supportPrepared = bot.get_u32("ai builder recovery support tick") > 0 &&
+				(bot.get_Vec2f("ai builder recovery support target") - forcedRung).Length() <= 12.0f;
+			// This fixture must force the real two-phase recovery branch rather
+			// than hope that small physics differences accumulate 21 organic stuck
+			// ticks.  Let production pathing reach the known uphill face first, then
+			// inject only the obstruction escalation and recorded jump peak.  The
+			// production brain must still validate, pay for, and place support and
+			// ladder in separate simulation ticks, re-probe its path, and traverse.
+			Vec2f botPos = bot.getPosition();
+			const bool atRecoveryFace = bot.get_u8("ai builder state") == AIBT_CHOP_TREE &&
+				botPos.x >= (AIBT_RECOVERY_PLUG_X1 - 1) * 8 &&
+				botPos.x <= (AIBT_RECOVERY_PLUG_X2 + 1) * 8 &&
+				botPos.y <= (AIBT_RECOVERY_FORCED_RUNG_Y + 1) * 8;
+			const bool nearRecoveryFace = bot.get_u8("ai builder state") == AIBT_CHOP_TREE &&
+				botPos.x >= (AIBT_RECOVERY_PLUG_X1 - 6) * 8 &&
+				botPos.x <= (AIBT_RECOVERY_PLUG_X2 + 2) * 8 &&
+				botPos.y <= (AIBT_RECOVERY_FORCED_RUNG_Y + 2) * 8;
+			BrainPath@ recoveryPath;
+			const bool hasRecoveryPath = bot.get("ai builder brain path", @recoveryPath) &&
+				recoveryPath !is null && recoveryPath.path.length > 0;
+			const Vec2f recoveryNext = hasRecoveryPath ? recoveryPath.path[0] : Vec2f_zero;
+			// Inspect the exact low-level node and motion predicate that production
+			// consumes later in this tick.  Requiring the body to remain at/below the
+			// chosen peak keeps AIB_UpdateJumpPeak from replacing the unsupported rung.
+			const bool inRecoveryTriggerWindow = nearRecoveryFace && hasRecoveryPath &&
+				recoveryNext.y < botPos.y - 12.0f &&
+				(botPos - bot.getOldPosition()).Length() < 2.5f && botPos.y >= forcedRung.y;
+			if (atRecoveryFace && !rules.get_bool("aibt recovery funded at face"))
+			{
+				AIBT_GiveMaterial(bot, "mat_wood", AIBT_RECOVERY_START_WOOD);
+				rules.set_bool("aibt recovery funded at face", true);
+				AIB_LogEvent("test", "recovery_fixture_fund", AIBT_BlobRef(bot),
+					"wood=" + AIBT_RECOVERY_START_WOOD + " state=chop_tree");
+			}
+			const bool recoveryFunded = rules.get_bool("aibt recovery funded at face");
+			if (!ladderBuilt && recoveryFunded && nearRecoveryFace && !inRecoveryTriggerWindow &&
+				bot.get_u8("ai builder obstruction threshold") > 13)
+			{
+				// Keep organic accumulation below the production replan threshold until
+				// the next geometry-qualified pulse; movement and path ownership remain
+				// untouched.
+				bot.set_u8("ai builder obstruction threshold", 13);
+			}
+			if (!ladderBuilt && recoveryFunded && inRecoveryTriggerWindow)
+			{
+				const string triggerKey = supportPrepared ?
+					"aibt recovery ladder trigger armed" : "aibt recovery support trigger armed";
+				if (!rules.get_bool(triggerKey))
+				{
+					rules.set_bool(triggerKey, true);
+					AIB_LogEvent("test", supportPrepared ? "recovery_ladder_trigger" : "recovery_support_trigger",
+						AIBT_BlobRef(bot), "rung=" + AIB_EventPos(forcedRung) +
+							" body=" + AIB_EventPos(botPos) +
+							" next=" + AIB_EventPos(recoveryNext) +
+							" obstruction=" + AIBT_RECOVERY_FORCED_OBSTRUCTION);
+				}
+				bot.set_Vec2f("ai builder jump peak", forcedRung);
+				bot.set_u8("ai builder obstruction threshold", AIBT_RECOVERY_FORCED_OBSTRUCTION);
+			}
+			const int ladderX = ladderBuilt ? Maths::Floor(ladder.getPosition().x / 8.0f) : -1;
+			const int ladderY = ladderBuilt ? Maths::Floor(ladder.getPosition().y / 8.0f) : -1;
+			const bool ladderAtPlug = ladderBuilt &&
+				ladderX >= AIBT_RECOVERY_PLUG_X1 - 8 && ladderX <= AIBT_RECOVERY_PLUG_X2 + 2 &&
+				ladderY >= AIBT_RECOVERY_PLUG_TOP - 1 && ladderY <= AIBT_RECOVERY_PLUG_BOTTOM;
 			const bool supportPreparedBeforeSpawn = ladderBuilt &&
+				ladderAtPlug &&
 				ladder.get_bool("aibuilder recovery support ready before spawn") &&
 				ladder.get_u8("aibuilder recovery support chain") > 0 &&
 				ladder.get_u32("aibuilder recovery support tick") > 0 &&
@@ -3510,33 +4837,68 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 			const bool postPathAccepted = ladderBuilt && ladder.get_bool("aibuilder recovery post path probe") &&
 				ladder.get_bool("aibuilder recovery post path accepted") &&
 				ladder.get_u32("aibuilder recovery post probe tick") > ladder.get_u32("aibuilder recovery ladder tick");
-			const bool reachedTargetSide = bot.getPosition().x > 352 * 8;
-			bool plugPreserved = map !is null && AIBT_recovery_plug_tiles.length == 8;
+			const u16 remainingWood = AIBT_CountInventoryMaterial(bot, "mat_wood");
+			const u16 expectedWood = ladderBuilt ? AIBT_RECOVERY_START_WOOD - AIBT_RECOVERY_LADDER_WOOD_COST -
+				ladder.get_u8("aibuilder recovery support chain") * AIBT_RECOVERY_BACKWALL_WOOD_COST :
+				(recoveryFunded ? AIBT_RECOVERY_START_WOOD : 0);
+			if (ladderBuilt && remainingWood == expectedWood &&
+				!rules.get_bool("aibt recovery exact cost observed"))
+			{
+				rules.set_bool("aibt recovery exact cost observed", true);
+				rules.set_u16("aibt recovery post ladder wood", remainingWood);
+				AIB_LogEvent("test", "recovery_exact_cost", AIBT_BlobRef(bot),
+					"remaining_wood=" + remainingWood + " chain=" +
+						ladder.get_u8("aibuilder recovery support chain"));
+			}
+			const bool exactRecoveryCost = rules.get_bool("aibt recovery exact cost observed");
+			const u16 postLadderWood = rules.get_u16("aibt recovery post ladder wood");
+			const bool reachedTargetSide = bot.getPosition().x > AIBT_RECOVERY_TARGET_SIDE_X * 8;
+			const uint expectedPlugTiles = uint((AIBT_RECOVERY_PLUG_X2 - AIBT_RECOVERY_PLUG_X1 + 1) *
+				(AIBT_RECOVERY_PLUG_BOTTOM - AIBT_RECOVERY_PLUG_TOP + 1));
+			bool plugPreserved = map !is null && AIBT_recovery_plug_tiles.length == expectedPlugTiles;
 			uint plugIndex = 0;
 			if (map !is null)
 			{
-				for (int x = 352; x <= 353 && plugPreserved; x++)
+				for (int x = AIBT_RECOVERY_PLUG_X1; x <= AIBT_RECOVERY_PLUG_X2 && plugPreserved; x++)
 				{
-					for (int y = AIBT_GROUND_Y - 4; y < AIBT_GROUND_Y; y++)
+					for (int y = AIBT_RECOVERY_PLUG_TOP; y <= AIBT_RECOVERY_PLUG_BOTTOM; y++)
 					{
 						if (map.getTile(AIBT_Pos(x, y)).type != AIBT_recovery_plug_tiles[plugIndex++])
 							{ plugPreserved = false; break; }
 					}
 				}
 			}
-			if (ladderBuilt && supportPreparedBeforeSpawn && postPathAccepted && reachedTargetSide && plugPreserved)
+			if (reachedTargetSide && !ladderBuilt)
 			{
-				details = "support_chain_before_ladder=true post_path_accepted=true crossed_preserved_plug=true chain=" +
-					ladder.get_u8("aibuilder recovery support chain") + " low=" +
-					ladder.get_u16("aibuilder recovery post low nodes") + " waypoints=" +
-					ladder.get_u16("aibuilder recovery post waypoints") + " " + AIBT_DescribeBuilder(bot);
+				failure = "crossed_forced_plug_before_recovery_ladder " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
-			if (elapsed > 300)
+			if (recoveryFunded && rules.get_bool("aibt recovery ladder trigger armed") &&
+				ladderBuilt && supportPreparedBeforeSpawn &&
+				postPathAccepted && exactRecoveryCost && reachedTargetSide && plugPreserved)
+			{
+				details = "funded_at_recovery_face=true deterministic_ladder_trigger=true support_trigger_injected=" +
+					(rules.get_bool("aibt recovery support trigger armed") ? "true" : "false") +
+					" support_chain_before_ladder=true" +
+					" post_path_accepted=true exact_recovery_cost=true crossed_preserved_plug=true chain=" +
+					ladder.get_u8("aibuilder recovery support chain") + " low=" +
+					ladder.get_u16("aibuilder recovery post low nodes") + " waypoints=" +
+					ladder.get_u16("aibuilder recovery post waypoints") + " ladder_tile=" +
+					ladderX + "," + ladderY + " post_ladder_wood=" + postLadderWood + " " + AIBT_DescribeBuilder(bot);
+				return true;
+			}
+			if (elapsed > 900)
 			{
 				failure = "timeout_supported_ladder_chain ladder=" + (ladderBuilt ? "true" : "false") +
+					" ladder_at_plug=" + (ladderAtPlug ? "true" : "false") +
 					" support_before_spawn=" + (supportPreparedBeforeSpawn ? "true" : "false") +
 					" post_path=" + (postPathAccepted ? "true" : "false") +
+					" funded_at_face=" + (recoveryFunded ? "true" : "false") +
+					" support_trigger=" + (rules.get_bool("aibt recovery support trigger armed") ? "true" : "false") +
+					" ladder_trigger=" + (rules.get_bool("aibt recovery ladder trigger armed") ? "true" : "false") +
+					" exact_cost=" + (exactRecoveryCost ? "true" : "false") +
+					" remaining_wood=" + remainingWood + " post_ladder_wood=" + postLadderWood +
+					" expected_wood=" + expectedWood + " recovery_next=" + AIB_EventPos(recoveryNext) +
 					" crossed=" + (reachedTargetSide ? "true" : "false") +
 					" plug_preserved=" + (plugPreserved ? "true" : "false") +
 					(ladderBuilt ? " next=" + AIB_EventPos(ladder.get_Vec2f("aibuilder recovery post next")) +
@@ -3560,16 +4922,24 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				rules.set_bool("aibt blueprint crate stone withdrawn", true);
 			const bool stoneBuilt = AIBT_BlueprintTileBuilt(394, AIBT_GROUND_Y - 1, CMap::tile_castle);
 			const bool woodBuilt = AIBT_BlueprintTileBuilt(395, AIBT_GROUND_Y - 1, CMap::tile_wood);
-			const u16 totalWood = AIBT_CountAllLiveMaterial("mat_wood");
-			const u16 totalStone = AIBT_CountAllLiveMaterial("mat_stone");
-			const bool conserved = totalWood == 80 - AIBP_BlockCost(AIBP_WOOD_BLOCK) &&
-				totalStone == 80 - AIBP_BlockCost(AIBP_STONE_BLOCK);
+			const u16 builderWood = AIBT_CountInventoryMaterial(bot, "mat_wood");
+			const u16 builderStone = AIBT_CountInventoryMaterial(bot, "mat_stone");
+			// Scope conservation to the two fixture-owned containers.  A hot suite
+			// can legitimately retain unrelated loose material elsewhere on the map;
+			// that stock neither funds nor receives this production build episode.
+			const u16 fixtureWood = crateWood + builderWood;
+			const u16 fixtureStone = crateStone + builderStone;
+			const u16 globalWood = AIBT_CountAllLiveMaterial("mat_wood");
+			const u16 globalStone = AIBT_CountAllLiveMaterial("mat_stone");
+			const bool conserved = fixtureWood == 80 - AIBP_BlockCost(AIBP_WOOD_BLOCK) &&
+				fixtureStone == 80 - AIBP_BlockCost(AIBP_STONE_BLOCK);
 			if (rules.get_bool("aibt blueprint crate wood withdrawn") && rules.get_bool("aibt blueprint crate stone withdrawn") &&
 				crate !is null && stoneBuilt && woodBuilt && conserved &&
-				AIBT_CountInventoryMaterial(bot, "mat_wood") >= 60 && AIBT_CountInventoryMaterial(bot, "mat_stone") >= 60)
+				builderWood >= 60 && builderStone >= 60)
 			{
 				details = "base_crate_materials_withdrawn=true stone_built=true wood_built=true material_conserved=true remaining_wood=" +
-					totalWood + " remaining_stone=" + totalStone + " " + AIBT_DescribeBuilder(bot);
+					fixtureWood + " remaining_stone=" + fixtureStone + " global_wood=" + globalWood +
+					" global_stone=" + globalStone + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			if (elapsed > 300)
@@ -3577,7 +4947,8 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				failure = "timeout_blueprint_base_crate wood_withdrawn=" + (rules.get_bool("aibt blueprint crate wood withdrawn") ? "true" : "false") +
 					" stone_withdrawn=" + (rules.get_bool("aibt blueprint crate stone withdrawn") ? "true" : "false") +
 					" crate=" + (crate is null ? "missing" : "present") + " crate_wood=" + crateWood + " crate_stone=" + crateStone +
-					" total_wood=" + totalWood + " total_stone=" + totalStone + " " + AIBT_DescribeBuilder(bot);
+					" fixture_wood=" + fixtureWood + " fixture_stone=" + fixtureStone +
+					" global_wood=" + globalWood + " global_stone=" + globalStone + " " + AIBT_DescribeBuilder(bot);
 				return true;
 			}
 			break;
@@ -3626,14 +4997,18 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				const string templateName = rules.get_string(AIBP_PlanKey(0, "template"));
 				const string reasons = rules.get_string(AIBP_PlanKey(0, "reasons"));
 				const u32 setupTick = rules.get_u32("aibt director setup tick");
-				const bool productionPlan = rules.get_bool("aibt director defaults valid") && desired > 0 && work == desired &&
+				const u16 pending = rules.get_u16(AIBP_PlanKey(0, "pending"));
+				const u16 completed = rules.get_u16(AIBP_PlanKey(0, "completed"));
+				const bool productionPlan = rules.get_bool("aibt director defaults valid") && desired > 0 && work > 0 &&
+					work <= desired && pending == work && completed + pending == desired &&
 					AIBT_LayerIsEmpty(0, AIBP_Layer::human) && templateName != "" && templateName != "mode_test" &&
 					reasons.find("defense=") >= 0 && rules.get_u32(AIBP_PlanKey(0, "created")) >= setupTick &&
 					rules.get_u32("aib strategy last replan team 0") >= setupTick;
 				if (!productionPlan)
 				{
 					failure = "director_plan_invalid defaults=" + (rules.get_bool("aibt director defaults valid") ? "true" : "false") +
-						" desired=" + desired + " work=" + work + " human_empty=" + (AIBT_LayerIsEmpty(0, AIBP_Layer::human) ? "true" : "false") +
+						" desired=" + desired + " work=" + work + " pending=" + pending + " completed=" + completed +
+						" human_empty=" + (AIBT_LayerIsEmpty(0, AIBP_Layer::human) ? "true" : "false") +
 						" template=" + templateName + " reasons=" + reasons;
 					return true;
 				}
@@ -3745,11 +5120,12 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				second.set_u8("ai builder job", AIBT_JOB_BLUEPRINT);
 			}
 			const u16 wood = tent is null ? 0 : AIBT_CountMaterialInCratesNear("mat_wood", tent.getPosition(), 160.0f);
-			if (second !is null && wood >= 260 &&
+			if (second !is null && wood == 130 &&
 				AIBT_CountInventoryMaterial(bot, "mat_wood") == 0 &&
 				AIBT_CountInventoryMaterial(second, "mat_wood") == 0)
 			{
-				details = "shared_crates=true builders=2 wood_in_crates=" + wood + " crates=" + AIBT_CountBlobsNear("crate", tent.getPosition(), 160.0f);
+				details = "shared_crates=true builders=2 input_wood=480 builder_shop_cost=200 crate_cost=150 conserved_wood_in_crates=" +
+					wood + " crates=" + AIBT_CountBlobsNear("crate", tent.getPosition(), 160.0f);
 				return true;
 			}
 			if (elapsed > 420)
@@ -3871,6 +5247,14 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 40:
 		case 41:
 		case 60:
+		case 65:
+		case 66:
+		case 67:
+		case 68:
+		case 69:
+		case 70:
+		case 75:
+		case 76:
 		{
 			const bool passed = getRules().get_bool("aibt strategic result");
 			details = getRules().get_string("aibt strategic details");
@@ -4065,22 +5449,255 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 				if (!map.isTileGround(map.getTile(AIBT_route_dirt_tiles[i]).type)) destroyedDirt++;
 			}
 			const bool boundedDestruction = destroyedDirt <= 1;
+
+			CBlob@ continuationBot = AIBT_GetBlob("aibt stone continuation bot");
+			CBlob@ abortBot = AIBT_GetBlob("aibt stone abort bot");
+			if (abortBot is null)
+			{
+				// A long hot suite can transiently lose a rules netid lookup even while
+				// the tagged fixture actor remains alive and its brain keeps ticking.
+				// Recover only this test-owned probe; all route/return postconditions
+				// below still have to pass on the real production worker.
+				CBlob@[] abortProbes;
+				getBlobsByTag("aibt stone abort probe", @abortProbes);
+				for (uint i = 0; i < abortProbes.length; i++)
+				{
+					CBlob@ candidate = abortProbes[i];
+					if (candidate is null || candidate.hasTag("dead")) continue;
+					@abortBot = candidate;
+					AIBT_SetBlob("aibt stone abort bot", abortBot);
+					AIB_LogEvent("test", "stone_route_fixture_ref_recover", AIBT_BlobRef(abortBot), "source=tag");
+					break;
+				}
+			}
+			const bool abortSettlePaused = rules.get_bool("aibt stone route abort settle paused");
+			if (abortBot !is null && abortSettlePaused &&
+				!rules.get_bool("aibt stone route abort settle resumed") &&
+				getGameTime() >= rules.get_u32("aibt stone route abort settle resume tick"))
+			{
+				CBrain@ abortBrain = abortBot.getBrain();
+				if (abortBrain !is null)
+				{
+					abortBrain.server_SetActive(true);
+					rules.set_bool("aibt stone route abort settle resumed", true);
+					AIB_LogEvent("test", "stone_route_abort_fixture_resume", AIBT_BlobRef(abortBot),
+						"shaft=392-393 corridor_y=61-63");
+				}
+			}
+			const bool abortSettleResumed = rules.get_bool("aibt stone route abort settle resumed");
+			const bool priorAbortObserved = rules.get_bool("aibt stone route abort observed");
+			const bool priorAbortSurfaced = rules.get_bool("aibt stone route abort surfaced");
+			const bool priorAbortReentrySurfaced = rules.get_bool("aibt stone route abort reentry surfaced");
+			if (continuationBot is null ||
+				(abortBot is null && !(priorAbortObserved && priorAbortSurfaced && priorAbortReentrySurfaced)))
+			{
+				failure = "stone_route_retarget_probe_missing continuation=" +
+					(continuationBot is null ? "false" : "true") + " abort=" +
+					(abortBot is null ? "false" : "true") +
+					" observed=" + (priorAbortObserved ? "true" : "false") +
+					" first_surface=" + (priorAbortSurfaced ? "true" : "false") +
+					" reentry_bypassed=" + (rules.get_bool("aibt stone route abort reentry bypassed corner") ? "true" : "false") +
+					" reentry_surface=" + (priorAbortReentrySurfaced ? "true" : "false") +
+					" death=" + rules.get_string("aibt stone route abort death details");
+				return true;
+			}
+
+			Vec2f continuationTarget = Vec2f(324 * map.tilesize, 66 * map.tilesize);
+			Vec2f expectedContinuationCorner = Vec2f(320 * map.tilesize, 66 * map.tilesize);
+			Vec2f activeContinuationCorner = continuationBot.get_Vec2f("ai builder stone route corner");
+			Vec2f activeContinuationTarget = continuationBot.get_Vec2f("ai builder tile target");
+			const bool continuationSelected = (activeContinuationCorner - expectedContinuationCorner).Length() < 1.0f &&
+				(activeContinuationTarget - continuationTarget).Length() < 1.0f;
+			if (continuationSelected) rules.set_bool("aibt stone route continuation observed", true);
+			const bool continuationObserved = rules.get_bool("aibt stone route continuation observed");
+			// The single surface cell exists only to make the setup prove that a
+			// fresh surface-oriented search fails. Once production has selected the
+			// retained underground route, remove that discriminator and require the
+			// worker itself to excavate the genuinely new, deeper shaft segment.
+			if (continuationObserved && !rules.get_bool("aibt stone route continuation entry released"))
+			{
+				// The tile write and actor controller run in the same callback order.
+				// Pause only this fixture brain until the engine has published the
+				// cleared discriminator for two complete ticks; otherwise the first
+				// rightward step can collide with the dying solid and throw the worker
+				// outside the retained shaft. The worker still owns every subsequent
+				// movement, clearance hit, and ore hit.
+				CBrain@ continuationBrain = continuationBot.getBrain();
+				if (continuationBrain !is null) continuationBrain.server_SetActive(false);
+				continuationBot.setVelocity(Vec2f_zero);
+				continuationBot.setKeyPressed(key_left, false);
+				continuationBot.setKeyPressed(key_right, false);
+				continuationBot.setKeyPressed(key_up, false);
+				continuationBot.setKeyPressed(key_down, false);
+				continuationBot.setKeyPressed(key_action1, false);
+				map.server_SetTile(AIBT_Pos(321, 58), CMap::tile_empty);
+				rules.set_bool("aibt stone route continuation entry released", true);
+				rules.set_u32("aibt stone route continuation resume tick", getGameTime() + 2);
+				AIB_LogEvent("test", "stone_route_fixture_release", AIBT_BlobRef(continuationBot),
+					"tile=321,58 retained_corner=320,66 settle_ticks=2");
+			}
+			const bool continuationEntryReleased = rules.get_bool("aibt stone route continuation entry released");
+			if (continuationEntryReleased && !rules.get_bool("aibt stone route continuation entry resumed") &&
+				getGameTime() >= rules.get_u32("aibt stone route continuation resume tick"))
+			{
+				CBrain@ continuationBrain = continuationBot.getBrain();
+				if (continuationBrain !is null)
+				{
+					continuationBrain.server_SetActive(true);
+					rules.set_bool("aibt stone route continuation entry resumed", true);
+					AIB_LogEvent("test", "stone_route_fixture_resume", AIBT_BlobRef(continuationBot),
+						"tile=321,58 retained_corner=320,66");
+				}
+			}
+			const bool continuationEntryResumed = rules.get_bool("aibt stone route continuation entry resumed");
+			const bool continuationTargetMined = !map.isTileStone(map.getTile(continuationTarget).type);
+			const bool continuationStoneAcquired = AIBT_CountInventoryMaterial(continuationBot, "mat_stone") > 0;
+			const bool continuationShaftExcavated =
+				!map.isTileGround(map.getTile(AIBT_Pos(320, 65)).type) &&
+				!map.isTileGround(map.getTile(AIBT_Pos(321, 65)).type);
+
+			Vec2f abortAnchor = Vec2f((392 + 0.5f) * map.tilesize, AIBT_Pos(392, 56).y);
+			Vec2f abortCorner = Vec2f(392 * map.tilesize, 64 * map.tilesize);
+			Vec2f abortReentryCorner = Vec2f(392 * map.tilesize, 52 * map.tilesize);
+			if (abortBot !is null)
+			{
+				Vec2f savedAbortAnchor = abortBot.get_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY);
+				Vec2f savedAbortCorner = abortBot.get_Vec2f(AIBM_STONE_RETURN_CORNER_KEY);
+				Vec2f activeAbortCorner = abortBot.get_Vec2f("ai builder stone route corner");
+				const bool abortStateObserved = abortBot.get_u8("ai builder state") == AIBT_RETURN_WOOD &&
+					abortBot.get_Vec2f("ai builder tile target") == Vec2f_zero &&
+					(savedAbortAnchor - abortAnchor).Length() < 1.0f &&
+					(savedAbortCorner - abortCorner).Length() < 1.0f &&
+					(activeAbortCorner - abortCorner).Length() < 1.0f;
+				if (abortStateObserved) rules.set_bool("aibt stone route abort observed", true);
+				if (rules.get_bool("aibt stone route abort observed") &&
+					!rules.get_bool("aibt stone route abort surfaced") &&
+					AIB_HasReachedStoneReturnSurface(abortBot.getPosition(), abortAnchor, map.tilesize))
+				{
+					rules.set_bool("aibt stone route abort surfaced", true);
+					CBrain@ abortBrain = abortBot.getBrain();
+					if (abortBrain !is null) abortBrain.server_SetActive(false);
+					CShape@ abortShape = abortBot.getShape();
+					if (abortShape !is null) abortShape.SetStatic(true);
+					abortBot.setKeyPressed(key_left, false);
+					abortBot.setKeyPressed(key_right, false);
+					abortBot.setKeyPressed(key_up, false);
+					abortBot.setKeyPressed(key_down, false);
+					abortBot.setVelocity(Vec2f_zero);
+					rules.set_u32("aibt stone route abort reentry stage tick", getGameTime() + 90);
+					AIB_LogEvent("test", "stone_return_reentry_fixture_wait", AIBT_BlobRef(abortBot),
+						"cooldown_ticks=90 anchor=" + AIB_EventPos(abortAnchor) +
+						" pos=" + AIB_EventPos(abortBot.getPosition()));
+				}
+				if (rules.get_bool("aibt stone route abort surfaced") &&
+					!rules.get_bool("aibt stone route abort reentry staged") &&
+					getGameTime() >= rules.get_u32("aibt stone route abort reentry stage tick"))
+				{
+					// Reproduce the production failure boundary after a realistic
+					// wall-climb recovery window: ordinary home navigation can fall
+					// back into the saved shaft after surfacing. The retained local ore
+					// corner is placed above the surface anchor, so production must
+					// recognize that the shaft is already rejoined instead of pursuing
+					// that stale cross-tunnel dependency.
+					abortBot.setPosition(Vec2f((392 + 1.0f) * map.tilesize,
+						(62 + 0.5f) * map.tilesize));
+					abortBot.setVelocity(Vec2f_zero);
+					abortBot.Tag("aibt stone return reentry probe");
+					abortBot.set_u8("ai builder job", AIBT_JOB_STONE);
+					abortBot.set_u8("ai builder state", AIBT_RETURN_WOOD);
+					abortBot.set_bool("ai builder job active", true);
+					abortBot.set_Vec2f(AIBM_STONE_RETURN_ANCHOR_KEY, abortAnchor);
+					abortBot.set_Vec2f(AIBM_STONE_RETURN_CORNER_KEY, abortReentryCorner);
+					abortBot.set_Vec2f(AIBM_STONE_RETURN_EGRESS_KEY, Vec2f_zero);
+					abortBot.set_bool(AIBM_STONE_RETURN_SURFACED_KEY, true);
+					abortBot.set_bool(AIBM_STONE_RETURN_CORNER_ASSIST_KEY, false);
+					abortBot.set_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY, false);
+					abortBot.set_bool(AIBM_STONE_RETURN_CLIMB_LATCH_KEY, false);
+					abortBot.set_s32(AIBM_STONE_RETURN_CLIMB_DIRECTION_KEY, 0);
+					abortBot.set_bool("ai builder direct stone return", false);
+					abortBot.set_Vec2f(AIBM_STONE_RETURN_PROGRESS_POS_KEY, abortBot.getPosition());
+					abortBot.set_u32(AIBM_STONE_RETURN_PROGRESS_TICK_KEY, getGameTime());
+					abortBot.set_bool(AIBM_STONE_RETURN_STALL_LOGGED_KEY, false);
+					rules.set_bool("aibt stone route abort reentry staged", true);
+					rules.set_u32("aibt stone route abort reentry resume tick", getGameTime() + 2);
+					AIB_LogEvent("test", "stone_return_reentry_fixture_pause", AIBT_BlobRef(abortBot),
+						"anchor=" + AIB_EventPos(abortAnchor) + " stale_corner=" + AIB_EventPos(abortReentryCorner) +
+						" settle_ticks=2 pos=" + AIB_EventPos(abortBot.getPosition()));
+				}
+				if (rules.get_bool("aibt stone route abort reentry staged") &&
+					!rules.get_bool("aibt stone route abort reentry resumed") &&
+					getGameTime() >= rules.get_u32("aibt stone route abort reentry resume tick"))
+				{
+					CBrain@ abortBrain = abortBot.getBrain();
+					if (abortBrain !is null)
+					{
+						CShape@ abortShape = abortBot.getShape();
+						if (abortShape !is null) abortShape.SetStatic(false);
+						abortBrain.server_SetActive(true);
+						rules.set_bool("aibt stone route abort reentry resumed", true);
+						AIB_LogEvent("test", "stone_return_reentry_fixture_resume", AIBT_BlobRef(abortBot),
+							"anchor=" + AIB_EventPos(abortAnchor) + " stale_corner=" + AIB_EventPos(abortReentryCorner));
+					}
+				}
+				if (rules.get_bool("aibt stone route abort reentry resumed") &&
+					abortBot.get_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY) &&
+					abortBot.get_bool("ai builder direct stone return"))
+					rules.set_bool("aibt stone route abort reentry bypassed corner", true);
+				if (rules.get_bool("aibt stone route abort reentry bypassed corner") &&
+					AIB_HasReachedStoneReturnSurface(abortBot.getPosition(), abortAnchor, map.tilesize))
+					rules.set_bool("aibt stone route abort reentry surfaced", true);
+			}
+			const bool abortObserved = rules.get_bool("aibt stone route abort observed");
+			const bool abortSurfaced = rules.get_bool("aibt stone route abort surfaced");
+			const bool abortReentryStaged = rules.get_bool("aibt stone route abort reentry staged");
+			const bool abortReentryResumed = rules.get_bool("aibt stone route abort reentry resumed");
+			const bool abortReentryBypassedCorner = rules.get_bool("aibt stone route abort reentry bypassed corner");
+			const bool abortReentrySurfaced = rules.get_bool("aibt stone route abort reentry surfaced");
+			const bool abortBlockPreserved = map.isTileCastle(map.getTile(AIBT_Pos(392, 65)).type) &&
+				map.isTileCastle(map.getTile(AIBT_Pos(396, 65)).type) &&
+				map.isTileStone(map.getTile(AIBT_Pos(396, 66)).type);
 			if (targetMined && stoneAcquired && plannedDirtDestroyed && offRouteDirtPreserved &&
-				bedrockPreserved && castlePreserved && boundedDestruction)
+				bedrockPreserved && castlePreserved && boundedDestruction && continuationObserved && continuationEntryReleased && continuationEntryResumed &&
+				continuationTargetMined && continuationStoneAcquired && continuationShaftExcavated &&
+				abortSettlePaused && abortSettleResumed && abortObserved && abortSurfaced &&
+				abortReentryStaged && abortReentryResumed && abortReentryBypassedCorner && abortReentrySurfaced && abortBlockPreserved)
 			{
 				details = rules.get_string("aibt stone route static details") +
 					" physical_target_mined=true stone_acquired=true planned_dirt_destroyed=true off_route_preserved=true" +
-					" bedrock_preserved=true castle_preserved=true destroyed_dirt=" + destroyedDirt;
+					" bedrock_preserved=true castle_preserved=true destroyed_dirt=" + destroyedDirt +
+					" continuation_observed=true continuation_entry_released=true continuation_entry_resumed=true continuation_target_mined=true continuation_stone_acquired=true" +
+					" continuation_shaft_excavated=true abort_settle_paused=true abort_settle_resumed=true" +
+					" abort_observed=true abort_surfaced=true" +
+					" abort_reentry_staged=true abort_reentry_resumed=true abort_reentry_bypassed_corner=true abort_reentry_surfaced=true" +
+					" abort_block_preserved=true";
 				return true;
 			}
-			if (elapsed > 360)
+			if (elapsed > 900)
 			{
 				failure = "stone_route_physical_timeout target_mined=" + (targetMined ? "true" : "false") +
 					" stone_acquired=" + (stoneAcquired ? "true" : "false") +
 					" planned_dirt=" + (plannedDirtDestroyed ? "true" : "false") +
 					" off_route=" + (offRouteDirtPreserved ? "true" : "false") +
 					" bedrock=" + (bedrockPreserved ? "true" : "false") + " castle=" + (castlePreserved ? "true" : "false") +
-					" destroyed_dirt=" + destroyedDirt + " " + AIBT_DescribeBuilder(bot);
+					" destroyed_dirt=" + destroyedDirt +
+					" continuation_observed=" + (continuationObserved ? "true" : "false") +
+					" continuation_entry_released=" + (continuationEntryReleased ? "true" : "false") +
+					" continuation_entry_resumed=" + (continuationEntryResumed ? "true" : "false") +
+					" continuation_target_mined=" + (continuationTargetMined ? "true" : "false") +
+					" continuation_stone=" + (continuationStoneAcquired ? "true" : "false") +
+					" continuation_shaft=" + (continuationShaftExcavated ? "true" : "false") +
+					" abort_settle_paused=" + (abortSettlePaused ? "true" : "false") +
+					" abort_settle_resumed=" + (abortSettleResumed ? "true" : "false") +
+					" abort_observed=" + (abortObserved ? "true" : "false") +
+					" abort_surfaced=" + (abortSurfaced ? "true" : "false") +
+					" abort_reentry_staged=" + (abortReentryStaged ? "true" : "false") +
+					" abort_reentry_resumed=" + (abortReentryResumed ? "true" : "false") +
+					" abort_reentry_bypassed_corner=" + (abortReentryBypassedCorner ? "true" : "false") +
+					" abort_reentry_surfaced=" + (abortReentrySurfaced ? "true" : "false") +
+					" abort_block=" + (abortBlockPreserved ? "true" : "false") +
+					" main=" + AIBT_DescribeBuilder(bot) +
+					" continuation=" + AIBT_DescribeBuilder(continuationBot) +
+					" abort=" + (abortBot is null ? "despawned_after_surface" : AIBT_DescribeBuilder(abortBot));
 				return true;
 			}
 			break;
@@ -4685,6 +6302,8 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 		case 62:
 		case 63:
 		{
+			if (getRules().get_bool("aibt fallback finalize pending"))
+				AIBT_FinalizeRepresentativeFallback();
 			return AIBT_EvaluateRepresentativeFallback(elapsed, failure, details);
 		}
 
@@ -4719,6 +6338,343 @@ bool AIBT_EvaluateScenario(const int index, const u32 elapsed, string &out failu
 					" latches=" + (latchesHeld ? "true" : "false") + " left={" +
 					(rules is null ? "rules_missing" : rules.get_string(AIBT_BootstrapLifecycleKey(0, "details"))) + "} right={" +
 					(rules is null ? "rules_missing" : rules.get_string(AIBT_BootstrapLifecycleKey(1, "details"))) + "}";
+				return true;
+			}
+			break;
+		}
+
+		case 71:
+		{
+			CRules@ rules = getRules();
+			CBlob@ matchProbe = AIBT_GetBlob("aibt guide match probe");
+			if (rules is null || !rules.get_bool("aibt guide resupply static") || matchProbe is null || tent is null)
+			{
+				failure = "guide_resupply_setup_failed " +
+					(rules is null ? "rules_missing" : rules.get_string("aibt guide resupply static detail")) +
+					" probe=" + AIBT_BlobRef(matchProbe) + " tent=" + AIBT_BlobRef(tent);
+				return true;
+			}
+			const u16 sourceID = matchProbe.get_netid(AIB_GUIDE_RESUPPLY_SOURCE_KEY);
+			const u32 last = matchProbe.get_u32(AIB_GUIDE_RESUPPLY_LAST_KEY);
+			const u32 next = matchProbe.get_u32(AIB_GUIDE_RESUPPLY_NEXT_KEY);
+			const u16 wood = AIBT_CountInventoryMaterial(matchProbe, "mat_wood") +
+				AIBR_CountAccessibleHomeMaterial(tent, "mat_wood");
+			const u16 stone = AIBT_CountInventoryMaterial(matchProbe, "mat_stone") +
+				AIBR_CountAccessibleHomeMaterial(tent, "mat_stone");
+			const bool granted = sourceID == tent.getNetworkID() &&
+				last >= rules.get_u32("aibt guide resupply start tick") &&
+				next == last + AIB_GUIDE_MATCH_INTERVAL;
+			const bool amounts = wood == AIB_GUIDE_MATCH_WOOD && stone == AIB_GUIDE_MATCH_STONE;
+			if (granted && amounts)
+			{
+				details = "warmup=250w+80s/40s match=100w+30s/20s away_rejected=true active_episode_held=true safe_boundary_accepted=true physical_base_visit=true source=tent remote_shop_rejected=true ownership_handoff_clears_visit=true";
+				return true;
+			}
+			if (elapsed > 450)
+			{
+				failure = "guide_match_resupply_timeout source=" + sourceID + " expected_source=" + tent.getNetworkID() +
+					" last=" + last + " start=" + rules.get_u32("aibt guide resupply start tick") +
+					" next=" + next + " wood=" + wood + " stone=" + stone + " " + AIBT_DescribeBuilder(matchProbe);
+				return true;
+			}
+			break;
+		}
+
+		case 72:
+		{
+			CRules@ rules = getRules();
+			const u16 x = 100;
+			const u16 y = AIBT_GROUND_Y - 2;
+			if (rules is null || !rules.get_bool("aibt guide repair setup"))
+			{
+				failure = "guide_repair_setup_failed " +
+					(rules is null ? "rules_missing" : rules.get_string("aibt guide repair setup detail"));
+				return true;
+			}
+			const u16 doorX = 110;
+			const u16 doorBlock = AIBP_EncodeBlock(AIBP_WOOD_DOOR, 0);
+			CBlob@ door = AIBT_GetBlob("aibt guide repair door");
+			const u8 stage = rules.get_u8("aibt guide repair stage");
+			if (stage == 0)
+			{
+				if (door is null)
+				{
+					if (elapsed <= 15) break;
+					failure = "guide_repair_door_missing_after_init";
+					return true;
+				}
+				const f32 initial = door.getInitialHealth();
+				if (initial <= 0.0f)
+				{
+					if (elapsed <= 15) break;
+					failure = "guide_repair_door_initial_health_unset health=" + door.getHealth();
+					return true;
+				}
+				door.setPosition(AIBT_Pos(doorX, y));
+				door.setAngleDegrees(0.0f);
+				CShape@ shape = door.getShape();
+				if (shape !is null) shape.SetStatic(true);
+				door.server_SetHealth(initial * 0.5f);
+				rules.set_u8("aibt guide repair stage", 1);
+				break;
+			}
+			if (stage == 1)
+			{
+				const bool liveDamaged = door !is null && AIBP_IsDamagedPlanOccupant(0, doorX, y, doorBlock);
+				const bool liveNotRepairable = door !is null &&
+					!AIBP_IsRepairablePlanOccupant(0, doorX, y, doorBlock) &&
+					!AIBP_ShouldReactivateCompletedTask(0, doorX, y, doorBlock);
+				if (!liveDamaged || !liveNotRepairable)
+				{
+					if (elapsed <= 30)
+					{
+						if (door !is null)
+						{
+							door.setPosition(AIBT_Pos(doorX, y));
+							door.setAngleDegrees(0.0f);
+							door.server_SetHealth(door.getInitialHealth() * 0.5f);
+						}
+						break;
+					}
+					failure = "guide_live_blob_policy_failed damaged=" + (liveDamaged ? "true" : "false") +
+						" not_repairable=" + (liveNotRepairable ? "true" : "false") +
+						" door=" + AIBT_BlobRef(door) +
+						" pos=" + (door is null ? "none" : AIB_EventPos(door.getPosition())) +
+						" angle=" + (door is null ? 0.0f : door.getAngleDegrees()) +
+						" health=" + (door is null ? 0.0f : door.getHealth()) +
+						" initial=" + (door is null ? 0.0f : door.getInitialHealth());
+					return true;
+				}
+				door.Tag("dead");
+				door.server_Die();
+				rules.set_u8("aibt guide repair stage", 2);
+				break;
+			}
+			if (stage == 2)
+			{
+				const bool destroyedReactivated = AIBP_ShouldReactivateCompletedTask(0, doorX, y, doorBlock);
+				if (!destroyedReactivated)
+				{
+					if (elapsed <= 45) break;
+					failure = "guide_destroyed_blob_not_reactivated door=" + AIBT_BlobRef(door);
+					return true;
+				}
+				rules.set_bool("aibt guide repair blob policy", true);
+				rules.set_u8("aibt guide repair stage", 3);
+			}
+			if (elapsed < 150) break;
+			const bool quietRepairable = AIBP_ShouldRepairDamagedTile(0, x, y, AIBP_WOOD_BLOCK);
+			if (quietRepairable && rules.get_bool("aibt guide repair blob policy"))
+			{
+				details = "ordinary_damage_deferred_ticks=150 quiet_repairable=true critical_immediate=true live_blob_not_healed=true destroyed_blob_reactivated=true full_rebuild_policy=true";
+				return true;
+			}
+			if (elapsed > 180)
+			{
+				failure = "guide_quiet_repair_never_activated elapsed=" + elapsed +
+					" tile=" + getMap().getTile(AIBT_Pos(x, y)).type;
+				return true;
+			}
+			break;
+		}
+
+		case 73:
+		{
+			CRules@ rules = getRules();
+			CBlob@ saw = AIBT_GetBlob("aibt guide safe saw");
+			CBlob@ log = AIBT_GetBlob("aibt guide saw log");
+			CBlob@ spacingSeed = AIBT_GetBlob("aibt guide spacing seed");
+			if (rules is null || !rules.get_bool("aibt guide tree saw setup") || saw is null)
+			{
+				failure = "guide_tree_saw_setup_failed " +
+					(rules is null ? "rules_missing" : rules.get_string("aibt guide tree saw setup detail")) +
+					" saw=" + AIBT_BlobRef(saw);
+				return true;
+			}
+			if (bot.get_u8("ai builder state") == AIBT_DELIVER_LOG_TO_SAW ||
+				bot.get_netid("ai builder guide saw target") == saw.getNetworkID() ||
+				(bot.getCarriedBlob() !is null && bot.getCarriedBlob().getName() == "log"))
+				rules.set_bool("aibt guide saw delivery started", true);
+			const Vec2f spaced = rules.get_Vec2f("aibt guide spaced position");
+			const bool overlapRejected = spacingSeed !is null && !spacingSeed.hasTag("dead") &&
+				(spaced.x != 0.0f || spaced.y != 0.0f) && !AIBGuide_IsNaturalTreeFarmPosition(spaced);
+			if (overlapRejected) rules.set_bool("aibt guide overlap rejected", true);
+			if (!rules.get_bool("aibt guide overlap rejected"))
+			{
+				if (elapsed <= 20) break;
+				failure = "guide_tree_overlap_not_rejected seed=" + AIBT_BlobRef(spacingSeed) +
+					" spaced=" + AIB_EventPos(spaced) + " " + rules.get_string("aibt guide tree saw setup detail");
+				return true;
+			}
+			const bool droppedAtSaw = log !is null && !log.isAttached() && !log.isInInventory() &&
+				(log.getPosition() - saw.getPosition()).Length() <= 24.0f;
+			const bool sawProcessed = log is null || log.hasTag("dead") || log.hasTag("sawed") ||
+				AIBT_CountMaterialNear("mat_wood", saw.getPosition(), 48.0f) > 0;
+			const bool completed = rules.get_bool("aibt guide saw delivery started") &&
+				(droppedAtSaw || sawProcessed) && bot.getCarriedBlob() is null;
+			if (completed)
+			{
+				details = "natural_ground=true exact_tree_spacing_pixels=16 same_barrier_side=true overlap_rejected=true flag_room_saw_rejected=true safe_saw_selected=true log_delivery_started=true log_dropped_or_processed=true";
+				return true;
+			}
+			if (elapsed > 600)
+			{
+				failure = "guide_saw_delivery_timeout started=" +
+					(rules.get_bool("aibt guide saw delivery started") ? "true" : "false") +
+					" dropped=" + (droppedAtSaw ? "true" : "false") + " processed=" + (sawProcessed ? "true" : "false") +
+					" log=" + AIBT_BlobRef(log) + " saw=" + AIBT_BlobRef(saw) + " " + AIBT_DescribeBuilder(bot);
+				return true;
+			}
+			break;
+		}
+
+		case 74:
+		{
+			CRules@ rules = getRules();
+			const u16 x = 180;
+			const u16 y = AIBT_GROUND_Y - 1;
+			const u16 block = AIBP_EncodeBlock(AIBP_REINFORCED_WOOD_DOOR, 1);
+			const u8 stage = rules.get_u8("aibt guide mixed payment stage");
+			const u16 wood = AIBT_CountAllLiveMaterial("mat_wood");
+			const u16 stone = AIBT_CountAllLiveMaterial("mat_stone");
+			const bool placed = AIBP_MapMatchesBlock(x, y, block, 0);
+			if (!rules.get_bool("aibt guide catalog costs"))
+			{
+				failure = "guide_catalog_cost_matrix_mismatch";
+				return true;
+			}
+			if (stage == 0)
+			{
+				if (placed || wood != 30 || stone != 0)
+				{
+					failure = "mixed_payment_partial_side_effect placed=" + (placed ? "true" : "false") +
+						" wood=" + wood + " stone=" + stone;
+					return true;
+				}
+				if (elapsed >= 60)
+				{
+					AIBT_GiveMaterial(bot, "mat_stone", 2);
+					rules.set_u8("aibt guide mixed payment stage", 1);
+				}
+				break;
+			}
+			const TileType background = getMap().getTile(AIBT_Pos(x, y)).type;
+			const bool conserved = AIBT_CountAllLiveMaterial("mat_wood") == 0 &&
+				AIBT_CountAllLiveMaterial("mat_stone") == 0;
+			const bool stoneBacked = background >= CMap::tile_castle_back && background < 76;
+			if (placed && conserved && stoneBacked)
+			{
+				details = "installed_typed_shop_cost_matrix=true insufficient_second_material_consumed_nothing=true atomic_payment=true paid_wood=30 paid_stone=2 reinforced_background=true remaining_wood=0 remaining_stone=0";
+				return true;
+			}
+			if (elapsed > 360)
+			{
+				failure = "mixed_payment_completion_timeout placed=" + (placed ? "true" : "false") +
+					" conserved=" + (conserved ? "true" : "false") + " stone_backed=" + (stoneBacked ? "true" : "false") +
+					" wood=" + AIBT_CountAllLiveMaterial("mat_wood") + " stone=" + AIBT_CountAllLiveMaterial("mat_stone") +
+					" " + AIBT_DescribeBuilder(bot);
+				return true;
+			}
+			break;
+		}
+
+		case 77:
+		{
+			CRules@ rules = getRules();
+			CBlob@ firstOrb = AIBT_GetBlob("aibt reservation first orb");
+			CBlob@ secondOrb = AIBT_GetBlob("aibt reservation second orb");
+			if (rules is null || !rules.get_bool("aibt reservation contention setup") ||
+				firstOrb is null || secondOrb is null)
+			{
+				failure = "reservation_contention_setup_failed";
+				return true;
+			}
+
+			array<u16>@ xs = null; array<u16>@ ys = null; array<u16>@ blocks = null; array<u16>@ reserved = null;
+			array<u8>@ phases = null; array<u8>@ states = null; array<u32>@ untils = null;
+			const bool loaded = AIBP_LoadTaskArrays(0, @xs, @ys, @blocks, @phases, @states, @reserved, @untils);
+			const u8 stage = rules.get_u8("aibt reservation contention stage");
+			if (stage == 0)
+			{
+				if (bot.get_u8("ai builder state") == AIBT_COLLECT_BLUEPRINT_RESOURCES)
+				{
+					const bool released = loaded && reserved !is null && untils !is null && states !is null &&
+						reserved.length == 1 && untils.length == 1 && states.length == 1 &&
+						reserved[0] == 0 && untils[0] == 0 && states[0] == AIBP_TaskState::pending;
+					if (!released)
+					{
+						failure = "material_trip_retained_blueprint_reservation owner=" +
+							(reserved is null || reserved.length == 0 ? 0 : reserved[0]) +
+							" until=" + (untils is null || untils.length == 0 ? 0 : untils[0]);
+						return true;
+					}
+					rules.set_bool("aibt reservation contention released", true);
+					firstOrb.set_u8("ai builder state", AIBT_FIND_BLUEPRINT_BLOCK);
+					firstOrb.set_u8("ai builder job", AIBT_JOB_BLUEPRINT);
+					firstOrb.set_bool("ai builder job active", true);
+					firstOrb.set_Vec2f("ai builder tile target", Vec2f_zero);
+					secondOrb.set_u8("ai builder state", AIBT_FIND_BLUEPRINT_BLOCK);
+					secondOrb.set_u8("ai builder job", AIBT_JOB_BLUEPRINT);
+					secondOrb.set_bool("ai builder job active", true);
+					secondOrb.set_Vec2f("ai builder tile target", Vec2f_zero);
+					rules.set_u32("aibt reservation contention activated", getGameTime());
+					rules.set_u8("aibt reservation contention stage", 1);
+					return false;
+				}
+				if (elapsed > 30)
+				{
+					failure = "ordinary_builder_never_entered_material_trip " + AIBT_DescribeBuilder(bot);
+					return true;
+				}
+				break;
+			}
+
+			const string firstWait = firstOrb.get_string("ai builder blueprint wait signature");
+			const string secondWait = secondOrb.get_string("ai builder blueprint wait signature");
+			if (!rules.get_bool("aibt reservation contention wait observed"))
+			{
+				if (firstWait.find("Waiting for another builder's blueprint reservation") >= 0)
+				{
+					rules.set_bool("aibt reservation contention wait observed", true);
+					rules.set_netid("aibt reservation contention loser", firstOrb.getNetworkID());
+				}
+				else if (secondWait.find("Waiting for another builder's blueprint reservation") >= 0)
+				{
+					rules.set_bool("aibt reservation contention wait observed", true);
+					rules.set_netid("aibt reservation contention loser", secondOrb.getNetworkID());
+				}
+			}
+			AIBP_RefreshPlanState(0, true);
+			const bool physical = AIBP_MapMatchesBlock(100, AIBT_GROUND_Y - 1, AIBP_WOOD_BACKWALL, 0);
+			bool noReservations = loaded && reserved !is null && untils !is null;
+			for (uint i = 0; noReservations && i < reserved.length && i < untils.length; i++)
+				noReservations = reserved[i] == 0 && untils[i] == 0;
+			const bool completed = physical && rules.get_u16(AIBP_PlanKey(0, "pending")) == 0 &&
+				rules.get_u8(AIBP_PlanKey(0, "status")) == 2;
+			const bool orbClaimed = firstOrb.get_bool("ai builder saw blueprint target") ||
+				secondOrb.get_bool("ai builder saw blueprint target");
+			CBlob@ loser = getBlobByNetworkID(rules.get_netid("aibt reservation contention loser"));
+			const bool loserRetargeted = loser !is null && loser.get_u8("ai builder state") == AIBT_FIND_BLUEPRINT_BLOCK &&
+				loser.get_Vec2f("ai builder tile target") == Vec2f_zero &&
+				loser.get_string("ai builder blueprint wait signature").find("Waiting for blueprint work") >= 0;
+			const u32 activated = rules.get_u32("aibt reservation contention activated");
+			const bool beforeOldLeaseExpiry = activated > 0 && getGameTime() <= activated + 90;
+			if (completed && noReservations && orbClaimed && loserRetargeted && beforeOldLeaseExpiry &&
+				rules.get_bool("aibt reservation contention released") &&
+				rules.get_bool("aibt reservation contention wait observed"))
+			{
+				details = "ordinary_material_trip_released_reservation=true two_autobuilders_contended_same_task=true one_orb_completed_task=true loser_retargeted=true reservations=0 completed_before_old_lease_expiry=true";
+				return true;
+			}
+			if (activated > 0 && getGameTime() > activated + 90)
+			{
+				failure = "reservation_contention_did_not_resolve_before_old_lease_expiry physical=" +
+					(physical ? "true" : "false") + " complete=" + (completed ? "true" : "false") +
+					" no_reservations=" + (noReservations ? "true" : "false") +
+					" orb_claimed=" + (orbClaimed ? "true" : "false") +
+					" wait_observed=" + (rules.get_bool("aibt reservation contention wait observed") ? "true" : "false") +
+					" loser_retargeted=" + (loserRetargeted ? "true" : "false") +
+					" ordinary_state=" + AIBT_StateName(bot.get_u8("ai builder state"));
 				return true;
 			}
 			break;

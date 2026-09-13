@@ -4,6 +4,7 @@
 // selected fixture is retained indefinitely after DONE so a human can inspect
 // the exact pass/fail scene; closing the AIBTest process is its cleanup.
 const u32 AIBT_VISUAL_RESULT_HOLD_TICKS = 15;
+const u8 AIBT_CLEANUP_MAX_SETTLE_PASSES = 8;
 
 int AIBT_index = -1;
 int AIBT_firstIndex = 0;
@@ -15,7 +16,40 @@ u16 AIBT_failed = 0;
 bool AIBT_done = false;
 bool AIBT_resultPending = false;
 u32 AIBT_resultTick = 0;
+bool AIBT_cleanupSettling = false;
+u32 AIBT_cleanupTick = 0;
+u8 AIBT_cleanupPass = 0;
 u32 AIBT_lastHeartbeat = 0;
+
+void onBlobDie(CRules@ this, CBlob@ blob)
+{
+	if (!isServer() || blob is null || !blob.hasTag("aibt stone abort probe")) return;
+	const string details = "team=" + blob.getTeamNum() +
+		" state=" + blob.get_u8("ai builder state") +
+		" pos=" + AIB_EventPos(blob.getPosition()) +
+		" velocity=" + AIB_EventPos(blob.getVelocity()) +
+		" health=" + blob.getHealth() +
+		" surfaced=" + (blob.get_bool(AIBM_STONE_RETURN_SURFACED_KEY) ? "true" : "false") +
+		" direct=" + (blob.get_bool("ai builder direct stone return") ? "true" : "false") +
+		" rejoined=" + (blob.get_bool(AIBM_STONE_RETURN_CORNER_REJOINED_KEY) ? "true" : "false");
+	this.set_string("aibt stone route abort death details", details);
+	AIB_LogEvent("test", "stone_return_reentry_fixture_death", AIBT_BlobRef(blob), details);
+}
+
+bool AIBT_IsCleanupSettled()
+{
+	CMap@ map = getMap();
+	if (map is null) return false;
+	if (AIBT_CountExistingTagged("aibt test fixture") > 0 || AIBT_CountExistingTagged("aib strategy bootstrap worker") > 0) return false;
+	if (AIBT_temporary_no_build_points.length > 0 || AIBT_temporary_no_build_owners.length > 0 || AIBT_temporary_no_build_cleanup_failed) return false;
+	// Before the first canonical capture there is no authoritative tile hash to
+	// compare yet. This path is used by cold startup and persistent hot restart;
+	// it may proceed only after all prior fixture handles have disappeared.
+	if (AIBT_canonical_tiles.length == 0) return true;
+	if (map.tilemapwidth != AIBT_canonical_width || map.tilemapheight != AIBT_canonical_height) return false;
+	if (AIBT_MapTileHash(map) != AIBT_canonical_hash) return false;
+	return true;
+}
 
 int AIBT_FindScenarioIndex(const string &in name)
 {
@@ -135,6 +169,9 @@ void onRestart(CRules@ this)
 	AIBT_done = !selectionValid;
 	AIBT_resultPending = false;
 	AIBT_resultTick = 0;
+	AIBT_cleanupSettling = false;
+	AIBT_cleanupTick = 0;
+	AIBT_cleanupPass = 0;
 	AIBT_lastHeartbeat = 0;
 	this.set_bool("aib tests done", !selectionValid);
 	this.set_string("aib test scenario", "boot");
@@ -151,6 +188,24 @@ void onTick(CRules@ this)
 {
 	if (!isServer() || AIBT_done) return;
 	if (getGameTime() < 5) return;
+	if (AIBT_cleanupSettling)
+	{
+		// server_Die() and server_SetTile() are not reliable same-callback
+		// postconditions. Wait for the exact canonical hash and fixture deaths;
+		// re-run cleanup only while those postconditions remain unresolved. The
+		// bounded setup guard still fails closed if the engine never settles.
+		if (getGameTime() - AIBT_cleanupTick < 2) return;
+		if (!AIBT_IsCleanupSettled() && AIBT_cleanupPass < AIBT_CLEANUP_MAX_SETTLE_PASSES)
+		{
+			AIBT_CleanupScenario();
+			AIBT_cleanupPass++;
+			AIBT_cleanupTick = getGameTime();
+			return;
+		}
+		AIBT_cleanupSettling = false;
+		AIBT_StartNext(this, false);
+		return;
+	}
 	if (AIBT_resultPending)
 	{
 		if (getGameTime() - AIBT_resultTick < AIBT_VISUAL_RESULT_HOLD_TICKS) return;
@@ -160,7 +215,13 @@ void onTick(CRules@ this)
 
 	if (AIBT_index < AIBT_firstIndex)
 	{
-		AIBT_StartNext(this);
+		// Persistent TCPR restarts can enter here while the cold preflight's
+		// frozen blobs still exist. Use the same engine-settle boundary as an
+		// ordinary scenario transition before capturing/validating the map.
+		AIBT_CleanupScenario();
+		AIBT_cleanupSettling = true;
+		AIBT_cleanupTick = getGameTime();
+		AIBT_cleanupPass = 0;
 		return;
 	}
 
@@ -222,10 +283,12 @@ void AIBT_FinishVisualHold(CRules@ this)
 	}
 
 	AIBT_CleanupScenario();
-	AIBT_StartNext(this);
+	AIBT_cleanupSettling = true;
+	AIBT_cleanupTick = getGameTime();
+	AIBT_cleanupPass = 0;
 }
 
-void AIBT_StartNext(CRules@ rules)
+void AIBT_StartNext(CRules@ rules, const bool cleanupFirst)
 {
 	AIBT_index++;
 	if (AIBT_index > AIBT_lastIndex)
@@ -242,7 +305,7 @@ void AIBT_StartNext(CRules@ rules)
 	rules.set_string("aib test display status", "RUNNING: " + scenario);
 	rules.Sync("aib test display status", true);
 	AIBT_PrintStart(scenario);
-	AIBT_SetupScenario(AIBT_index);
+	AIBT_SetupScenario(AIBT_index, cleanupFirst);
 	AIBT_started = getGameTime();
 	AIBT_lastHeartbeat = getGameTime();
 }

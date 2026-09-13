@@ -7,7 +7,8 @@ function New-WaveLine {
 
     $values = @{
         FixtureId = "flat_ctf"
-        FixtureVersion = 1
+        FixtureVersion = 4
+        Driver = "grounded_candidate_corridor_v4_exclusive_spawn_outcomes"
         Team = 0
         TeamSide = "left"
         Seed = 77
@@ -15,15 +16,35 @@ function New-WaveLine {
         MeasurementFingerprint = "measurement-$Scenario-$Variant"
         Elapsed = 1200
         Breached = "true"
-        Crossings = if ($Variant -eq "plan") { 2 + $Offset } else { 5 + $Offset }
+        Crossings = if ($Variant -eq "plan") { 2 } else { 5 }
+        EnemyDeaths = $null
+        OutcomesResolved = $null
+        OutcomeContract = "exclusive_spawn_index_v1"
+        DuplicateDeathCallbacks = 0
+        PostCrossDeaths = 0
+        DuplicateBombCallbacks = 0
         FirstBreach = if ($Variant -eq "plan") { 320 + $Offset } else { 200 + $Offset }
         BuilderDeaths = 0
         Route = "true"
         RoutePenalty = if ($Variant -eq "plan") { -0.1 } else { 0.0 }
+        FixtureTemplate = "flag_gatehouse"
+        FixtureAnchorX = 60
+        FixtureAnchorY = 42
+        ApproachStartX = 552
+        ApproachStartY = 332
+        BreachTargetX = 424
+        BreachTargetY = 332
+        ArchersSpawned = if ($Scenario -eq "archer") { 7 } elseif ($Scenario -eq "mixed") { 2 } else { 0 }
+        BombCarriers = if ($Scenario -eq "bomb") { 7 } elseif ($Scenario -eq "mixed") { 2 } else { 0 }
+        ArrowsFired = if ($Scenario -eq "archer") { 7 } elseif ($Scenario -eq "mixed") { 2 } else { 0 }
+        BombsThrown = if ($Scenario -eq "bomb") { 7 } elseif ($Scenario -eq "mixed") { 2 } else { 0 }
+        BombsDetonated = if ($Scenario -eq "bomb") { 7 } elseif ($Scenario -eq "mixed") { 2 } else { 0 }
     }
     foreach ($key in $Overrides.Keys) { $values[$key] = $Overrides[$key] }
+    if ($null -eq $values.EnemyDeaths) { $values.EnemyDeaths = 7 - [int]$values.Crossings }
+    if ($null -eq $values.OutcomesResolved) { $values.OutcomesResolved = [int]$values.Crossings + [int]$values.EnemyDeaths }
 
-    return "[AIBEVT] t=1200 seq=$Sequence scenario=manual source=strategy action=wave_result actor=team:$($values.Team) fixture_id=$($values.FixtureId) fixture_version=$($values.FixtureVersion) team=$($values.Team) team_side=$($values.TeamSide) seed=$($values.Seed) variant=$Variant scenario=$Scenario initial_fingerprint=$($values.Fingerprint) measurement_fingerprint=$($values.MeasurementFingerprint) elapsed=$($values.Elapsed) breached=$($values.Breached) first_breach=$($values.FirstBreach) crossings=$($values.Crossings) enemy_deaths=7 builder_deaths=$($values.BuilderDeaths) flag_approaches=4 plan_completed_delta=3 plan_pending=1 plan_damaged=2 damage_events=3 damage_absorbed_cost=40 plan_cost=200 completion_tick=600 first_damage_tick=700 structure_lifetime=500 builder_travel=123.5 builder_idle_ticks=30 reservation_conflicts=0 replans=1 route_preserved=$($values.Route) friendly_route_penalty=$($values.RoutePenalty)"
+    return "[AIBEVT] t=1200 seq=$Sequence scenario=manual source=strategy action=wave_result actor=team:$($values.Team) run_id=wave-$Scenario-$Variant-$($values.Seed)-$Sequence pressure_valid=true fixture_id=$($values.FixtureId) fixture_version=$($values.FixtureVersion) team=$($values.Team) team_side=$($values.TeamSide) driver=$($values.Driver) fixture_template=$($values.FixtureTemplate) fixture_anchor_x=$($values.FixtureAnchorX) fixture_anchor_y=$($values.FixtureAnchorY) fixture_direction=1 fixture_tasks=36 fixture_task_hash=1234 fixture_corridor_hash=5678 approach_start_x=$($values.ApproachStartX) approach_start_y=$($values.ApproachStartY) breach_target_x=$($values.BreachTargetX) breach_target_y=$($values.BreachTargetY) seed=$($values.Seed) variant=$Variant scenario=$Scenario initial_fingerprint=$($values.Fingerprint) measurement_fingerprint=$($values.MeasurementFingerprint) elapsed=$($values.Elapsed) breached=$($values.Breached) first_breach=$($values.FirstBreach) crossings=$($values.Crossings) enemy_deaths=$($values.EnemyDeaths) builder_deaths=$($values.BuilderDeaths) outcomes_resolved=$($values.OutcomesResolved) outcome_contract=$($values.OutcomeContract) duplicate_death_callbacks=$($values.DuplicateDeathCallbacks) post_cross_deaths=$($values.PostCrossDeaths) duplicate_bomb_callbacks=$($values.DuplicateBombCallbacks) flag_approaches=4 pressure_approaches=7 attack_ticks=400 archers_spawned=$($values.ArchersSpawned) bomb_carriers=$($values.BombCarriers) arrows_fired=$($values.ArrowsFired) bombs_thrown=$($values.BombsThrown) bombs_detonated=$($values.BombsDetonated) bomb_origin=server_wave_throw_with_real_explosion minimum_target_distance=8 spawned=7 spawn_limit=7 plan_completed_delta=3 plan_pending=1 plan_damaged=2 damage_events=3 damage_absorbed_cost=40 plan_cost=200 completion_tick=600 first_damage_tick=700 structure_lifetime=500 builder_travel=123.5 builder_idle_ticks=30 reservation_conflicts=0 replans=1 route_preserved=$($values.Route) friendly_route_penalty=$($values.RoutePenalty)"
 }
 
 try {
@@ -87,6 +108,19 @@ try {
         $identityRejected = $_.Exception.Message -match "exactly one control and one plan"
     }
     if (!$identityRejected) { throw "Different fixture identities were incorrectly paired" }
+
+    $mixedDrivers = @(
+        New-WaveLine 1 "knight" "control" 0 @{ Seed = 77; Driver = "grounded_candidate_corridor_v1" }
+        New-WaveLine 2 "knight" "plan" 0 @{ Seed = 77; Driver = "grounded_candidate_corridor_v1" }
+        New-WaveLine 3 "knight" "control" 0 @{ Seed = 78; Driver = "grounded_candidate_corridor_v4_exclusive_spawn_outcomes" }
+        New-WaveLine 4 "knight" "plan" 0 @{ Seed = 78; Driver = "grounded_candidate_corridor_v4_exclusive_spawn_outcomes" }
+    )
+    Set-Content -LiteralPath $logPath -Value $mixedDrivers -Encoding UTF8
+    $mixedDriversRejected = $false
+    try { & $compare -LogPath $logPath -Scenarios "knight" -MinimumSeedsPerCohort 1 -AsJson | Out-Null } catch {
+        $mixedDriversRejected = $_.Exception.Message -match "mixes driver contracts"
+    }
+    if (!$mixedDriversRejected) { throw "Different driver contracts were incorrectly aggregated in one cohort" }
 
     $toleratedRouteIncrease = @(
         New-WaveLine 1 "knight" "control" 0 @{ RoutePenalty = 0.0 }
@@ -179,6 +213,28 @@ try {
         $gatesRejected = $_.Exception.Message -match "semantic acceptance gates failed" -and $_.Exception.Message -match "builder_deaths"
     }
     if (!$gatesRejected) { throw "Opt-in semantic acceptance gates did not reject worsened results" }
+
+    $tooManyDeaths = @(
+        New-WaveLine 1 "knight" "control" 0 @{ Crossings = 0; EnemyDeaths = 8; OutcomesResolved = 8 }
+        New-WaveLine 2 "knight" "plan" 0
+    )
+    Set-Content -LiteralPath $logPath -Value $tooManyDeaths -Encoding UTF8
+    $tooManyDeathsRejected = $false
+    try { & $compare -LogPath $logPath -Scenarios "knight" -MinimumSeedsPerCohort 1 -AsJson | Out-Null } catch {
+        $tooManyDeathsRejected = $_.Exception.Message -match "mutually exclusive attacker outcomes"
+    }
+    if (!$tooManyDeathsRejected) { throw "A wave with more deaths than spawned attackers was not rejected" }
+
+    $overlappingOutcomes = @(
+        New-WaveLine 1 "knight" "control" 0 @{ Crossings = 5; EnemyDeaths = 3; OutcomesResolved = 8 }
+        New-WaveLine 2 "knight" "plan" 0
+    )
+    Set-Content -LiteralPath $logPath -Value $overlappingOutcomes -Encoding UTF8
+    $overlappingOutcomesRejected = $false
+    try { & $compare -LogPath $logPath -Scenarios "knight" -MinimumSeedsPerCohort 1 -AsJson | Out-Null } catch {
+        $overlappingOutcomesRejected = $_.Exception.Message -match "mutually exclusive attacker outcomes"
+    }
+    if (!$overlappingOutcomesRejected) { throw "A wave with overlapping crossing/death outcomes was not rejected" }
 
     $invalidOutcome = @(
         New-WaveLine 1 "knight" "control" 0 @{ Breached = "unknown" }

@@ -27,6 +27,12 @@ const u16 AIBP_NURSERY = 87;
 const u16 AIBP_STORAGE = 89;
 const u16 AIBP_TUNNEL = 90;
 const u16 AIBP_QUARRY = 91;
+// Strategy-only composites.  A blueprint cell can encode only one foreground
+// object, so these identities make the guide's stone backing part of the same
+// atomic, fully funded door/platform task instead of silently replacing it
+// with the blob's normal wooden background.
+const u16 AIBP_REINFORCED_WOOD_DOOR = 92;
+const u16 AIBP_REINFORCED_PLATFORM = 93;
 const string AIBP_BLUEPRINT_OWNER_TEAM_KEY = "aibuilder blueprint owner team";
 
 bool AIBP_IsWorkshopBlock(const u16 encoded)
@@ -94,6 +100,7 @@ bool AIBP_IsCatalogBlock(const u16 encoded)
 		id == AIBP_STONE_DOOR || id == AIBP_WOOD_BLOCK ||
 		id == AIBP_WOOD_BACKWALL || id == AIBP_WOOD_DOOR ||
 		id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_SPIKES || id == AIBP_LADDER ||
+		id == AIBP_REINFORCED_WOOD_DOOR || id == AIBP_REINFORCED_PLATFORM ||
 		AIBP_IsWorkshopBlock(encoded) ||
 		id == 48 || id == 64 || id == 196 || id == 205;
 }
@@ -116,7 +123,14 @@ bool AIBP_IsBlobBlock(const u16 encoded)
 {
 	const u16 id = AIBP_BlockId(encoded);
 	return id == AIBP_STONE_DOOR || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_SPIKES ||
-		id == AIBP_LADDER || AIBP_IsWorkshopBlock(encoded);
+		id == AIBP_LADDER || id == AIBP_REINFORCED_WOOD_DOOR || id == AIBP_REINFORCED_PLATFORM ||
+		AIBP_IsWorkshopBlock(encoded);
+}
+
+bool AIBP_RequiresStoneBackground(const u16 encoded)
+{
+	const u16 id = AIBP_BlockId(encoded);
+	return id == AIBP_REINFORCED_WOOD_DOOR || id == AIBP_REINFORCED_PLATFORM;
 }
 
 // Base WoodenPlatform.as deliberately normalizes wooden platforms to team -1
@@ -125,7 +139,8 @@ bool AIBP_IsBlobBlock(const u16 encoded)
 // normalization as destruction or foreign ownership.
 bool AIBP_UsesNeutralBlobTeam(const u16 encoded)
 {
-	return AIBP_BlockId(encoded) == AIBP_PLATFORM;
+	const u16 id = AIBP_BlockId(encoded);
+	return id == AIBP_PLATFORM || id == AIBP_REINFORCED_PLATFORM;
 }
 
 bool AIBP_BlobTeamMatchesBlock(const u16 encoded, const s16 actualTeam, const s16 expectedTeam)
@@ -150,9 +165,9 @@ string AIBP_BlockBlobName(const u16 encoded)
 {
 	const u16 id = AIBP_BlockId(encoded);
 	if (id == AIBP_STONE_DOOR) return "stone_door";
-	if (id == AIBP_WOOD_DOOR) return "wooden_door";
+	if (id == AIBP_WOOD_DOOR || id == AIBP_REINFORCED_WOOD_DOOR) return "wooden_door";
 	if (id == AIBP_BRIDGE) return "bridge";
-	if (id == AIBP_PLATFORM) return "wooden_platform";
+	if (id == AIBP_PLATFORM || id == AIBP_REINFORCED_PLATFORM) return "wooden_platform";
 	if (id == AIBP_SPIKES) return "spikes";
 	if (id == AIBP_LADDER) return "ladder";
 	if (id == AIBP_BUILDER_SHOP) return "buildershop";
@@ -187,8 +202,10 @@ string AIBP_BlockDisplayName(const u16 encoded)
 	if (id == AIBP_WOOD_BLOCK || id == 196) return "Wood block";
 	if (id == AIBP_WOOD_BACKWALL || id == 205) return "Wood backwall";
 	if (id == AIBP_WOOD_DOOR) return "Wooden door";
+	if (id == AIBP_REINFORCED_WOOD_DOOR) return "Wooden door, stone backed";
 	if (id == AIBP_BRIDGE) return "Team bridge";
 	if (id == AIBP_PLATFORM) return "Wooden platform";
+	if (id == AIBP_REINFORCED_PLATFORM) return "Wooden platform, stone backed";
 	if (id == AIBP_SPIKES) return "Spikes";
 	if (id == AIBP_LADDER) return "Ladder";
 	if (id == AIBP_BUILDER_SHOP) return "Workshop: Builder shop";
@@ -210,32 +227,75 @@ string AIBP_BlockMaterial(const u16 encoded)
 	const u16 id = AIBP_BlockId(encoded);
 	if (id == AIBP_STONE_BLOCK || id == AIBP_STONE_BACKWALL || id == AIBP_STONE_DOOR || id == 48 || id == 64) return "mat_stone";
 	if (id == AIBP_SPIKES) return "mat_stone";
-	if (id == AIBP_WOOD_BLOCK || id == AIBP_WOOD_BACKWALL || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_LADDER || AIBP_IsWorkshopBlock(encoded) || id == 196 || id == 205) return "mat_wood";
+	if (id == AIBP_WOOD_BLOCK || id == AIBP_WOOD_BACKWALL || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_LADDER ||
+		id == AIBP_REINFORCED_WOOD_DOOR || id == AIBP_REINFORCED_PLATFORM || AIBP_IsWorkshopBlock(encoded) || id == 196 || id == 205) return "mat_wood";
 	return "";
+}
+
+u16 AIBP_BlockMaterialCost(const u16 encoded, const string &in material)
+{
+	const u16 id = AIBP_BlockId(encoded);
+	if (material == "mat_stone")
+	{
+		if (id == AIBP_STONE_BACKWALL || id == 64) return 2;
+		if (id == AIBP_STONE_DOOR) return 50;
+		if (id == AIBP_SPIKES) return 30;
+		if (id == AIBP_STONE_BLOCK || id == 48) return 10;
+		if (id == AIBP_REINFORCED_WOOD_DOOR || id == AIBP_REINFORCED_PLATFORM) return 2;
+		if (id == AIBP_STORAGE) return 50;
+		if (id == AIBP_TUNNEL) return 100;
+		if (id == AIBP_QUARRY) return 150;
+		return 0;
+	}
+	if (material == "mat_gold")
+	{
+		if (id == AIBP_VEHICLE_SHOP || id == AIBP_TUNNEL) return 50;
+		if (id == AIBP_QUARRY) return 100;
+		return 0;
+	}
+	if (material != "mat_wood") return 0;
+	if (id == AIBP_WOOD_BACKWALL || id == 205) return 2;
+	if (id == AIBP_WOOD_DOOR || id == AIBP_REINFORCED_WOOD_DOOR) return 30;
+	if (id == AIBP_BRIDGE) return 30;
+	if (id == AIBP_PLATFORM || id == AIBP_REINFORCED_PLATFORM) return 15;
+	if (id == AIBP_LADDER) return 10;
+	if (id == AIBP_WOOD_BLOCK || id == 196) return 10;
+	// Direct typed-shop creation must pay both the ordinary 150-wood workshop
+	// and the current CTF conversion requirements from CTFCosts.cfg.
+	if (id == AIBP_BUILDER_SHOP || id == AIBP_QUARTERS || id == AIBP_KNIGHT_SHOP || id == AIBP_ARCHER_SHOP) return 200;
+	if (id == AIBP_BOAT_SHOP || id == AIBP_VEHICLE_SHOP) return 250;
+	if (id == AIBP_AI_BUILDER_SHOP) return 150;
+	if (id == AIBP_NURSERY) return 250;
+	if (id == AIBP_STORAGE || id == AIBP_TUNNEL) return 200;
+	if (id == AIBP_QUARRY) return 150;
+	return 0;
 }
 
 u16 AIBP_BlockCost(const u16 encoded)
 {
-	const u16 id = AIBP_BlockId(encoded);
-	if (id == AIBP_STONE_BACKWALL || id == AIBP_WOOD_BACKWALL || id == 64 || id == 205) return 2;
-	if (id == AIBP_STONE_DOOR) return 50;
-	if (id == AIBP_WOOD_DOOR) return 30;
-	if (id == AIBP_BRIDGE) return 30;
-	if (id == AIBP_PLATFORM) return 15;
-	if (id == AIBP_SPIKES) return 30;
-	if (id == AIBP_LADDER) return 10;
-	// This is the base workshop construction cost. Typed shops are created
-	// directly so the blueprint does not stop at the conversion menu.
-	if (AIBP_IsWorkshopBlock(encoded)) return 150;
-	if (AIBP_IsTileBlock(encoded)) return 10;
-	return 0;
+	return AIBP_BlockMaterialCost(encoded, "mat_wood") +
+		AIBP_BlockMaterialCost(encoded, "mat_stone") +
+		AIBP_BlockMaterialCost(encoded, "mat_gold");
+}
+
+string AIBP_BlockCostSummary(const u16 encoded)
+{
+	string result = "";
+	const u16 wood = AIBP_BlockMaterialCost(encoded, "mat_wood");
+	const u16 stone = AIBP_BlockMaterialCost(encoded, "mat_stone");
+	const u16 gold = AIBP_BlockMaterialCost(encoded, "mat_gold");
+	if (wood > 0) result = wood + " wood";
+	if (stone > 0) result += (result == "" ? "" : " + ") + stone + " stone";
+	if (gold > 0) result += (result == "" ? "" : " + ") + gold + " gold";
+	return result;
 }
 
 u8 AIBP_BlockPhase(const u16 encoded)
 {
 	const u16 id = AIBP_BlockId(encoded);
 	if (id == AIBP_STONE_BACKWALL || id == AIBP_WOOD_BACKWALL || id == 64 || id == 205) return AIBP_Phase::foundation;
-	if (id == AIBP_STONE_DOOR || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_SPIKES || id == AIBP_LADDER) return AIBP_Phase::access;
+	if (id == AIBP_STONE_DOOR || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_SPIKES || id == AIBP_LADDER ||
+		id == AIBP_REINFORCED_WOOD_DOOR || id == AIBP_REINFORCED_PLATFORM) return AIBP_Phase::access;
 	if (AIBP_IsWorkshopBlock(encoded)) return AIBP_Phase::shell;
 	return AIBP_Phase::shell;
 }

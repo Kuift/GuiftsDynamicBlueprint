@@ -107,6 +107,9 @@ void onInit(CRules@ this)
 	this.addCommandID("aibuilderToggleStoneSelection");
 	this.addCommandID("overseerOrderAIBuilder");
 	this.addCommandID("clearBlueprintLayer");
+	this.set_bool(AIBP_DISPLAY_COMMANDS_READY,
+		this.hasCommandID("syncBlueprintBlock") &&
+		this.hasCommandID("giveAllBlocks"));
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -3030,7 +3033,7 @@ void RenderBlueprintToolbar()
 	Vec2f blockMax = blockMin + Vec2f(160, 38);
 	GUI::DrawRectangle(blockMin, blockMax, SColor(0xdd202020));
 	GUI::DrawText(AIBP_BlockDisplayName(blockIndex), blockMin + Vec2f(5, 3), SColor(0xffffffff));
-	GUI::DrawText(AIBP_BlockMaterial(blockIndex) + " " + AIBP_BlockCost(blockIndex) + "  rot " + AIBP_BlockRotation(blockIndex), blockMin + Vec2f(5, 20), SColor(0xffb8d8ee));
+	GUI::DrawText(AIBP_BlockCostSummary(blockIndex) + "  rot " + AIBP_BlockRotation(blockIndex), blockMin + Vec2f(5, 20), SColor(0xffb8d8ee));
 }
 
 void RenderBlueprintCatalogPanel()
@@ -3076,7 +3079,7 @@ void RenderBlueprintCatalogPanel()
 			GUI::DrawRectangle(cellMin + Vec2f(4, 5), cellMin + Vec2f(22, 23), AIB_BlueprintCatalogSwatch(catalogBlock));
 		}
 		GUI::DrawText(AIB_BlueprintCatalogShortName(catalogBlock), cellMin + Vec2f(28, 4), SColor(0xffffffff));
-		GUI::DrawText("" + AIBP_BlockCost(catalogBlock) + " " + (AIBP_BlockMaterial(catalogBlock) == "mat_stone" ? "stone" : "wood"),
+		GUI::DrawText(AIBP_BlockCostSummary(catalogBlock),
 			cellMin + Vec2f(6, 25), SColor(0xffb8d8ee));
 	}
 }
@@ -3167,22 +3170,23 @@ u16 AIB_CountTeamStoredMaterial(const u8 team, const string &in material)
 {
 	CRules@ rules = getRules();
 	if(rules is null) return 0;
-	const string kind = material == "mat_stone" ? "stone" : "wood";
+	const string kind = material == "mat_stone" ? "stone" : (material == "mat_gold" ? "gold" : "wood");
 	return rules.get_u16("aib strategy accessible " + kind + " team " + int(team));
 }
 
-void AIB_BlueprintMaterialCosts(u32 &out wood, u32 &out stone)
+void AIB_BlueprintMaterialCosts(u32 &out wood, u32 &out stone, u32 &out gold)
 {
 	wood = 0;
 	stone = 0;
+	gold = 0;
 	for(uint x = 0; x < dynamicMapTileData.length; x++)
 	{
 		for(uint y = 0; y < dynamicMapTileData[x].length; y++)
 		{
 			const u16 block = dynamicMapTileData[x][y];
-			const string material = AIBP_BlockMaterial(block);
-			if(material == "mat_wood") wood += AIBP_BlockCost(block);
-			else if(material == "mat_stone") stone += AIBP_BlockCost(block);
+			wood += AIBP_BlockMaterialCost(block, "mat_wood");
+			stone += AIBP_BlockMaterialCost(block, "mat_stone");
+			gold += AIBP_BlockMaterialCost(block, "mat_gold");
 		}
 	}
 }
@@ -3267,18 +3271,19 @@ void RenderBlueprintAdvancedPanel()
 	}
 	else if(blueprintAdvancedTab == 3)
 	{
-		u32 wood = 0; u32 stone = 0;
-		AIB_BlueprintMaterialCosts(wood, stone);
+		u32 wood = 0; u32 stone = 0; u32 gold = 0;
+		AIB_BlueprintMaterialCosts(wood, stone, gold);
 		const u16 storedWood = AIB_CountTeamStoredMaterial(team, "mat_wood");
 		const u16 storedStone = AIB_CountTeamStoredMaterial(team, "mat_stone");
+		const u16 storedGold = AIB_CountTeamStoredMaterial(team, "mat_gold");
 		const bool infiniteBuilder = AIB_TeamHasAutoBuilder(team);
 		AIB_DrawAdvancedLine(content, 0, "Blueprint cost", SColor(0xffffffff));
 		AIB_DrawAdvancedLine(content, 1, "Wood: " + wood + "  accessible " + storedWood);
 		AIB_DrawAdvancedLine(content, 2, "Stone: " + stone + "  accessible " + storedStone);
-		AIB_DrawAdvancedLine(content, 3, infiniteBuilder ? "Wood shortage: ignored by Autobuilder" :
-			"Wood shortage: " + (wood > storedWood ? wood - storedWood : 0));
-		AIB_DrawAdvancedLine(content, 4, infiniteBuilder ? "Stone shortage: ignored by Autobuilder" :
-			"Stone shortage: " + (stone > storedStone ? stone - storedStone : 0));
+		AIB_DrawAdvancedLine(content, 3, "Gold: " + gold + "  accessible " + storedGold);
+		AIB_DrawAdvancedLine(content, 4, infiniteBuilder ? "Shortages: ignored by Autobuilder" :
+			"Short W/S/G: " + (wood > storedWood ? wood - storedWood : 0) + "/" +
+			(stone > storedStone ? stone - storedStone : 0) + "/" + (gold > storedGold ? gold - storedGold : 0));
 	}
 	else
 	{

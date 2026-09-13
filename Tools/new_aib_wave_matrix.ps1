@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$FixtureId,
     [ValidateRange(1, 65535)]
-    [int]$FixtureVersion = 1,
+    [int]$FixtureVersion = 4,
     [string[]]$TeamSides = @("0:left", "1:right"),
     [string[]]$Scenarios = @("knight", "archer", "bomb", "mixed"),
     [uint64[]]$Seeds = @(101, 211, 307),

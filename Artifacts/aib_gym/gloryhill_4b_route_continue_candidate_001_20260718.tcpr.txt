@@ -1,0 +1,105 @@
+[AIBWEIGHTS] loaded=true version=1 file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBStrategyWeights.cfg
+TCPR: client 127.0.0.1:47091 is now authenticated.
+Game has been running slow for too long. Skipping 10.000000 ticks worth of simulation.
+Files have the same name! (rename for safety) Maps/Official/CTF/JTG_NewGetisburgMines.png - Maps/CTF/Dormant/JTG_NewGetisburgMines.png (during query 'mine')
+Files have the same name! (rename for safety) Maps/Official/CTF/Mazey_Junctions.png - Maps/CTF/Dormant/Mazey_Junctions.png (during query 'junction')
+RCON command from 127.0.0.1:47091 :
+getRules().SetCurrentState(GAME)
+Files have the same name! (rename for safety) Maps/Official/CTF/Potatobird_SharkRomance_v1.png - Maps/CTF/Dormant/Potatobird_SharkRomance_v1.png (during query 'shark')
+RCON command from 127.0.0.1:47091 :
+getRules().set_bool("aib event log enabled", false)
+RCON command from 127.0.0.1:47091 :
+getRules().set_u8("aib gym team", 0)
+Game has been running slow for too long. Skipping 2.000000 ticks worth of simulation.
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:47091 :
+getRules().set_u8("aib gym builder count", 4)
+RCON command from 127.0.0.1:47091 :
+getRules().set_string("aib gym resource order", "mixed")
+RCON command from 127.0.0.1:47091 :
+getRules().set_u32("aib gym duration ticks", 5400)
+RCON command from 127.0.0.1:47091 :
+getRules().set_string("aib gym variant", "candidate")
+RCON command from 127.0.0.1:47091 :
+getRules().set_string("aib gym run id", "gloryhill_4b_route_continue_candidate_001_20260718")
+RCON command from 127.0.0.1:47091 :
+getRules().set_bool("aib gym stop requested", false)
+RCON command from 127.0.0.1:47091 :
+getRules().set_bool("aib gym request", true)
+[AIBGYM] SPAWN_SET requested=4 found=true reachable=12 actor_blocked=5 candidates=7 positions=140,292;52,284;36,292;20,300
+RCON command from 127.0.0.1:47091 :
+tcpr("AIBGYM|ARMED|run=gloryhill_4b_route_continue_candidate_001_20260718")
+AIBGYM|ARMED|run=gloryhill_4b_route_continue_candidate_001_20260718
+[AIBGYM] AIBGYM|START|run=gloryhill_4b_route_continue_candidate_001_20260718|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|START|run=gloryhill_4b_route_continue_candidate_001_20260718|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=150|collected=50|delivered=50|deaths=0
+[AIBACT] v=3 episode=1 batch=1 records=45 reason=interval data=AAAAE2VOuwEIADEAAAYLAAAAADIAAAFABTXkZAAcAQYAAAAAADMA/wJvuynvAAAAAAYAAAAAADQA/wKL4VAiAAAAAAMAADEAMgAAAWQAHAEIAAAxAD/6AFAAAAAAAAAAAAAEAAAxAAb03QD/AAAAAAQFADEAAhH+BAUAMQACBv8JAQAeAAAABgAAAAEAADsAKgACAAkABgAAAAAANQAAAebwF6w0ABwBCQAAHgAAAAYAAAACAAGWACoAAgAJAAYAAAAAADYAAQHm8BesXAYcAQQAADEACGQAIAEAAAYAAAAAADcA/wJvuynvNAAcAQYAAAAAADgA/wKL4VAiNAAcAQYAAAAAADkA/wJvuynvXAYcAQYAAAAAADoA/wKL4VAiXAYcAQQEADEAAv8ABAUAMQAC9AAEBQAxAALyAAQFADEAAvEABAUAMQAC8AAEBgAxAAhkACABAAAEAQAxAALvAAQdADEACGQAIAEAAAkSAGwAAAAHAAAAAQAAOwAqAAYAAwAJAABsAAAABwAAAAIAAZYAKgAGAAMABwAAAAAAADUAAAHm8BesTAAIAQcAAAAAAAA2AAEB5vAXrOYFOAEGAQAAAAA7AAAB5vAXrIwAJAEGAAAAAAA8AAAB5vAXrDQAHAEGAAAAAAA9AAAB5vAXrCQAJAEGAAAAAAA+AAAB5vAXrBQALAEECwAxAAhkACABAAAEHgAxAAhkACABAAAGBAAAAAA/AP8Ci+FQIgAAAAAGDAAAAABAAP8CpP9WrgAAAAAGBgAAAABBAP8CpP9WrgAAAAAECAAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=300|collected=50|delivered=50|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=450|collected=74|delivered=74|deaths=0
+[AIBACT] v=3 episode=1 batch=2 records=19 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABg8AAAAARQD/AovhUCIAAAAABA8AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgYAAAAARgD/BFFRUT9aANcABgAAAAAARwD/BFFRUT9nANMABgAAAAAASAD/BFFRUT91AM8ABgAAAAAASQD/BFFRUT+CAMwABgAAAAAASgD/BFFRUT+QAMgABwAAAAAAAAkA/wQQpChMTADYAAYLAAAAAEwA/wJvuynvAAAAAAYBAAAAAE0A/wJvuynvAAAAAAQMADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=600|collected=138|delivered=138|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=750|collected=230|delivered=230|deaths=0
+[AIBACT] v=3 episode=1 batch=3 records=19 reason=interval data=BwsAAAAAAEYA/wRRUVE/WwDcAAQTADEACGQAIAEAAAcIAAAAAABHAP8EUVFRP2kA3AAEFgAxAAhkACABAAAHCwAAAAAASAD/BFFRUT92ANwABBMAMQAIZAAgAQAABxIAAAAAAD8A/wKL4VAiHAAkAQYJAAAAAE4A/wKL4VAiAAAAAAQDADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAcOAAAAAABJAP8EUVFRP6UAOQEEEAAxAAhkACABAAAEHgAxAAhkACABAAAHCQAAAAAAOAD/AovhUCIcACQBBgMAAAAATwD/AovhUCIAAAAABwIAAAAAAEoA/wRRUVE/xAA8AQQQADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=900|collected=552|delivered=552|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1050|collected=576|delivered=576|deaths=0
+[AIBACT] v=3 episode=1 batch=4 records=19 reason=interval data=BB4AMQAIZAAgAQAABhoAAAAAUAAAA+zFrZncADQBBAQAMQAIZAAgAQAABgIAAAAAUQAABUCaXhccACQBBwAAAAAAAEwA/wJvuynvHAAkAQcBAAAAAAA3AP8Cb7sp70wAJAEHAAAAAAAARQD/AovhUCIcACQBBBsAMQAIZAAgAQAABx0AAAAAAE8A/wKL4VAiNgARAQQBADEACGQAIAEAAAYJAAAAAFIA/wKL4VAiAAAAAAQVADEACGQAIAEAAAYBAAAAAFMA/wKL4VAiAAAAAAQdADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAYVAAAAAFQA/wQQpChMTADcAAQJADEACGQAIAEAAAQeADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1200|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1350|collected=576|delivered=576|deaths=0
+[AIBACT] v=3 episode=1 batch=5 records=30 reason=interval data=BhQAAAAAVQD/Am+7Ke8AAAAABgAAAAAAVgD/AovhUCIAAAAACAAAMQADXgFuAAcAAAAAAABWAP8Ci+FQIgAAAAAECgAxAAhkACABAAAEHgAxAAhkACABAAAGEwAAAABXAP8EUVFRP8EBTAEGAAAAAABYAP8EUVFRP80BRQEGAAAAAABZAP8EUVFRP9kBPgEGAAAAAABaAP8EUVFRP+UBNwEGAAAAAABbAP8EUVFRP/EBMAEGAAAAAABcAP8EUVFRP/0BKQEHAAAAAAAADQD/BBCkKEy0AVABBgIAAAAAXgD/Am+7Ke8AAAAABgMAAAAAXwD/Am+7Ke8AAAAABAYAMQAIZAAgAQAABgIAAAAAYAD/AovhUCIAAAAABw0AAAAAAFcA/wRRUVE/wwFUAQQPADEACGQAIAEAAAcMAAAAAABYAP8EUVFRP8oBUQEEEgAxAAhkACABAAAHEgAAAAAAWQD/BFFRUT/cAUwBBAwAMQAIZAAgAQAABxgAAAAAAFoA/wRRUVE/6AFMAQQGADEACGQAIAEAAAQeADEACGQAIAEAAAcAAAAAAABbAP8EUVFRP/QBTAEEHgAxAAhkACABAAAHBgAAAAAAXAD/BFFRUT8BAk0BBBgAMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1500|collected=576|delivered=576|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1650|collected=916|delivered=916|deaths=0
+[AIBACT] v=3 episode=1 batch=6 records=11 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABxAAAAAAAF4A/wJvuynvMgAKAQQOADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1800|collected=1166|delivered=1166|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=1950|collected=1412|delivered=1412|deaths=0
+[AIBACT] v=3 episode=1 batch=7 records=18 reason=interval data=BB4AMQAIZAAgAQAABgUAAAAAYgD/Am+7Ke8AAAAABgAAAAAAYwD/AovhUCIAAAAACAAAMQADwgGMAAcAAAAAAABiAP8Cb7sp7wAAAAAHAAAAAAAAYwD/AovhUCIAAAAABhUAAAAAZAD/BBCkKEy0AVQBBAQAMQAIZAAgAQAABB4AMQAIZAAgAQAABgsAAAAAZQD/AqT/Vq4AAAAABBMAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhcAAAAAZgD/AovhUCIAAAAABAcAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=2100|collected=1456|delivered=1456|deaths=0
+[AIBGYM] v=1 t=2301 b=61 tm=0 f=1 s=2 x=912 y=288 tx=0 ty=0 mv=6 j=0 rp=1 in=0 tg=0 out=0 inv=0 dx=1008 dy=328 tb=15 bx=1012 by=336
+[AIBGYM] v=1 t=2340 b=60 tm=0 f=1 s=6 x=63 y=327 tx=0 ty=0 mv=0 j=0 rp=0 in=0 tg=0 out=0 inv=0 dx=68 dy=279 tb=0 bx=0 by=0
+[AIBGYMW] data=AT0AAP0IAAABACpv/+gC/wAAAAAAAgAPAHT/6AL5AAAAAAACAA8Aef/oAv0AAAAAAAIADwB+/+gCCwEAAAAAAgAPAIP/7wIQAQAAAAACAA8AiP/8AhMBAAAAAAIADwCN/wgDIAEAAAAAAgAPAJL/FgMgAQAAAAACAA8Al/8kAyABAAAAAAIADwCc/zIDGgEAAAAAAgAPAKH/PwMLAQAAAAACAA8Apv9MAwYBAAAAAAIADwCr/1kDDAEAAAAAAgAPALD/YgMcAQAAAAACAA8Atf9pAyABAAAAAAIADwC6/3cDIAEAAAAAAgAPAL//hAMeAQAAAAACAA8AxP+NAyABAAAAAAIADwDJ/40DIAEAAAAAAgAPAM7/jQMgAQAAAAACAA8A0/+NAyABAAAAAAIADwDY/44DHQEAAAAAAgAPAN3/jQMZAQAAAAACAA8A4v+QAx0BAAAAAAIADwDn/4oDIAEAAAAAAgAPAOz/iAMfAQAAAAACAA8A8f+KAxkBAAAAAAIADwD2/5ADHQEAAAAAAgAPAPv/kAMgAQAAAAACAA8AAACQAyABAAAAAAIADwAFAJADGwEAAAAAAgAPAAoAjAMaAQAAAAACAA8ADwCPAyABAAAAAAIADwAUAIoDHgEAAAAAAgAPABkAhwMgAQAAAAACAA8AHgCHAyABAAAAAAIADwAjAIsDIAEAAAAAAgAPACgAiwMgAQAAAAACAA8ALQCLAx8BAAAAAAIADwAyAIoDGQEAAAAAAgAPADcAkAMdAQAAAAACAA8APACQAyABAAAAAAIADwA=
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=2250|collected=1456|delivered=1456|deaths=0
+[AIBACT] v=3 episode=1 batch=8 records=14 reason=interval data=BxkAAAAAAGUA/wKk/1auMgALAQQFADEACGQAIAEAAAcKAAAAAABmAP8Ci+FQIjIADAEEFAAxAAhkACABAAAGCgAAAABnAP8Ci+FQIgAAAAAEFAAxAAhkACABAAAGAAAAAABoAP8Ci+FQIgAAAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+[AIBGYMW] data=ATwAACQJAAABACpq/08ATgFwADgBCgAAAG//UABDAXAAOAEKAAAAdP9RAEMBcAA4AQoAAAB5/1EATgFwADgBCgAAAH7/UABVAXAAOAEKAAAAg/9PAEcBcAA4AQoAAACI/1AARAFwADgBCgAAAI3/UABLAXAAOAEKAAAAkv9PAFgBcAA4AQoAAACX/08AWAFwADgBCgAAAJz/TwBYAXAAOAEKAAAAof9PAFgBcAA4AQoAAACm/0sAUQFwADgBCgAAAKv/RQBFAXAAOAEKAAAAtf9UAEIBAAAAAAYAAAC6/0wAUAEAAAAABgAAAL//RwBOAQAAAAAGAAAAxP9GAEQBAAAAAAYAAADJ/0MARwEAAAAABgAAAM7/QwBGAQAAAAAGAAAA0/8/AEgBAAAAAAYAAADY/z8ARwEAAAAABgAAAN3/PwBHAQAAAAAGAAAA4v8/AEgBAAAAAAYAAADn/z8ARwEAAAAABgAAAOz/PwBIAQAAAAAGAAAA8f8/AEcBAAAAAAYAAAD2/z8ASAEAAAAABgAAAPv/PwBHAQAAAAAGAAAAAAA/AEcBAAAAAAYAAAAFAD8ARwEAAAAABgAAAAoAPwBHAQAAAAAGAAAADwA/AEgBAAAAAAYAAAAUAD8ARwEAAAAABgAAABkAPwBIAQAAAAAGAAAAHgA/AEcBAAAAAAYAAAAjAD8ASAEAAAAABgAAACgAPwBHAQAAAAAGAAAALQA/AEcBAAAAAAYAAAAyAD8ARwEAAAAABgAAADcAPwBHAQAAAAAGAAAAPAA/AEgBAAAAAAYAAAA=
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=2400|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=2550|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=9 records=29 reason=interval data=BgMAAAAAaQD/AqT/Vq4AAAAABBsAMQAIZAAgAQAABhQAAAAAagD/Am+7Ke8AAAAABgAAAAAAawD/AovhUCIAAAAACAAAMQADJgKqAAcAAAAAAABrAP8Ci+FQIgAAAAAECgAxAAhkACABAAAEHgAxAAhkACABAAAHFAAAAAAAaAD/AovhUCIxAAsBBwAAAAAAAGkA/wKk/1auMQALAQQKADEACGQAIAEAAAQeADEACGQAIAEAAAYEAAAAAG0A/wKL4VAiAAAAAAQaADEACGQAIAEAAAYGAAAAAG4A/wRRUVE//wNKAQYAAAAAAG8A/wRRUVE/CgRBAQYAAAAAAHAA/wRRUVE/FQQ4AQYAAAAAAHEA/wRRUVE/HwQvAQYAAAAAAHIA/wRRUVE/KgQmAQcAAAAAAAAPAP8EEKQoTPQDUAEGBgAAAAB0AP8Cb7sp7wAAAAAGAwAAAAB1AP8Cb7sp7wAAAAAEDwAxAAhkACABAAAHEAAAAAAAbgD/BFFRUT/1A1EBBA4AMQAIZAAgAQAABxEAAAAAAG8A/wRRUVE/DQRMAQQNADEACGQAIAEAAAcSAAAAAABwAP8EUVFRPxgETAEEDAAxAAhkACABAAA=
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=2700|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=2850|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=10 records=12 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABwcAAAAAAHEA/wRRUVE/MQShAQQXADEACGQAIAEAAAcYAAAAAAByAP8EUVFRP0EEpAEEBgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3000|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3150|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=11 records=16 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgUAAAAAdwD/Am+7Ke8AAAAABgAAAAAAeAD/AovhUCIAAAAACAAAMQADigLIAAcAAAAAAAB3AP8Cb7sp7wAAAAAHAAAAAAAAeAD/AovhUCIAAAAABBkAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhEAAAAAeQD/BBCkKEz0A1QBBA0AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3300|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3450|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=12 records=13 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgIAAAAAewAAAKm7YAAMBJQBBhMAAAAAfAAAAKm7YAAMBIQBBAkAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgQAAAAAfQAAAKm7YAAcBHwBBBoAMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3600|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3750|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=13 records=15 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhQAAAAAfgD/Am+7Ke8AAAAABgAAAAAAfwD/AovhUCIAAAAACAAAMQAD7gLmAAcAAAAAAAB+AP8Cb7sp7wAAAAAHAAAAAAAAfwD/AovhUCIAAAAABAoAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=3900|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4050|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=14 records=11 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgwAAAAAhQAAAKm7YACUA5wBBBIAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4200|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4350|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=15 records=13 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABgUAAAAAhwD/Am+7Ke8AAAAABgAAAAAAiAD/AovhUCIAAAAACAAAMQADUgMEAQQZADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4500|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4650|collected=1540|delivered=1540|deaths=0
+[AIBACT] v=3 episode=1 batch=16 records=12 reason=interval data=BgAAAAAAiQAAAKm7YAD8ApwBBB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhwAAAAAjAAAAKm7YAAEA4wBBAIAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4800|collected=1540|delivered=1540|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=4950|collected=1660|delivered=1660|deaths=0
+[AIBACT] v=3 episode=1 batch=17 records=15 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABhQAAAAAjgD/Am+7Ke8AAAAABgAAAAAAjwD/AovhUCIAAAAACAAAMQADtgMiAQcAAAAAAACOAP8Cb7sp7wAAAAAHAAAAAAAAjwD/AovhUCIAAAAABAoAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=5100|collected=1660|delivered=1660|deaths=0
+[AIBGYM] v=1 t=5275 b=59 tm=0 f=1 s=2 x=63 y=327 tx=0 ty=0 mv=0 j=0 rp=2 in=0 tg=0 out=0 inv=0 dx=72 dy=208 tb=84 bx=76 by=216
+[AIBGYMW] data=ATsAAJsUAAABACpz/0cASwEAAAAAAgBUAHj/TgBYAQAAAAACAFQAff9QAFgBAAAAAAIAVACC/1AAWAEAAAAAAgBUAIf/UABYAQAAAAACAFQAjP9QAFgBAAAAAAIAVACR/1AAWAEAAAAAAgBUAJb/UABYAQAAAAACAFQAm/9RAE8BAAAAAAIAVACg/1oAQAEAAAAAAgBUAKX/XgBCAQAAAAACAFQAqv9dAEcBAAAAAAIAVACv/1IASQEAAAAAAgBUALT/SQBVAQAAAAACAFQAuf9HAEsBAAAAAAIAVAC+/0UARQEAAAAAAgBUAMP/QgBIAQAAAAACAFQAyP8/AEcBAAAAAAIAVADN/z8ASAEAAAAAAgBUANL/PwBHAQAAAAACAFQA1/8/AEcBAAAAAAIAVADc/z8ASAEAAAAAAgBUAOH/PwBHAQAAAAACAFQA5v8/AEcBAAAAAAIAVADr/z8ARwEAAAAAAgBUAPD/PwBIAQAAAAACAFQA9f8/AEcBAAAAAAIAVAD6/z8ARwEAAAAAAgBUAP//PwBIAQAAAAACAFQABAA/AEcBAAAAAAIAVAAJAD8ARwEAAAAAAgBUAA4APwBHAQAAAAACAFQAEwA/AEgBAAAAAAIAVAAYAD8ARwEAAAAAAgBUAB0APwBHAQAAAAACAFQAIgA/AEgBAAAAAAIAVAAnAD8ARwEAAAAAAgBUACwAPwBHAQAAAAACAFQAMQA/AEcBAAAAAAIAVAA2AD8ASAEAAAAAAgBUADsAPwBHAQAAAAACAFQAQAA/AEcBAAAAAAIAVAA=
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=5250|collected=1660|delivered=1660|deaths=0
+[AIBACT] v=3 episode=1 batch=18 records=10 reason=interval data=BB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+AIBGYM|PROGRESS|run=gloryhill_4b_route_continue_candidate_001_20260718|elapsed=5400|collected=1660|delivered=1660|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_route_continue_candidate_001_20260718 variant=candidate metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-966511277-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=5400 elapsed=5400 collected_wood=710 collected_stone=850 collected_gold=100 collected_total=1660 delivered_wood=710 delivered_stone=850 delivered_gold=100 delivered_total=1660 stock_delta_wood=510 stock_delta_stone=800 stock_delta_gold=100 deaths=0 failure_flags=1 idle_ticks=0 travel_px=30346.9 reason=duration_complete
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_route_continue_candidate_001_20260718 variant=candidate metric=resource_collection_180s fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-966511277-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=5400 elapsed=5400 collected_wood=710 collected_stone=850 collected_gold=100 collected_total=1660 delivered_wood=710 delivered_stone=850 delivered_gold=100 delivered_total=1660 stock_delta_wood=510 stock_delta_stone=800 stock_delta_gold=100 deaths=0 failure_flags=1 idle_ticks=0 travel_px=30346.9 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=0 collected_wood=460 collected_stone=0 collected_gold=0 collected_total=460 delivered_wood=460 delivered_stone=0 delivered_gold=0 delivered_total=460
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=0 collected_wood=460 collected_stone=0 collected_gold=0 collected_total=460 delivered_wood=460 delivered_stone=0 delivered_gold=0 delivered_total=460
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=1 collected_wood=0 collected_stone=424 collected_gold=44 collected_total=468 delivered_wood=0 delivered_stone=424 delivered_gold=44 delivered_total=468
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=1 collected_wood=0 collected_stone=424 collected_gold=44 collected_total=468 delivered_wood=0 delivered_stone=424 delivered_gold=44 delivered_total=468
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=2 collected_wood=250 collected_stone=0 collected_gold=0 collected_total=250 delivered_wood=250 delivered_stone=0 delivered_gold=0 delivered_total=250
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=2 collected_wood=250 collected_stone=0 collected_gold=0 collected_total=250 delivered_wood=250 delivered_stone=0 delivered_gold=0 delivered_total=250
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=3 collected_wood=0 collected_stone=426 collected_gold=56 collected_total=482 delivered_wood=0 delivered_stone=426 delivered_gold=56 delivered_total=482
+[AIBGYMB] schema=4 run=gloryhill_4b_route_continue_candidate_001_20260718 slot=3 collected_wood=0 collected_stone=426 collected_gold=56 collected_total=482 delivered_wood=0 delivered_stone=426 delivered_gold=56 delivered_total=482
+AIBGYM|RESULT|run=gloryhill_4b_route_continue_candidate_001_20260718|status=result|metric=resource_collection_180s|collected=1660|delivered=1660|elapsed=5400|deaths=0|failures=1|reason=duration_complete

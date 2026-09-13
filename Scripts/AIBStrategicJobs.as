@@ -463,7 +463,7 @@ bool AIBS_TryBootstrapBuilder(CRules@ rules, AIBWorldState@ world)
 }
 
 void AIBS_ComputeRoleDemand(const uint builderCount, const u16 planPending,
-	const u32 woodShort, const u32 stoneShort,
+	const u32 woodShort, const u32 stoneShort, const u32 goldShort,
 	uint &out woodCollectors, uint &out stoneCollectors, uint &out builders)
 {
 	woodCollectors = 0;
@@ -471,11 +471,16 @@ void AIBS_ComputeRoleDemand(const uint builderCount, const u16 planPending,
 	builders = builderCount;
 	if (builderCount == 0) return;
 
-	const u32 totalShort = woodShort + stoneShort;
+	// Stone workers own visible-gold discovery and delivery. One outstanding gold
+	// requirement therefore contributes one collector load to their demand; it
+	// must not disappear merely because the plan was published before gold was
+	// already stored.
+	const u32 effectiveStoneShort = stoneShort + (goldShort > 0 ? AIBS_COLLECTOR_LOAD : 0);
+	const u32 totalShort = woodShort + effectiveStoneShort;
 	if (totalShort == 0) return;
 	const uint maxCollectors = builderCount > 1 && planPending > 0 ? builderCount - 1 : builderCount;
 	uint collectors = uint(Maths::Ceil(float(totalShort) / float(AIBS_COLLECTOR_LOAD)));
-	const uint materialKinds = (woodShort > 0 ? 1 : 0) + (stoneShort > 0 ? 1 : 0);
+	const uint materialKinds = (woodShort > 0 ? 1 : 0) + (effectiveStoneShort > 0 ? 1 : 0);
 	collectors = Maths::Min(maxCollectors, Maths::Max(collectors, materialKinds));
 	if (collectors == 0) return;
 
@@ -484,14 +489,14 @@ void AIBS_ComputeRoleDemand(const uint builderCount, const u16 planPending,
 	// favoring wood because it happens to be assigned first.
 	if (collectors == 1)
 	{
-		woodCollectors = woodShort > 0 && (stoneShort == 0 || woodShort >= stoneShort) ? 1 : 0;
+		woodCollectors = woodShort > 0 && (effectiveStoneShort == 0 || woodShort >= effectiveStoneShort) ? 1 : 0;
 		stoneCollectors = 1 - woodCollectors;
 	}
 	else
 	{
 		woodCollectors = uint(Maths::Round(float(collectors) * float(woodShort) / float(totalShort)));
 		if (woodShort > 0 && woodCollectors == 0) woodCollectors = 1;
-		if (stoneShort > 0 && woodCollectors >= collectors) woodCollectors = collectors - 1;
+		if (effectiveStoneShort > 0 && woodCollectors >= collectors) woodCollectors = collectors - 1;
 		stoneCollectors = collectors - woodCollectors;
 	}
 	builders = builderCount - collectors;
@@ -607,12 +612,14 @@ void AIBS_AssignBuilders(AIBWorldState@ world)
 	for (uint i = 0; i < teamBuilders.length; i++) AIBS_SetBuilderResourceHome(teamBuilders[i], resourceHomeID);
 	const u16 woodCost = AIBP_RemainingMaterialCost(world.team, "mat_wood");
 	const u16 stoneCost = AIBP_RemainingMaterialCost(world.team, "mat_stone");
+	const u16 goldCost = AIBP_RemainingMaterialCost(world.team, "mat_gold");
 	const u32 woodShort = woodCost > world.storedWood ? woodCost - world.storedWood : 0;
 	const u32 stoneShort = stoneCost > world.storedStone ? stoneCost - world.storedStone : 0;
+	const u32 goldShort = goldCost > world.storedGold ? goldCost - world.storedGold : 0;
 	uint woodCollectors = 0;
 	uint stoneCollectors = 0;
 	uint builders = 0;
-	AIBS_ComputeRoleDemand(teamBuilders.length, world.planPending, woodShort, stoneShort,
+	AIBS_ComputeRoleDemand(teamBuilders.length, world.planPending, woodShort, stoneShort, goldShort,
 		woodCollectors, stoneCollectors, builders);
 	AIBS_AssignStableRoles(teamBuilders, woodCollectors, stoneCollectors, builders);
 }

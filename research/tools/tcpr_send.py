@@ -132,6 +132,11 @@ def main() -> int:
         "--fail",
         help="Regular expression that ends listening immediately with exit code 3",
     )
+    parser.add_argument(
+        "--fail-file",
+        type=Path,
+        help="Also scan this incrementally written text file for the failure expression",
+    )
     args = parser.parse_args()
 
     if args.connect_timeout_seconds <= 0.0:
@@ -181,7 +186,28 @@ def main() -> int:
             listen_seconds = 10.0
         deadline = time.monotonic() + max(listen_seconds, 0.0)
         received = ""
+        failure_file_offset = 0
+        failure_file_tail = ""
         while time.monotonic() < deadline:
+            if args.fail_file is not None and args.fail_file.exists():
+                file_size = args.fail_file.stat().st_size
+                if file_size < failure_file_offset:
+                    failure_file_offset = 0
+                    failure_file_tail = ""
+                with args.fail_file.open("rb") as stream:
+                    stream.seek(failure_file_offset)
+                    chunk = stream.read()
+                    failure_file_offset = stream.tell()
+                if chunk:
+                    failure_file_tail = (
+                        failure_file_tail + chunk.decode("utf-8", errors="replace")
+                    )[-65536:]
+                if failed is not None and failed.search(failure_file_tail):
+                    print(
+                        f"Failure file pattern was observed in {args.fail_file}: "
+                        f"{args.fail}"
+                    )
+                    return 3
             try:
                 data = connection.recv(65536)
             except socket.timeout:

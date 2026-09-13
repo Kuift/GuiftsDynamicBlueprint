@@ -1,0 +1,28 @@
+AIBGYM|ARMED|run=gloryhill_4b_route_reservation_diag_20260718
+AIBGYM|START|run=gloryhill_4b_route_reservation_diag_20260718|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=3000
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=150|collected=50|delivered=50|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=300|collected=50|delivered=50|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=450|collected=114|delivered=114|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=600|collected=114|delivered=114|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=750|collected=114|delivered=114|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=900|collected=394|delivered=394|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1050|collected=394|delivered=394|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1200|collected=606|delivered=606|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1350|collected=606|delivered=606|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1500|collected=606|delivered=606|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1650|collected=966|delivered=966|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1800|collected=966|delivered=966|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=1950|collected=966|delivered=966|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=2100|collected=1218|delivered=1218|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=2250|collected=1218|delivered=1218|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=2400|collected=1218|delivered=1218|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=2550|collected=1470|delivered=1470|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=2700|collected=1470|delivered=1470|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=2850|collected=1486|delivered=1486|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_route_reservation_diag_20260718|elapsed=3000|collected=1510|delivered=1510|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_4b_route_reservation_diag_20260718 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-3945193546-1025-53-3895577951-3060991973-2466050567 builders=4 live_builders=4 order=mixed duration=3000 elapsed=3000 collected_wood=640 collected_stone=810 collected_gold=60 collected_total=1510 delivered_wood=640 delivered_stone=810 delivered_gold=60 delivered_total=1510 stock_delta_wood=440 stock_delta_stone=760 stock_delta_gold=60 deaths=0 failure_flags=1 idle_ticks=0 travel_px=16706.2 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_4b_route_reservation_diag_20260718 slot=0 collected_wood=320 collected_stone=0 collected_gold=0 collected_total=320 delivered_wood=320 delivered_stone=0 delivered_gold=0 delivered_total=320
+[AIBGYMB] schema=4 run=gloryhill_4b_route_reservation_diag_20260718 slot=1 collected_wood=0 collected_stone=410 collected_gold=32 collected_total=442 delivered_wood=0 delivered_stone=410 delivered_gold=32 delivered_total=442
+[AIBGYMB] schema=4 run=gloryhill_4b_route_reservation_diag_20260718 slot=2 collected_wood=320 collected_stone=0 collected_gold=0 collected_total=320 delivered_wood=320 delivered_stone=0 delivered_gold=0 delivered_total=320
+[AIBGYMB] schema=4 run=gloryhill_4b_route_reservation_diag_20260718 slot=3 collected_wood=0 collected_stone=400 collected_gold=28 collected_total=428 delivered_wood=0 delivered_stone=400 delivered_gold=28 delivered_total=428
+AIBGYM|RESULT|run=gloryhill_4b_route_reservation_diag_20260718|status=result|metric=resource_collection_smoke|collected=1510|delivered=1510|elapsed=3000|deaths=0|failures=1|reason=duration_complete

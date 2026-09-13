@@ -99,6 +99,7 @@ void AIBP_NotifyDisplayTile(const u8 team, const u16 x, const u16 y)
 	if (!isServer()) return;
 	CRules@ rules = getRules();
 	if (rules is null) return;
+	if (!rules.get_bool(AIBP_DISPLAY_COMMANDS_READY)) return;
 	const u16 value = AIBP_GetDisplayTile(team, x, y);
 	const u16 humanVersion = rules.get_u16(AIBP_PlanKey(team, "human version"));
 	for (int i = 0; i < getPlayersCount(); i++)
@@ -162,6 +163,7 @@ void AIBP_SendDisplaySnapshot(const u16 targetNetID, const u8 team)
 	CMap@ map = getMap();
 	CRules@ rules = getRules();
 	if (map is null || rules is null) return;
+	if (!rules.get_bool(AIBP_DISPLAY_COMMANDS_READY)) return;
 	array<u16>@ human = null;
 	array<u16>@ ai = null;
 	AIBP_GetLayerGrid(team, AIBP_Layer::human, @human);
@@ -536,6 +538,35 @@ bool AIBP_CancelCurrentPlan(const u8 team, const string &in reason)
 	return true;
 }
 
+void AIBP_ResetGuideProgress(CRules@ rules, const u8 team)
+{
+	if (rules is null) return;
+	for (u8 stage = 0; stage < AIBGuideStage::count; stage++)
+	{
+		const string key = AIBS_GuideStageKey(team, stage);
+		rules.set_bool(key, false);
+		rules.Sync(key, true);
+	}
+}
+
+void AIBP_EnsureGuidePolicyVersion(CRules@ rules, const u8 team)
+{
+	if (rules is null) return;
+	const string versionKey = "aib guide policy version team " + int(team);
+	if (rules.get_u8(versionKey) >= AIBS_GUIDE_POLICY_VERSION) return;
+
+	// Earlier builds treated a completed legacy gatehouse as the Chapter 1 home
+	// core and let all old templates compete by score. Those flags cannot be
+	// trusted under the ordered guide policy, so reset them once on hot upgrade.
+	// Existing physical work still makes matching candidates duplicate/complete;
+	// only the invalid legacy assumption is discarded.
+	AIBP_ResetGuideProgress(rules, team);
+	rules.set_u8(versionKey, AIBS_GUIDE_POLICY_VERSION);
+	rules.Sync(versionKey, true);
+	rules.set_u32("aib strategy important event team " + int(team), getGameTime() + 1);
+	AIBS_Log("guide_policy", team, "version=" + AIBS_GUIDE_POLICY_VERSION + " progress_reset=true");
+}
+
 void AIBP_ResetTeamPlanForRound(const u8 team)
 {
 	if (!isServer()) return;
@@ -585,6 +616,9 @@ void AIBP_ResetTeamPlanForRound(const u8 team)
 	rules.set_u16(AIBP_PlanKey(team, "damaged"), 0);
 	rules.set_u16(AIBP_PlanKey(team, "human version"), rules.get_u16(AIBP_PlanKey(team, "human version")) + 1);
 	rules.set_string("aib strategy replacement reason team " + int(team), "");
+	AIBP_ResetGuideProgress(rules, team);
+	rules.set_u8("aib guide policy version team " + int(team), AIBS_GUIDE_POLICY_VERSION);
+	rules.Sync("aib guide policy version team " + int(team), true);
 	string[] syncFields = { "id", "owner", "intent", "status", "template", "anchor", "score", "reasons",
 		"pending", "completed", "damaged", "human version" };
 	for (uint i = 0; i < syncFields.length; i++) rules.Sync(AIBP_PlanKey(team, syncFields[i]), true);
@@ -733,7 +767,9 @@ bool AIBP_ReserveLooseTask(const u8 team, const u16 x, const u16 y, const u16 bu
 	}
 	CRules@ rules = getRules();
 	if (rules is null) return false;
-	AIBP_ReleaseLooseBuilderReservation(team, builderNetID);
+	// A worker owns at most one blueprint lease. Generated support uses a loose
+	// lease, so claiming it must also release any older explicit task claim.
+	AIBP_ReleaseBuilderReservation(team, builderNetID);
 	AIBP_TrackLooseReservation(team, x, y);
 	rules.set_netid(AIBP_LooseReservationKey(team, x, y, "owner"), builderNetID);
 	rules.set_u32(AIBP_LooseReservationKey(team, x, y, "until"), getGameTime() + AIBP_RESERVATION_TICKS);
@@ -770,6 +806,16 @@ bool AIBP_ReserveTask(const u8 team, const u16 x, const u16 y, const u16 builder
 			if (rules !is null && rules.get_bool("aib wave running") && rules.get_u8("aib wave team") == team)
 				rules.set_u16("aib wave reservation conflicts", rules.get_u16("aib wave reservation conflicts") + 1);
 			return false;
+		}
+		// Switching targets must not leave a second explicit reservation behind.
+		// A stale self-owned task can otherwise make every other worker report that
+		// it is waiting even though this worker has moved on.
+		for (uint j = 0; j < reserved.length && j < states.length && j < untils.length; j++)
+		{
+			if (j == i || reserved[j] != builderNetID) continue;
+			reserved[j] = 0;
+			untils[j] = 0;
+			if (states[j] == AIBP_TaskState::reserved) states[j] = AIBP_TaskState::pending;
 		}
 		const bool newClaim = reserved[i] != builderNetID || states[i] != AIBP_TaskState::reserved;
 		AIBP_ReleaseLooseBuilderReservation(team, builderNetID);
@@ -921,8 +967,27 @@ void AIBP_ArchiveCurrentPlan(const u8 team, const string &in reason)
 	rules.set_u8(prefix + "status", rules.get_u8(AIBP_PlanKey(team, "status")));
 	rules.set_u32(prefix + "created", rules.get_u32(AIBP_PlanKey(team, "created")));
 	rules.set_u32(prefix + "archived", getGameTime());
-	if (rules.get_bool("aib wave running") && rules.get_u8("aib wave team") == team && reason != "completed")
-		rules.set_u16("aib wave replans", rules.get_u16("aib wave replans") + 1);
+	if (reason == "completed" && rules.get_u8(AIBP_PlanKey(team, "status")) == 2)
+	{
+		const string templateName = rules.get_string(AIBP_PlanKey(team, "template"));
+		string stage = "";
+		if (templateName == "guide_flag_room") stage = "home core";
+		else if (templateName == "frontline_tower") stage = "frontline tower";
+		else if (templateName == "protected_workshops" || templateName == "protected_workshops_compact") stage = "protected shops";
+		else if (templateName == "guide_home_tunnel") stage = "home tunnel";
+		else if (templateName == "guide_front_tunnel") stage = "front tunnel";
+		else if (templateName == "guide_quarry_storage") stage = "quarry storage";
+		if (stage != "")
+		{
+			const string stageKey = "aib guide completed " + stage + " team " + int(team);
+			rules.set_bool(stageKey, true);
+			rules.Sync(stageKey, true);
+		}
+		// A completed structure is a replan boundary. The next 30-tick director
+		// observation may publish the following guide stage immediately; it must
+		// not wait for the generic seven-second cadence or the former 300-tick hold.
+		rules.set_u32("aib strategy important event team " + int(team), getGameTime());
+	}
 	array<u16>@ history = null;
 	if (!rules.get("aib strategy history ids team " + int(team), @history) || history is null)
 	{
@@ -1023,10 +1088,13 @@ bool AIBP_MapMatchesBlock(const u16 x, const u16 y, const u16 block, const s16 e
 	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
 	if (!AIBP_IsBlobBlock(block)) return AIBP_HealthyTileMatchesBlock(map.getTile(center).type, block);
 	CBlob@ placed = AIBP_GetMatchingPlanBlob(x, y, block, expectedTeam);
-	return placed !is null && placed.getHealth() + 0.001f >= placed.getInitialHealth();
+	if (placed is null || placed.getHealth() + 0.001f < placed.getInitialHealth()) return false;
+	if (!AIBP_RequiresStoneBackground(block)) return true;
+	const TileType background = map.getTile(center).type;
+	return background >= CMap::tile_castle_back && background < 76;
 }
 
-bool AIBP_IsRepairablePlanOccupant(const u8 team, const u16 x, const u16 y, const u16 block)
+bool AIBP_IsDamagedPlanOccupant(const u8 team, const u16 x, const u16 y, const u16 block)
 {
 	CMap@ map = getMap();
 	if (map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
@@ -1037,6 +1105,80 @@ bool AIBP_IsRepairablePlanOccupant(const u8 team, const u16 x, const u16 y, cons
 	}
 	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
 	return AIBP_DamagedTileMatchesBlock(map.getTile(center).type, block);
+}
+
+bool AIBP_IsCriticalDamagedTile(const TileType current, const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if (id == AIBP_STONE_BLOCK) return current == CMap::tile_castle_d0;
+	if (id == AIBP_STONE_BACKWALL) return current == 79;
+	if (id == AIBP_WOOD_BLOCK) return current == CMap::tile_wood_d0;
+	if (id == AIBP_WOOD_BACKWALL) return current == 207;
+	return false;
+}
+
+string AIBP_RepairObservationKey(const u8 team, const u16 x, const u16 y, const string &in field)
+{
+	return "aib guide repair " + field + " team " + int(team) + " x " + x + " y " + y;
+}
+
+void AIBP_ClearRepairObservation(const u8 team, const u16 x, const u16 y)
+{
+	CRules@ rules = getRules();
+	if (rules is null) return;
+	rules.set_u16(AIBP_RepairObservationKey(team, x, y, "type"), 0);
+	rules.set_u32(AIBP_RepairObservationKey(team, x, y, "last damage"), 0);
+}
+
+bool AIBP_ShouldRepairDamagedTile(const u8 team, const u16 x, const u16 y, const u16 block)
+{
+	CMap@ map = getMap();
+	CRules@ rules = getRules();
+	if (map is null || rules is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
+	const TileType current = map.getTile(center).type;
+	if (!AIBP_DamagedTileMatchesBlock(current, block)) return false;
+	if (AIBP_IsCriticalDamagedTile(current, block)) return true;
+
+	const string typeKey = AIBP_RepairObservationKey(team, x, y, "type");
+	const string tickKey = AIBP_RepairObservationKey(team, x, y, "last damage");
+	const u16 observed = rules.get_u16(typeKey);
+	if (observed != current)
+	{
+		rules.set_u16(typeKey, current);
+		const u32 now = getGameTime();
+		rules.set_u32(tickKey, now == 0 ? 1 : now);
+		return false;
+	}
+	const u32 lastDamage = rules.get_u32(tickKey);
+	return lastDamage != 0 && getGameTime() >= lastDamage + 5 * 30;
+}
+
+bool AIBP_IsRepairablePlanOccupant(const u8 team, const u16 x, const u16 y, const u16 block)
+{
+	// Doors, platforms, bridges, ladders, and shops have no player-equivalent
+	// in-place repair.  Keep their plan identity while damaged and rebuild only
+	// after the live blob is destroyed.
+	if (AIBP_IsBlobBlock(block)) return false;
+	return AIBP_ShouldRepairDamagedTile(team, x, y, block);
+}
+
+bool AIBP_ShouldReactivateCompletedTask(const u8 team, const u16 x, const u16 y, const u16 block)
+{
+	CMap@ map = getMap();
+	if (map is null || x >= map.tilemapwidth || y >= map.tilemapheight) return false;
+	if (AIBP_IsBlobBlock(block))
+	{
+		// A live matching blob may be damaged, but the guide explicitly requires
+		// destroying and rebuilding these structures rather than healing them.
+		return AIBP_GetMatchingPlanBlob(x, y, block, team) is null;
+	}
+	const Vec2f center = Vec2f(x * map.tilesize + map.tilesize * 0.5f, y * map.tilesize + map.tilesize * 0.5f);
+	if (AIBP_DamagedTileMatchesBlock(map.getTile(center).type, block))
+		return AIBP_ShouldRepairDamagedTile(team, x, y, block);
+	// Empty/destroyed tiles and genuinely mismatched replaceable occupants are
+	// rebuild work, not an in-place repair decision.
+	return true;
 }
 
 bool AIBP_BlobAnchoredAtTile(CBlob@ blob, const u16 x, const u16 y)
@@ -1064,19 +1206,17 @@ void AIBP_RefreshPlanState(const u8 team, const bool reactivateDamaged)
 	for (uint i = 0; i < xs.length && i < ys.length && i < blocks.length && i < states.length; i++)
 	{
 		const bool matches = AIBP_MapMatchesBlock(xs[i], ys[i], blocks[i], team);
+		// A later hit can produce the same visible damage variant as an older
+		// attack.  Forget the old quiet-window timestamp while the tile is healthy
+		// so that recurrence cannot be mistaken for five seconds of inactivity.
+		if (matches && !AIBP_IsBlobBlock(blocks[i]))
+			AIBP_ClearRepairObservation(team, xs[i], ys[i]);
 		const uint index = ys[i] * map.tilemapwidth + xs[i];
 		if (states[i] == AIBP_TaskState::completed && !matches)
 		{
 			damaged++;
-			if (reactivateDamaged)
+			if (reactivateDamaged && AIBP_ShouldReactivateCompletedTask(team, xs[i], ys[i], blocks[i]))
 			{
-				if (rules.get_bool("aib wave running") && rules.get_u8("aib wave team") == team)
-				{
-					rules.set_u16("aib wave damage events", rules.get_u16("aib wave damage events") + 1);
-					rules.set_u32("aib wave damage cost", rules.get_u32("aib wave damage cost") + AIBP_BlockCost(blocks[i]));
-					if (rules.get_u32("aib wave first damage tick") == 0)
-						rules.set_u32("aib wave first damage tick", getGameTime() - rules.get_u32("aib wave start tick"));
-				}
 				states[i] = AIBP_TaskState::pending;
 				if (i < reserved.length) reserved[i] = 0;
 				if (i < untils.length) untils[i] = 0;
@@ -1138,7 +1278,7 @@ u16 AIBP_RemainingMaterialCost(const u8 team, const string &in material)
 	u32 total = 0;
 	for (uint i = 0; i < grid.length; i++)
 	{
-		if (AIBP_BlockMaterial(grid[i]) == material) total += AIBP_BlockCost(grid[i]);
+		total += AIBP_BlockMaterialCost(grid[i], material);
 	}
 	return u16(Maths::Min(total, 65535));
 }
@@ -1150,8 +1290,7 @@ u16 AIBP_MinRemainingBlockCost(const u8 team, const string &in material)
 	u16 result = 0;
 	for (uint i = 0; i < grid.length; i++)
 	{
-		if (AIBP_BlockMaterial(grid[i]) != material) continue;
-		const u16 cost = AIBP_BlockCost(grid[i]);
+		const u16 cost = AIBP_BlockMaterialCost(grid[i], material);
 		if (cost > 0 && (result == 0 || cost < result)) result = cost;
 	}
 	return result;

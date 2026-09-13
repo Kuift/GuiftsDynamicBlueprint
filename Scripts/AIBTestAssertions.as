@@ -21,6 +21,8 @@ const u8 AIBT_NURSERY_COLLECT_STONE = 17;
 const u8 AIBT_NURSERY_BUY_SEED = 18;
 const u8 AIBT_NURSERY_PLANT_SEED = 19;
 const u8 AIBT_NURSERY_WAIT_TREE = 20;
+const u8 AIBT_VISIT_RESUPPLY = 21;
+const u8 AIBT_DELIVER_LOG_TO_SAW = 22;
 const u8 AIBT_JOB_WOOD = 0;
 const u8 AIBT_JOB_STONE = 1;
 const u8 AIBT_JOB_BLUEPRINT = 2;
@@ -50,6 +52,8 @@ string AIBT_StateName(const u8 state)
 		case AIBT_NURSERY_BUY_SEED: return "nursery_buy_seed";
 		case AIBT_NURSERY_PLANT_SEED: return "nursery_plant_seed";
 		case AIBT_NURSERY_WAIT_TREE: return "nursery_wait_tree";
+		case AIBT_VISIT_RESUPPLY: return "visit_resupply";
+		case AIBT_DELIVER_LOG_TO_SAW: return "deliver_log_to_saw";
 	}
 	return "unknown";
 }

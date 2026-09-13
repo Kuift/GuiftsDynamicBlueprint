@@ -1,0 +1,3 @@
+[AIBGYMR] schema=4 status=abort run=gloryhill_4b_spawnfix_smoke_004 reason=no_safe_spawn_set
+AIBGYM|ABORT|run=gloryhill_4b_spawnfix_smoke_004|reason=no_safe_spawn_set
+AIBGYM|ARMED|run=gloryhill_4b_spawnfix_smoke_004

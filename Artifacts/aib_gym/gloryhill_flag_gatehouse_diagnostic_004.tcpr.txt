@@ -1,0 +1,23 @@
+TCPR: client 127.0.0.1:17350 is now authenticated.
+RCON command from 127.0.0.1:17350 :
+getRules().SetCurrentState(GAME)
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:17350 :
+getRules().set_u8("aib infrastructure team", 0)
+RCON command from 127.0.0.1:17350 :
+getRules().set_string("aib infrastructure variant", "diagnostic")
+RCON command from 127.0.0.1:17350 :
+getRules().set_string("aib infrastructure run id", "gloryhill_flag_gatehouse_diagnostic_004")
+RCON command from 127.0.0.1:17350 :
+getRules().set_u32("aib infrastructure readiness deadline", 0)
+RCON command from 127.0.0.1:17350 :
+getRules().set_bool("aib infrastructure stop requested", false)
+RCON command from 127.0.0.1:17350 :
+getRules().set_bool("aib infrastructure request", true)
+RCON command from 127.0.0.1:17350 :
+tcpr("AIBGYMI|ARMED|run=gloryhill_flag_gatehouse_diagnostic_004")
+AIBGYMI|ARMED|run=gloryhill_flag_gatehouse_diagnostic_004
+[AIBACT] v=3 episode=1 batch=1 records=33 reason=interval data=AAAAE2VOuwEIADEAAAYLAAAAADIAAAFABTXkZAAcAQYAAAAAADMA/wJvuynvAAAAAAYAAAAAADQA/wKL4VAiAAAAAAMAADEAMgAAAWQAHAEIAAAxAD/6AFAAAAAAAAAAAAAEAAAxAAb03QD/AAAAAAQFADEAAhD+BAUAMQACBf8JAQAeAAAABgAAAAEAAbEAKAABABsABgAAAAAANQABAebwF6xcBhwBBAAAMQAIZAAgAQAABgAAAAAANgD/Am+7Ke9cBhwBBgAAAAAANwD/AovhUCJcBhwBBAQAMQACAAAGAwAAAAA4AP8CpP9WrgAAAAAEAgAxAAL8AAQFADEAAvYABAUAMQAC8wAEBQAxAALxAAQFADEAAu8ABAEAMQAIZAAgAQAABB4AMQAIZAAgAQAACQgAYgAAAAcAAAABAAGxACgABgADAAcAAAAAAAA1AAEB5vAXrEEGCQEEFgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAAEHgAxAAhkACABAAA=
+[AIBGYMI] schema=1 status=abort run=gloryhill_flag_gatehouse_diagnostic_004 reason=team_flags_readiness_timeout
+[AIBGYMI] schema=1 status=abort run=gloryhill_flag_gatehouse_diagnostic_004 reason=team_flags_readiness_timeout
+AIBGYMI|ABORT|run=gloryhill_flag_gatehouse_diagnostic_004|reason=team_flags_readiness_timeout

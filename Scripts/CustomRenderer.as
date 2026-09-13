@@ -1,7 +1,9 @@
 #include "Inventory.as"
 #include "Item.as"
 #include "AIBEventLog.as"
+#include "AIBManualOrderCommon.as"
 #include "BlueprintMemory.as"
+#include "BlueprintNetwork.as"
 
 u8 enableLiveEdit = 1; //EDIT THIS TO 0 IF YOU DON'T WANT TO ALLOW LIVE EDIT BY DEFAULT
 u8 enableOverseer = 1; //EDIT THIS TO 1 IF YOU WANT TO ENABLE Overseer BY DEFAULT
@@ -12,11 +14,38 @@ float pngWidth = 128.0f;
 float pngHeight = 256.0f;
 
 const string REEEPPNG = "REEE";//stand for "Relevent Environnement for Enhancing Effectiveness [of rendering]" 
+const u8 AIB_RENDERER_JOB_WOOD = 0;
 const u8 AIB_RENDERER_JOB_STONE = 1;
+const u8 AIB_RENDERER_JOB_BLUEPRINT = 2;
+const u8 AIB_RENDERER_STATE_IDLE = 0;
 const u8 AIB_RENDERER_STATE_FIND_STONE = 7;
 const string AIB_BLUEPRINT_DATA_KEY = "aibuilder blueprint data";
 const string AIB_BLUEPRINT_WIDTH_KEY = "aibuilder blueprint width";
 const string AIB_BLUEPRINT_HEIGHT_KEY = "aibuilder blueprint height";
+const string AIB_BLUEPRINT_TEAM_SUFFIX = " team ";
+const u8 BLUEPRINT_TOOL_PAINT = 0;
+const u8 BLUEPRINT_TOOL_ERASE = 1;
+const u8 BLUEPRINT_TOOL_SELECT = 2;
+const u8 BLUEPRINT_TOOL_SAVE = 3;
+const u8 BLUEPRINT_TOOL_LOAD = 4;
+const u8 BLUEPRINT_TOOL_ROTATE = 5;
+const u8 BLUEPRINT_TOOL_FLIP = 6;
+const u8 BLUEPRINT_TOOL_VISIBILITY = 7;
+const u8 BLUEPRINT_TOOL_OVERSEER = 8;
+const u8 BLUEPRINT_TOOL_COUNT = 8;
+const u8 AIB_CATALOG_TAB_BLOCKS = 0;
+const u8 AIB_CATALOG_TAB_WORKSHOPS = 1;
+const u8 AIB_CATALOG_TAB_BLOBS = 2;
+const u8 AIB_CATALOG_TAB_COUNT = 3;
+const u8 AIB_OVERSEER_ORDER_WOOD = 0;
+const u8 AIB_OVERSEER_ORDER_STONE = 1;
+const u8 AIB_OVERSEER_ORDER_BLUEPRINT = 2;
+const u8 AIB_OVERSEER_ORDER_DIRECTOR_OFF = 3;
+const u8 AIB_OVERSEER_ORDER_DIRECTOR_ON = 4;
+const string AIB_OVERSEER_NETIDS_KEY = "blueprint overseer netids";
+const string AIB_OVERSEER_TEAM_SUFFIX = " team ";
+const s32 AIB_BUILDER_HEAD_FRAME = 120;
+const f32 AIB_RESOURCE_MARKER_SCALE = 0.5f;
 
 //This code has been started from the ScriptRenderExample.as script
 uint16[][] dynamicMapTileData;
@@ -32,6 +61,7 @@ uint16 blockIndex;
 uint16 currentRotation = 0;
 
 bool justJoined = true;
+u8 localBlueprintTeam = 255;
 bool keyOJustPressed = false;
 bool triggerAPrefabLoad = false;
 bool displayPrefabSelectionMenu = false;
@@ -65,6 +95,7 @@ void onInit(CRules@ this)
 	this.addCommandID("getAllBlocks");
 	this.addCommandID("giveAllBlocks");
 	this.addCommandID("sendBlueprint");
+	this.addCommandID("syncBlueprintBlock");
 	this.addCommandID("setLiveEdit");
 	this.addCommandID("getLiveEdit");
 	this.addCommandID("setOverseerMode");
@@ -74,6 +105,11 @@ void onInit(CRules@ this)
 	this.addCommandID("checkOverseerWinCondition");
 	this.addCommandID("aibuilderToggleTreeSelection");
 	this.addCommandID("aibuilderToggleStoneSelection");
+	this.addCommandID("overseerOrderAIBuilder");
+	this.addCommandID("clearBlueprintLayer");
+	this.set_bool(AIBP_DISPLAY_COMMANDS_READY,
+		this.hasCommandID("syncBlueprintBlock") &&
+		this.hasCommandID("giveAllBlocks"));
 	CMap@ map = getMap();
 	uint16[][] _dynamicMapTileData(map.tilemapwidth, uint16[](map.tilemapheight, 0));
 	dynamicMapTileData = _dynamicMapTileData;
@@ -127,6 +163,9 @@ void Setup()
 
 void onRestart(CRules@ this)
 {
+	localBlueprintTeam = 255;
+	justJoined = true;
+	blueprintSaveSelectionValid = false;
 	dynamicMapTileData.clear();
 	currentBlueprintData.clear();
 	networkBlueprintData.clear();
@@ -140,6 +179,7 @@ void onRestart(CRules@ this)
 	resetTrigger = true;
 	blueprintMeshDirty = true;
 	currentRotation = 0;
+	oldBlockIndex = -1;
 }
 
 
@@ -147,6 +187,32 @@ void onRestart(CRules@ this)
 int oldBlockIndex = -1;
 void onTick(CRules@ this)
 {
+	if(isClient())
+	{
+		CPlayer@ local = getLocalPlayer();
+		const u8 team = local is null ? 255 : u8(local.getTeamNum());
+		if(team != localBlueprintTeam)
+		{
+			localBlueprintTeam = team;
+			blueprintSaveSelectionValid = false;
+			overseerSelectedBuilders.clear();
+			AIB_CloseSelectionModes();
+			CMap@ map = getMap();
+			if(map !is null)
+			{
+				uint16[][] empty(map.tilemapwidth, uint16[](map.tilemapheight, 0));
+				dynamicMapTileData = empty;
+				blueprintMeshDirty = true;
+			}
+			if(local !is null && team < 100)
+			{
+				CBitStream request;
+				request.write_u16(local.getNetworkID());
+				this.SendCommand(this.getCommandID("getAllBlocks"), request);
+			}
+		}
+	}
+
 	if(this.get_bool("blueprint_liveEdit")) // if the !bp_edit_toggle command is executed, the following is executed to enable or disable live editing.
 	{
 		this.set_bool("blueprint_liveEdit",false);
@@ -195,27 +261,46 @@ void onTick(CRules@ this)
 	if(isClient())
 	{	
 		string selectedBlueprint = "";
+		AIB_SyncOverseerViewWithWorkshop();
+		// Match PlayerCamera/Spectator camera timing: capped clients update on
+		// ticks, while uncapped clients update every rendered frame. Advancing a
+		// detached camera only at the 30 Hz rules tick makes its position visibly
+		// step between frames.
+		if(v_capped)
+		{
+			UpdateOverseerViewCamera();
+		}
+		bool toolbarConsumed = UpdateBlueprintToolbar();
+		bool catalogPanelConsumed = UpdateBlueprintCatalogPanel();
+		bool advancedPanelConsumed = UpdateBlueprintAdvancedPanel();
+		bool directorToggleConsumed = UpdateAIBDirectorToggle();
 		bool treeButtonConsumed = UpdateTreeSelectionButton();
 		bool stoneButtonConsumed = UpdateStoneSelectionButton();
-		if(toggleBlueprint && displayPrefabSelectionMenu && !treeButtonConsumed && !stoneButtonConsumed)
+		bool overseerConsumed = UpdateOverseerView();
+		bool prefabMenuConsumed = false;
+		if(toggleBlueprint && displayPrefabSelectionMenu && !toolbarConsumed && !catalogPanelConsumed && !advancedPanelConsumed && !directorToggleConsumed && !treeButtonConsumed && !stoneButtonConsumed)
 		{
 			selectedBlueprint = inv.Update();
+			prefabMenuConsumed = inv.consumesMouseInput() || selectedBlueprint != "";
 			if( selectedBlueprint != "")
 			{		
 				print("Loading " + selectedBlueprint);
 				displayPrefabSelectionMenu = false;
 				AIB_CloseSelectionModes();
+				blueprintEditorActive = false;
+				blueprintEditorSelecting = false;
 				triggerAPrefabLoad = true;
 				displayMouseSelect = false;
 			}
 		}
 
 		CBlob@ playerBlob = getLocalPlayerBlob();
-		if(!treeButtonConsumed && !stoneButtonConsumed)
+		if(!toolbarConsumed && !catalogPanelConsumed && !advancedPanelConsumed && !directorToggleConsumed && !treeButtonConsumed && !stoneButtonConsumed && !overseerConsumed && !prefabMenuConsumed)
 		{
 			ChangeIfNeeded();
 		}
-		blockIndex = GiveBlockIndex(playerBlob);
+		const u16 selectedBlock = GiveBlockIndex(playerBlob);
+		blockIndex = AIBP_IsCatalogBlock(selectedBlock) ? selectedBlock : AIBP_STONE_BLOCK;
 		/*if (blockIndex != oldBlockIndex)
 		{
 			//oldBlockIndex = blockIndex;
@@ -242,11 +327,45 @@ void onTick(CRules@ this)
 	}
 }
 
+void onRender(CRules@ this)
+{
+	if(isClient() && !v_capped)
+	{
+		UpdateOverseerViewCamera();
+	}
+}
+
 int last_changed = 0;
 bool toggleBlueprint = true;
+bool blueprintEditorActive = false;
+u8 blueprintEditorTool = BLUEPRINT_TOOL_PAINT;
+bool blueprintToolbarButtonPressed = false;
+u8 blueprintToolbarPressedTool = 255;
+bool blueprintCatalogPanelButtonPressed = false;
+u16 blueprintCatalogPanelPressedBlock = 0;
+bool blueprintCatalogTabButtonPressed = false;
+u8 blueprintCatalogTabPressed = 255;
+u8 blueprintCatalogTab = AIB_CATALOG_TAB_BLOCKS;
+u8 blueprintAdvancedTab = 0;
+bool blueprintAdvancedButtonPressed = false;
+u8 blueprintAdvancedPressedTab = 255;
+bool blueprintEditorSelecting = false;
+bool overseerViewActive = false;
+Vec2f overseerCameraPos = Vec2f_zero;
+u16[] overseerSelectedBuilders;
+bool overseerSelectionDragging = false;
+bool overseerOrderButtonPressed = false;
+u8 overseerPressedOrder = 255;
+bool aibDirectorTogglePressed = false;
+Vec2f overseerPanelPosition = Vec2f(-1.0f, -1.0f);
+bool overseerPanelDragging = false;
+Vec2f overseerPanelDragOffset = Vec2f_zero;
 Vec2f currentPlacementPosition;
 uint16 customMenuTurn;
+bool customCatalogSelectionActive = false;
 array<Vec2f> mouseSelect = {Vec2f(1.0f,1.0f),Vec2f(3.0f,3.0f)};
+array<Vec2f> blueprintSaveSelect = {Vec2f(0.0f,0.0f),Vec2f(0.0f,0.0f)};
+bool blueprintSaveSelectionValid = false;
 bool displayMouseSelect = false;
 bool aibTreeSelectMode = false;
 bool aibTreeSelecting = false;
@@ -256,6 +375,299 @@ bool aibStoneSelectMode = false;
 bool aibStoneSelecting = false;
 bool aibStoneButtonPressed = false;
 Vec2f aibStoneButtonPosition = Vec2f(100, 98);
+
+string AIB_BlueprintDataKeyForTeam(const u8 team)
+{
+	return AIB_BLUEPRINT_DATA_KEY + AIB_BLUEPRINT_TEAM_SUFFIX + int(team);
+}
+
+string AIB_BlueprintWidthKeyForTeam(const u8 team)
+{
+	return AIB_BLUEPRINT_WIDTH_KEY + AIB_BLUEPRINT_TEAM_SUFFIX + int(team);
+}
+
+string AIB_BlueprintHeightKeyForTeam(const u8 team)
+{
+	return AIB_BLUEPRINT_HEIGHT_KEY + AIB_BLUEPRINT_TEAM_SUFFIX + int(team);
+}
+
+bool AIB_GetPlayerTeamByNetID(const u16 netID, u8 &out team)
+{
+	CPlayer@ player = getPlayerByNetworkId(netID);
+	if(player is null)
+	{
+		return false;
+	}
+	team = u8(player.getTeamNum());
+	return true;
+}
+
+u8 AIB_GetLocalBlueprintTeam()
+{
+	CPlayer@ player = getLocalPlayer();
+	return player is null ? 0 : u8(player.getTeamNum());
+}
+
+bool AIB_LocalCanSeeBlueprintTeam(const u8 team)
+{
+	CPlayer@ player = getLocalPlayer();
+	if(player is null)
+	{
+		return true;
+	}
+	const int localTeam = player.getTeamNum();
+	return localTeam == team || localTeam >= 100;
+}
+
+string AIB_OverseerNetIDsKeyForTeam(const u8 team)
+{
+	return AIB_OVERSEER_NETIDS_KEY + AIB_OVERSEER_TEAM_SUFFIX + int(team);
+}
+
+array<u16>@ AIB_GetOverseerNetIDs(const u8 team)
+{
+	CRules@ rules = getRules();
+	array<u16>@ ids = null;
+	if(rules is null)
+	{
+		return null;
+	}
+	const string key = AIB_OverseerNetIDsKeyForTeam(team);
+	if(!rules.get(key, @ids) || ids is null)
+	{
+		array<u16> empty;
+		rules.set(key, empty);
+		rules.get(key, @ids);
+	}
+	return ids;
+}
+
+bool AIB_IsOverseerNetID(const u16 netID, const u8 team)
+{
+	array<u16>@ ids = AIB_GetOverseerNetIDs(team);
+	if(ids is null) return false;
+	for(uint i = 0; i < ids.length; i++)
+	{
+		if(ids[i] == netID) return true;
+	}
+	return false;
+}
+
+bool AIB_HasAssignedOverseers(const u8 team)
+{
+	array<u16>@ ids = AIB_GetOverseerNetIDs(team);
+	return ids !is null && ids.length > 0;
+}
+
+bool AIB_CanPlayerUseOverseerControls(CPlayer@ player)
+{
+	if(player is null) return false;
+	if(enableOverseer == 0) return true;
+	if(player.getTeamNum() >= 100) return true;
+	if(!getRules().get_bool("has_overseer")) return false;
+	const u8 team = u8(player.getTeamNum());
+	if(!AIB_HasAssignedOverseers(team)) return true;
+	return AIB_IsOverseerNetID(player.getNetworkID(), team);
+}
+
+bool AIB_LocalCanUseBlueprintControls()
+{
+	return AIB_CanPlayerUseOverseerControls(getLocalPlayer());
+}
+
+bool AIB_ServerCanUseBlueprintControls(const u16 playerNetID)
+{
+	CPlayer@ player = getPlayerByNetworkId(playerNetID);
+	if(player is null) return false;
+	if(enableOverseer == 0 || player.getTeamNum() >= 100) return true;
+	if(!getRules().get_bool("has_overseer")) return false;
+	const u8 team = u8(player.getTeamNum());
+	if(!AIB_HasAssignedOverseers(team)) return true;
+	return AIB_IsOverseerNetID(playerNetID, team);
+}
+
+bool AIB_ServerCanIssueOverseerCommand(const u16 playerNetID, const u8 targetTeam)
+{
+	CPlayer@ player = getPlayerByNetworkId(playerNetID);
+	if(player is null) return false;
+	CBlob@ playerBlob = player.getBlob();
+	if(playerBlob is null || !playerBlob.isAttachedToPoint("OVERSEER")) return false;
+	if(player.getTeamNum() != targetTeam && player.getTeamNum() < 100) return false;
+	if(enableOverseer == 0) return true;
+	if(player.getTeamNum() >= 100) return true;
+	if(!getRules().get_bool("has_overseer")) return false;
+	if(!AIB_HasAssignedOverseers(targetTeam)) return true;
+	return AIB_IsOverseerNetID(playerNetID, targetTeam);
+}
+
+void AIB_AddOverseerNetID(const u16 netID)
+{
+	u8 team = 255;
+	if(netID == 0 || !AIB_GetPlayerTeamByNetID(netID, team) || team >= 100) return;
+	array<u16>@ ids = AIB_GetOverseerNetIDs(team);
+	if(ids is null || AIB_IsOverseerNetID(netID, team)) return;
+	ids.push_back(netID);
+	getRules().set(AIB_OverseerNetIDsKeyForTeam(team), ids);
+}
+
+void AIB_ClearOverseerNetIDs()
+{
+	for(u8 team = 0; team < 8; team++)
+	{
+		array<u16> empty;
+		getRules().set(AIB_OverseerNetIDsKeyForTeam(team), empty);
+	}
+}
+
+bool AIB_NormalizeTileRect(Vec2f first, Vec2f second, u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
+{
+	CMap@ map = getMap();
+	if(map is null)
+	{
+		return false;
+	}
+
+	int ax = Maths::Floor(first.x);
+	int ay = Maths::Floor(first.y);
+	int bx = Maths::Floor(second.x);
+	int by = Maths::Floor(second.y);
+
+	const int sx = Maths::Max(0, Maths::Min(ax, bx));
+	const int sy = Maths::Max(0, Maths::Min(ay, by));
+	const int ex = Maths::Min(map.tilemapwidth - 1, Maths::Max(ax, bx));
+	const int ey = Maths::Min(map.tilemapheight - 1, Maths::Max(ay, by));
+	if(sx > ex || sy > ey)
+	{
+		return false;
+	}
+
+	x1 = u16(sx);
+	y1 = u16(sy);
+	x2 = u16(ex);
+	y2 = u16(ey);
+	return true;
+}
+
+bool AIB_NormalizeSelectionRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
+{
+	return AIB_NormalizeTileRect(mouseSelect[0], mouseSelect[1], x1, y1, x2, y2);
+}
+
+bool AIB_GetBlueprintSaveRect(u16 &out x1, u16 &out y1, u16 &out x2, u16 &out y2)
+{
+	return blueprintSaveSelectionValid &&
+		AIB_NormalizeTileRect(blueprintSaveSelect[0], blueprintSaveSelect[1], x1, y1, x2, y2);
+}
+
+bool AIB_CommitBlueprintSelection()
+{
+	u16 x1;
+	u16 y1;
+	u16 x2;
+	u16 y2;
+	if(!AIB_NormalizeSelectionRect(x1, y1, x2, y2))
+	{
+		blueprintSaveSelectionValid = false;
+		return false;
+	}
+	blueprintSaveSelect[0] = Vec2f(x1, y1);
+	blueprintSaveSelect[1] = Vec2f(x2, y2);
+	blueprintSaveSelectionValid = true;
+	return true;
+}
+
+void AIB_SendBlueprintBlockCommand(const bool add, const u16 x, const u16 y, const u16 value = 0)
+{
+	CPlayer@ player = getLocalPlayer();
+	if(player is null)
+	{
+		return;
+	}
+
+	CBitStream params;
+	params.write_u16(player.getNetworkID());
+	params.write_u16(x);
+	params.write_u16(y);
+	// Individual paint/erase deltas commute. Requiring the last acknowledged
+	// version here makes normal drag editing drop nearly every input on a
+	// networked game while earlier deltas are still in flight.
+	params.write_u16(0xffff);
+	if(add)
+	{
+		params.write_u16(value);
+		getRules().SendCommand(getRules().getCommandID("addBlocks"), params);
+	}
+	else
+	{
+		getRules().SendCommand(getRules().getCommandID("removeBlocks"), params);
+	}
+}
+
+void AIB_ApplyBlueprintBlockLocal(const u8 team, const u16 x, const u16 y, const u16 value)
+{
+	if(!AIB_LocalCanSeeBlueprintTeam(team))
+	{
+		return;
+	}
+
+	CMap@ map = getMap();
+	if(map is null || dynamicMapTileData.size() == 0) return;
+	if(x >= map.tilemapwidth || y >= map.tilemapheight) return;
+	if(x >= dynamicMapTileData.size() || y >= dynamicMapTileData[x].size()) return;
+
+	dynamicMapTileData[x][y] = value;
+	blueprintMeshDirty = true;
+}
+
+void AIB_LoadFlatBlueprintLocal(const u8 team, array<u16>@ blueprint, const u16 width, const u16 height)
+{
+	if(!AIB_LocalCanSeeBlueprintTeam(team) || blueprint is null)
+	{
+		return;
+	}
+
+	CMap@ map = getMap();
+	if(map is null || width == 0 || height == 0)
+	{
+		return;
+	}
+
+	uint16[][] next(map.tilemapwidth, uint16[](map.tilemapheight, 0));
+	for(int y = 0; y < map.tilemapheight && y < height; y++)
+	{
+		for(int x = 0; x < map.tilemapwidth && x < width; x++)
+		{
+			const uint index = y * width + x;
+			if(index < blueprint.length)
+			{
+				next[x][y] = blueprint[index];
+			}
+		}
+	}
+
+	dynamicMapTileData = next;
+	blueprintMeshDirty = true;
+}
+
+void AIB_GetTeamBlueprintFlat(const u8 team, array<u16>@ &out blueprint)
+{
+	AIBP_GetCompatibilityGrid(team, @blueprint);
+}
+
+void AIB_ServerApplyBlueprintBlock(const u8 team, const u16 x, const u16 y, const u16 value)
+{
+	AIBP_SetHumanTile(team, x, y, value);
+}
+
+void AIB_ServerSendBlueprintSnapshot(const u16 targetNetID, const u8 team)
+{
+	AIBP_SendDisplaySnapshot(targetNetID, team);
+}
+
+void AIB_ServerApplyBlueprintPlacement(const u8 team, const u16 centerX, const u16 centerY, const u16 bpWidth, const u16 bpHeight, uint16[][] &source)
+{
+	AIBP_ApplyHumanPlacement(team, centerX, centerY, bpWidth, bpHeight, source);
+}
 
 void ChangeIfNeeded()
 {
@@ -268,20 +680,20 @@ void ChangeIfNeeded()
 		toggleBlueprint = !toggleBlueprint;
 	}
 
-	if(c.isKeyJustPressed(KEY_KEY_O) && (enableOverseer == 0 || isOverseer))//load a png
+	if(c.isKeyJustPressed(KEY_KEY_O) && AIB_LocalCanUseBlueprintControls())//load a png
 	{
 		displayMouseSelect = false;
 		keyOJustPressed = true;
 		print("saving blueprint...");
 	}
-	if(c.isKeyPressed(KEY_KEY_X) && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyPressed(KEY_KEY_X) && AIB_LocalCanUseBlueprintControls())
 	{
 		displayPrefabSelectionMenu = true;
 		aibTreeButtonPosition = c.getMouseScreenPos() + Vec2f(0, -34);
 		aibStoneButtonPosition = c.getMouseScreenPos() + Vec2f(0, -66);
 		inv.setPosition(c.getMouseScreenPos());
 	}
-	if(c.isKeyJustPressed(KEY_KEY_L) && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyJustPressed(KEY_KEY_L) && AIB_LocalCanUseBlueprintControls())
 	{
 		displayPrefabSelectionMenu = !displayPrefabSelectionMenu;
 		if(!displayPrefabSelectionMenu)
@@ -290,9 +702,10 @@ void ChangeIfNeeded()
 		}
 		print("Prefabs blueprint windows state changed");
 	}
-	if((c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL)) && (enableOverseer == 0 || isOverseer))
+	if((c.isKeyJustPressed(KEY_RBUTTON) || c.isKeyJustPressed(KEY_CANCEL)) && AIB_LocalCanUseBlueprintControls())
 	{
 		displayMouseSelect = false;
+		blueprintEditorSelecting = false;
 		aibTreeSelecting = false;
 		aibStoneSelecting = false;
 		if (aibTreeSelectMode)
@@ -312,7 +725,49 @@ void ChangeIfNeeded()
 		}
 	}
 
-	if(aibTreeSelectMode && (enableOverseer == 0 || isOverseer))
+	if(blueprintEditorActive && enableLiveEdit == 1 && AIB_LocalCanUseBlueprintControls())
+	{
+		Vec2f temp = c.getMouseWorldPos();
+		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
+		uint16 indexX = (currentPlacementPosition.x-4)/8;
+		uint16 indexY = (currentPlacementPosition.y-4)/8;
+		CMap@ map = getMap();
+		const bool inMap = map !is null && indexX < map.tilemapwidth && indexY < map.tilemapheight && dynamicMapTileData.size() > 0;
+		if(blueprintEditorTool == BLUEPRINT_TOOL_SELECT)
+		{
+			if(c.isKeyJustPressed(KEY_LBUTTON) && inMap)
+			{
+				blueprintEditorSelecting = true;
+				blueprintSaveSelectionValid = false;
+				mouseSelect[0] = Vec2f(indexX, indexY);
+				mouseSelect[1] = Vec2f(indexX, indexY);
+				displayMouseSelect = true;
+			}
+			else if(blueprintEditorSelecting && c.isKeyPressed(KEY_LBUTTON))
+			{
+				AIB_SetSelectionCorner(1, c.getMouseWorldPos());
+				displayMouseSelect = true;
+			}
+			else if(blueprintEditorSelecting && !c.isKeyPressed(KEY_LBUTTON))
+			{
+				AIB_SetSelectionCorner(1, c.getMouseWorldPos());
+				displayMouseSelect = AIB_CommitBlueprintSelection();
+				blueprintEditorSelecting = false;
+			}
+		}
+		else if(inMap && blueprintEditorTool == BLUEPRINT_TOOL_PAINT && c.isKeyPressed(KEY_LBUTTON) && dynamicMapTileData[indexX][indexY] == 0)
+		{
+			AIB_SendBlueprintBlockCommand(true, indexX, indexY, blockIndex);
+		}
+		else if(inMap && blueprintEditorTool == BLUEPRINT_TOOL_ERASE && c.isKeyPressed(KEY_LBUTTON) && dynamicMapTileData[indexX][indexY] != 0)
+		{
+			AIB_SendBlueprintBlockCommand(false, indexX, indexY);
+		}
+
+		return;
+	}
+
+	if(aibTreeSelectMode && AIB_LocalCanUseBlueprintControls())
 	{
 		if(c.isKeyJustPressed(KEY_LBUTTON))
 		{
@@ -333,7 +788,7 @@ void ChangeIfNeeded()
 		return;
 	}
 
-	if(aibStoneSelectMode && (enableOverseer == 0 || isOverseer))
+	if(aibStoneSelectMode && AIB_LocalCanUseBlueprintControls())
 	{
 		if(c.isKeyJustPressed(KEY_LBUTTON))
 		{
@@ -354,7 +809,7 @@ void ChangeIfNeeded()
 		return;
 	}
 
-	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyJustPressed(KEY_LBUTTON) && displayLoadedBlueprint == true && AIB_LocalCanUseBlueprintControls())
 	{
 		displayLoadedBlueprint = false; // if the player selected a blueprint and pressed left click, then we send the blueprint to everybody
 
@@ -368,6 +823,7 @@ void ChangeIfNeeded()
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 
 		params.write_u16(id);
+		params.write_u16(getRules().get_u16(AIBP_PlanKey(u8(playerBlob.getTeamNum()), "human version")));
 		params.write_u16(currentBlueprintWidth);
 		params.write_u16(currentBlueprintHeight);
 		params.write_u16(indexX);
@@ -379,19 +835,7 @@ void ChangeIfNeeded()
 			{
 				for(int x = 0; x < currentBlueprintWidth; x++) 
 				{
-					uint16 currentRotation = currentBlueprintData[currentBlueprintWidth-1-x][y] >> 14;
-					if(currentRotation == 3)
-					{
-						params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y] & 0b0111111111111111); // flip direction of blocks that point to the right
-					}
-					else if(currentRotation == 1)
-					{
-						params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y] | 0b1000000000000000); // flip direction of blocks that point to the right
-					}
-					else
-					{
-						params.write_u16(currentBlueprintData[currentBlueprintWidth-1-x][y]);
-					}
+					params.write_u16(AIB_FlipBlueprintBlockHorizontal(currentBlueprintData[currentBlueprintWidth-1-x][y]));
 					
 				}
 			}
@@ -409,64 +853,50 @@ void ChangeIfNeeded()
 		getRules().SendCommand(getRules().getCommandID("sendBlueprint"), params);
 	}
 
-	if(c.isKeyJustPressed(KEY_KEY_I) && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyJustPressed(KEY_KEY_I) && AIB_LocalCanUseBlueprintControls())
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		blueprintSaveSelectionValid = false;
 		mouseSelect[0] = Vec2f(indexX,indexY);
 		displayMouseSelect = true;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 		
 	}
-	if(c.isKeyJustPressed(KEY_KEY_P) && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyJustPressed(KEY_KEY_P) && AIB_LocalCanUseBlueprintControls())
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		mouseSelect[1] = Vec2f(indexX, indexY);
-		displayMouseSelect = true;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
+		displayMouseSelect = AIB_CommitBlueprintSelection();
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
-	if(c.isKeyJustPressed(KEY_MBUTTON) && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyJustPressed(KEY_MBUTTON) && AIB_LocalCanUseBlueprintControls())
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
+		blueprintSaveSelectionValid = false;
 		mouseSelect[0] = Vec2f(indexX, indexY);
 		displayMouseSelect = false;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
 		print("First vector x : " + mouseSelect[0].x);
 		print("First vector y : " + mouseSelect[0].y);
 	}
-	else if(c.isKeyPressed(KEY_MBUTTON) && (enableOverseer == 0 || isOverseer))
+	else if(c.isKeyPressed(KEY_MBUTTON) && AIB_LocalCanUseBlueprintControls())
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
 		uint16 indexX = (currentPlacementPosition.x-4)/8;
 		uint16 indexY = (currentPlacementPosition.y-4)/8; 
 		mouseSelect[1] = Vec2f(indexX, indexY);
-		displayMouseSelect = true;
-		if(mouseSelect[1].x == mouseSelect[0].x || mouseSelect[1].y == mouseSelect[0].y)
-		{
-			displayMouseSelect = false;
-		}
+		displayMouseSelect = AIB_CommitBlueprintSelection();
 		print("second vector x : " + mouseSelect[1].x);
 		print("second vector y : " + mouseSelect[1].y);
 	}
@@ -501,7 +931,7 @@ void ChangeIfNeeded()
 			renderingState = 0;
 		}
 	}
-	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1 && (enableOverseer == 0 || isOverseer))
+	if ((c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && enableLiveEdit == 1 && AIB_LocalCanUseBlueprintControls())
 	{
 		Vec2f temp = c.getMouseWorldPos();
 		currentPlacementPosition = Vec2f(int(temp.x/8) * 8 + 4,int(temp.y/8) * 8 + 4);
@@ -514,41 +944,27 @@ void ChangeIfNeeded()
 			{
 				if(dynamicMapTileData[indexX][indexY] == 0)
 				{
-					CBitStream params;
-					params.write_u16(indexX);
-					params.write_u16(indexY);
-					params.write_u16(blockIndex);
-					getRules().SendCommand(getRules().getCommandID("addBlocks"), params);
+					AIB_SendBlueprintBlockCommand(true, indexX, indexY, blockIndex);
 				}
 			}
 			else if (c.isKeyPressed(c.getActionKeyKey(AK_ACTION2))  && (c.isKeyPressed(KEY_LCONTROL) || c.isKeyPressed(KEY_RCONTROL)) && dynamicMapTileData[indexX][indexY] != 0)
 			{				
-				CBitStream params;
-				params.write_u16(indexX);
-				params.write_u16(indexY);
-				getRules().SendCommand(getRules().getCommandID("removeBlocks"), params);
+				AIB_SendBlueprintBlockCommand(false, indexX, indexY);
 			}
 		}
 		if(c.isKeyJustPressed(KEY_KEY_U))
 		{
-			customMenuTurn += 1;
-			if(customMenuTurn > 11)
-			{
-				customMenuTurn = 1;
-			}
+			customMenuTurn = AIBP_NextCatalogId(customMenuTurn, 1);
+			customCatalogSelectionActive = true;
 		}
 		else if(c.isKeyJustPressed(KEY_KEY_R))
 		{
-			customMenuTurn -= 1;
-			customMenuTurn = customMenuTurn % 12;
-			if(customMenuTurn <= 0)
-			{
-				customMenuTurn = 11;
-			}
+			customMenuTurn = AIBP_NextCatalogId(customMenuTurn, -1);
+			customCatalogSelectionActive = true;
 		}
 	}
 
-	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false && (enableOverseer == 0 || isOverseer))
+	if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == false && AIB_LocalCanUseBlueprintControls())
 	{
 		if(blockIndex > 2 && blockIndex != 4 && blockIndex != 5)
 		if(currentRotation <= 0)
@@ -560,7 +976,7 @@ void ChangeIfNeeded()
 			currentRotation -= 1;
 		}
 	}
-	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true && (enableOverseer == 0 || isOverseer))
+	else if(c.isKeyJustPressed(KEY_SPACE) && displayLoadedBlueprint == true && AIB_LocalCanUseBlueprintControls())
 	{
 		flipBlueprint = !flipBlueprint;
 	}
@@ -572,97 +988,105 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 {
     if(cmd == this.getCommandID("addBlocks") && dynamicMapTileData.size() > 0)
     {
+		if(!isServer()) return;
+
+		uint16 netID = params.read_u16();
         uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
+		uint16 expectedVersion = params.read_u16();
 		uint16 receivedBlockIndex = params.read_u16();
-		
-		dynamicMapTileData[positionx][positiony] = receivedBlockIndex;
-		blueprintMeshDirty = true;
-		AIB_PublishBlueprintForBuilders();
-		/*if(isClient())
-		{
-			setVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
-		}*/
+		CPlayer@ sender = getNet().getActiveCommandPlayer();
+		if(sender is null || sender.getNetworkID() != netID) return;
+
+		AIBP_ServerApplyHumanDelta(netID, positionx, positiony, receivedBlockIndex, expectedVersion);
 		
     }
 	if(cmd == this.getCommandID("removeBlocks") && dynamicMapTileData.size() > 0)
 	{
+		if(!isServer()) return;
+
+		uint16 netID = params.read_u16();
 		uint16 positionx = params.read_u16();
 		uint16 positiony = params.read_u16();
-		
-		dynamicMapTileData[positionx][positiony] = 0;
-		blueprintMeshDirty = true;
-		AIB_PublishBlueprintForBuilders();
-		/*if(isClient())
-		{
-			unsetVertexMatrix(dynamicMapTileData, v_raw, positionx, positiony);
-		}*/
+		uint16 expectedVersion = params.read_u16();
+		CPlayer@ sender = getNet().getActiveCommandPlayer();
+		if(sender is null || sender.getNetworkID() != netID) return;
 
+		AIBP_ServerApplyHumanDelta(netID, positionx, positiony, 0, expectedVersion);
+	}
+	if(isClient() && cmd == this.getCommandID("syncBlueprintBlock"))
+	{
+		u8 team = params.read_u8();
+		u16 positionx = params.read_u16();
+		u16 positiony = params.read_u16();
+		u16 value = params.read_u16();
+		u16 humanVersion = params.read_u16();
+		getRules().set_u16(AIBP_PlanKey(team, "human version"), humanVersion);
+		AIB_ApplyBlueprintBlockLocal(team, positionx, positiony, value);
 	}
 	if(!isClient() && cmd == this.getCommandID("getAllBlocks") && dynamicMapTileData.size() > 0)
 	{
 		uint16 netID = params.read_u16();
-		CMap@ map = getMap();
-		CBitStream insideparams;
-		insideparams.write_u16(netID);
-		for( int y = 0; y < map.tilemapheight; y++ ) 
+		CPlayer@ sender = getNet().getActiveCommandPlayer();
+		if(sender is null || sender.getNetworkID() != netID) return;
+		u8 team = 0;
+		if(AIB_GetPlayerTeamByNetID(netID, team))
 		{
-			for(int x = 0; x < map.tilemapwidth; x++)
-			{
-					insideparams.write_u16(dynamicMapTileData[x][y]);
-			}
+			AIB_ServerSendBlueprintSnapshot(netID, team);
 		}
-		getRules().SendCommand(getRules().getCommandID("giveAllBlocks"), insideparams);
 	}
 	if(isClient() && cmd == this.getCommandID("giveAllBlocks"))
 	{
-		CMap@ map = getMap();
 		uint16 netID = params.read_u16();
-		if(getLocalPlayer().getNetworkID() == netID)
+		u8 team = params.read_u8();
+		u16 width = params.read_u16();
+		u16 height = params.read_u16();
+		u16 humanVersion = params.read_u16();
+		CMap@ snapshotMap = getMap();
+		if(snapshotMap is null || width != snapshotMap.tilemapwidth || height != snapshotMap.tilemapheight) return;
+		CPlayer@ local = getLocalPlayer();
+		bool targetMatches = netID == 0 || (local !is null && local.getNetworkID() == netID);
+		array<u16> blueprint;
+		blueprint.set_length(width * height);
+		for(uint i = 0; i < blueprint.length; i++)
 		{
-			for( int y = 0; y < map.tilemapheight; y++ )
-			{
-				for(int x = 0; x < map.tilemapwidth; x++)
-				{
-					dynamicMapTileData[x][y] = params.read_u16();
-					//setVertexMatrix(dynamicMapTileData, v_raw, x, y);
-				}
-			}
-			blueprintMeshDirty = true;
-			AIB_PublishBlueprintForBuilders();
+			blueprint[i] = params.read_u16();
+		}
+		if(targetMatches)
+		{
+			getRules().set_u16(AIBP_PlanKey(team, "human version"), humanVersion);
+			AIB_LoadFlatBlueprintLocal(team, @blueprint, width, height);
 		}
 	}
 	if(cmd == this.getCommandID("sendBlueprint") && dynamicMapTileData.size() > 0)
 	{
 		uint16 netID = params.read_u16();
-		CPlayer@ playerBlob = getLocalPlayer();
-		bool condition = false;
-		if(playerBlob == null)
+		if(isServer())
 		{
-			condition = true;
+			CPlayer@ sender = getNet().getActiveCommandPlayer();
+			if(sender is null || sender.getNetworkID() != netID) return;
 		}
-		else if(playerBlob.getNetworkID() != netID)// we don't modify the data to the player that just sent it
+		uint16 expectedVersion = params.read_u16();
+		uint16 bpWidth = params.read_u16();
+		uint16 bpHeight = params.read_u16();
+		uint16 indx = params.read_u16();
+		uint16 indy = params.read_u16();
+		if(!AIBP_IsPrefabSizeValid(bpWidth, bpHeight)) return;
+		uint16[][] _networkBlueprintData(bpWidth, uint16[](bpHeight, 0));
+		networkBlueprintData = _networkBlueprintData;
+		for(int y = 0; y < bpHeight; y++)
 		{
-			condition = true;
-		}
-		if(condition) 
-		{
-			uint16 bpWidth = params.read_u16();
-			uint16 bpHeight = params.read_u16();
-			uint16 indx = params.read_u16();
-			uint16 indy = params.read_u16();
-			uint16[][] _networkBlueprintData(bpWidth, uint16[](bpHeight, 0));
-			networkBlueprintData = _networkBlueprintData;
-			for(int y = 0; y < bpHeight; y++)// iterate through all the element of the current blueprint and send it 
+			for(int x = 0; x < bpWidth; x++)
 			{
-				for(int x = 0; x < bpWidth; x++) 
-				{
-					networkBlueprintData[x][y] = params.read_u16();
-				}
+				networkBlueprintData[x][y] = params.read_u16();
 			}
-			LoadBlueprintDataToMapTileDataFromNetwork(indx,indy,bpWidth,bpHeight);
-			blueprintMeshDirty = true;
-			AIB_PublishBlueprintForBuilders();
+		}
+
+		u8 team = 0;
+		if(!AIB_GetPlayerTeamByNetID(netID, team)) return;
+		if(isServer())
+		{
+			AIBP_ServerApplyHumanPrefab(netID, expectedVersion, indx, indy, bpWidth, bpHeight, networkBlueprintData);
 		}
 	}
 	if(cmd == this.getCommandID("setLiveEdit"))
@@ -689,11 +1113,12 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 		{	
 			CBitStream insideparams;
 			insideparams.write_u8(enableOverseer);
-			this.SendCommand(this.getCommandID("setLiveEdit"), insideparams);
+			this.SendCommand(this.getCommandID("setOverseerMode"), insideparams);
 		}
 	}
 	if(cmd == this.getCommandID("removeAllOverseer"))
 	{
+		AIB_ClearOverseerNetIDs();
 		isOverseer = false;
 		this.set_bool("has_overseer", false);
 		print("removed all overseer");
@@ -701,6 +1126,7 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	if(cmd == this.getCommandID("setOverseer"))
 	{
 		uint16 netID = params.read_u16();
+		AIB_AddOverseerNetID(netID);
 		if(!isClient())
 		{
 			this.set_bool("has_overseer", true);
@@ -730,6 +1156,12 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	}
 	if(cmd == this.getCommandID("aibuilderToggleTreeSelection"))
 	{
+		u16 playerNetID = params.read_u16();
+		if(isServer())
+		{
+			CPlayer@ sender = getNet().getActiveCommandPlayer();
+			if(sender is null || sender.getNetworkID() != playerNetID || !AIB_ServerCanUseBlueprintControls(playerNetID)) return;
+		}
 		u16 x1 = params.read_u16();
 		u16 y1 = params.read_u16();
 		u16 x2 = params.read_u16();
@@ -738,6 +1170,12 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 	}
 	if(cmd == this.getCommandID("aibuilderToggleStoneSelection"))
 	{
+		u16 playerNetID = params.read_u16();
+		if(isServer())
+		{
+			CPlayer@ sender = getNet().getActiveCommandPlayer();
+			if(sender is null || sender.getNetworkID() != playerNetID || !AIB_ServerCanUseBlueprintControls(playerNetID)) return;
+		}
 		u16 x1 = params.read_u16();
 		u16 y1 = params.read_u16();
 		u16 x2 = params.read_u16();
@@ -748,86 +1186,46 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @params)
 			AIB_RetargetStoneBuilders();
 		}
 	}
+	if(cmd == this.getCommandID("overseerOrderAIBuilder"))
+	{
+		u16 playerNetID = params.read_u16();
+		if(isServer())
+		{
+			CPlayer@ sender = getNet().getActiveCommandPlayer();
+			if(sender is null || sender.getNetworkID() != playerNetID) return;
+		}
+		u16 builderNetID = params.read_u16();
+		u8 order = params.read_u8();
+		AIB_ServerApplyOverseerOrder(playerNetID, builderNetID, order);
+	}
+	if(cmd == this.getCommandID("clearBlueprintLayer") && isServer())
+	{
+		const u16 playerNetID = params.read_u16();
+		CPlayer@ sender = getNet().getActiveCommandPlayer();
+		if(sender !is null && sender.getNetworkID() == playerNetID) AIBP_ServerClearHumanLayer(playerNetID);
+	}
 }
 
 
-bool resetRotation = false;
 uint16 GiveBlockIndex(CBlob@ this)
 {
-	if(this == null)
+	const u16 fallback = AIBP_IsCatalogBlock(customMenuTurn) ? AIBP_BlockId(customMenuTurn) : AIBP_STONE_BLOCK;
+	if(customCatalogSelectionActive)
 	{
-		resetRotation = true;
-		if(customMenuTurn == 10)//these if statement are there because those blob have irregular dimension.
+		if(int(fallback) != oldBlockIndex)
 		{
-			return 80;//return code for workshop
+			currentRotation = AIBP_DefaultRotation(fallback);
+			oldBlockIndex = fallback;
 		}
-		if(customMenuTurn == 8)
-		{
-			return 88; //| (currentRotation << 14);//return code for ladder
-		}
-		return customMenuTurn | (currentRotation << 14); // we use the last 2 bits of the uint16 to specify rotation.
+		return AIBP_EncodeBlock(fallback, currentRotation);
 	}
-	uint16 tileType = uint16(this.get_TileType("buildtile")); //48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
-	uint16 tileBlob = uint16(this.get_u8("buildblob")); // 2 = stone door, 5 = wooden doors, 6 = trap, 7 = ladder, 8 = platform, 9 = workshop, 10 = spike
-	if(this.getName() != "builder")
+	const u16 selectedId = AIBP_BlockId(AIBP_FromBuilderSelection(this, fallback, 0));
+	if(int(selectedId) != oldBlockIndex)
 	{
-		if(customMenuTurn == 10)//these if statement are there because those blob have irregular dimension.
-		{
-			return 80;//return code for workshop
-		}
-		if(customMenuTurn == 8)
-		{
-			return 88; //| (currentRotation << 14);//return code for ladder
-		}
-		resetRotation = true;
-		return customMenuTurn | (currentRotation << 14);
+		currentRotation = AIBP_DefaultRotation(selectedId);
+		oldBlockIndex = selectedId;
 	}
-	if(resetRotation == true)
-	{
-		currentRotation = 0;
-		resetRotation = false;
-	}
-	uint16 currentPage = uint16(this.get_u8("build page"));
-	if(tileType == 48 || tileType == 64 || tileType == 196 || tileType == 205)
-	{
-		if(tileType == 48)
-		{
-			tileType = 1;
-		}
-		else if(tileType == 64)
-		{
-			tileType = 2;
-		}
-		else if(tileType == 196)
-		{
-			tileType = 4;
-		}
-		else if (tileType == 205)
-		{
-			tileType = 5;
-		}
-		return tileType;
-	}
-	else if(tileBlob == 255 && currentPage != 0 )
-	{
-		return blockIndex;
-	}
-	else if (tileBlob == 2 || tileBlob == 5 || tileBlob == 6 || tileBlob == 7 || tileBlob == 8 || tileBlob == 9 || tileBlob == 10 || currentPage != 0)
-	{
-		if(tileBlob == 9 && currentPage == 0)
-		{
-			return 80; // if we get to the workshop, since the workshop has special dimension, we send a special id
-		}
-		if(tileBlob == 7 && currentPage == 0)
-		{
-			return 88; //| (currentRotation << 14);
-		}
-		return tileBlob + 1 + (currentPage*12) | (currentRotation << 14);
-	}
-	else
-	{
-		return 1;
-	}
+	return AIBP_FromBuilderSelection(this, fallback, currentRotation);
 }
 
 
@@ -1005,7 +1403,7 @@ void RenderWidgetFor(CPlayer@ this)
 			blueprintMeshDirty = false;
 		}
 		everythingMesh.SetVertex(v_raw);
-		everythingMesh.SetIndices(v_i); 
+		everythingMesh.SetIndices(v_i);
 		everythingMesh.BuildMesh();
 		everythingMesh.SetDirty(SMesh::VERTEX_INDEX);
 		everythingMesh.RenderMeshWithMaterial();
@@ -1043,17 +1441,19 @@ void AIB_SetSelectionCorner(const u8 index, Vec2f worldPos)
 
 void AIB_SendTreeSelection()
 {
-	if(mouseSelect[0].x == mouseSelect[1].x && mouseSelect[0].y == mouseSelect[1].y)
+	u16 x1;
+	u16 y1;
+	u16 x2;
+	u16 y2;
+	if(!AIB_NormalizeSelectionRect(x1, y1, x2, y2))
 	{
 		return;
 	}
 
-	u16 x1 = u16(mouseSelect[0].x < mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
-	u16 y1 = u16(mouseSelect[0].y < mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
-	u16 x2 = u16(mouseSelect[0].x > mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
-	u16 y2 = u16(mouseSelect[0].y > mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
-
 	CBitStream params;
+	CPlayer@ player = getLocalPlayer();
+	if(player is null) return;
+	params.write_u16(player.getNetworkID());
 	params.write_u16(x1);
 	params.write_u16(y1);
 	params.write_u16(x2);
@@ -1077,17 +1477,19 @@ void AIB_UpdateStoneSelection(Vec2f worldPos)
 
 void AIB_SendStoneSelection()
 {
-	if(mouseSelect[0].x == mouseSelect[1].x && mouseSelect[0].y == mouseSelect[1].y)
+	u16 x1;
+	u16 y1;
+	u16 x2;
+	u16 y2;
+	if(!AIB_NormalizeSelectionRect(x1, y1, x2, y2))
 	{
 		return;
 	}
 
-	u16 x1 = u16(mouseSelect[0].x < mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
-	u16 y1 = u16(mouseSelect[0].y < mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
-	u16 x2 = u16(mouseSelect[0].x > mouseSelect[1].x ? mouseSelect[0].x : mouseSelect[1].x);
-	u16 y2 = u16(mouseSelect[0].y > mouseSelect[1].y ? mouseSelect[0].y : mouseSelect[1].y);
-
 	CBitStream params;
+	CPlayer@ player = getLocalPlayer();
+	if(player is null) return;
+	params.write_u16(player.getNetworkID());
 	params.write_u16(x1);
 	params.write_u16(y1);
 	params.write_u16(x2);
@@ -1096,9 +1498,878 @@ void AIB_SendStoneSelection()
 	getRules().SendCommand(getRules().getCommandID("aibuilderToggleStoneSelection"), params);
 }
 
+Vec2f AIB_ToolbarMin()
+{
+	return Vec2f(12, 66);
+}
+
+Vec2f AIB_ToolButtonMin(const u8 tool)
+{
+	Vec2f start = AIB_ToolbarMin();
+	return start + Vec2f(0, tool * 26);
+}
+
+bool AIB_MouseInToolButton(const u8 tool, Vec2f mouse)
+{
+	Vec2f min = AIB_ToolButtonMin(tool);
+	Vec2f max = min + Vec2f(92, 24);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+string AIB_ToolLabel(const u8 tool)
+{
+	if(tool == BLUEPRINT_TOOL_PAINT) return "Paint";
+	if(tool == BLUEPRINT_TOOL_ERASE) return "Erase";
+	if(tool == BLUEPRINT_TOOL_SELECT) return "Select";
+	if(tool == BLUEPRINT_TOOL_SAVE) return "Save";
+	if(tool == BLUEPRINT_TOOL_LOAD) return "Load";
+	if(tool == BLUEPRINT_TOOL_ROTATE) return "Rotate";
+	if(tool == BLUEPRINT_TOOL_FLIP) return "Flip";
+	if(tool == BLUEPRINT_TOOL_VISIBILITY) return toggleBlueprint ? "Hide" : "Show";
+	if(tool == BLUEPRINT_TOOL_OVERSEER) return "Overseer";
+	return "";
+}
+
+bool UpdateBlueprintToolbar()
+{
+	if(!AIB_LocalCanUseBlueprintControls())
+	{
+		blueprintToolbarButtonPressed = false;
+		blueprintToolbarPressedTool = 255;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+
+	Vec2f mouse = controls.getMouseScreenPos();
+	u8 hovered = 255;
+	for(u8 i = 0; i < BLUEPRINT_TOOL_COUNT; i++)
+	{
+		if(AIB_MouseInToolButton(i, mouse))
+		{
+			hovered = i;
+			break;
+		}
+	}
+
+	if(hovered != 255 && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		blueprintToolbarButtonPressed = true;
+		blueprintToolbarPressedTool = hovered;
+		return true;
+	}
+
+	if(blueprintToolbarButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hovered == blueprintToolbarPressedTool)
+		{
+			AIB_ActivateToolbarTool(hovered);
+		}
+		blueprintToolbarButtonPressed = false;
+		blueprintToolbarPressedTool = 255;
+		return true;
+	}
+
+	return hovered != 255 && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+bool AIB_BlueprintCatalogPanelVisible()
+{
+	return AIB_LocalCanUseBlueprintControls() && AIB_LocalIsWorkshopOverseer() && blueprintEditorActive;
+}
+
+Vec2f AIB_BlueprintCatalogPanelMin()
+{
+	Vec2f screen = getDriver().getScreenDimensions();
+	return Vec2f((screen.x - 456.0f) / 2.0f, 58.0f);
+}
+
+Vec2f AIB_BlueprintCatalogTabMin(const u8 tab)
+{
+	return AIB_BlueprintCatalogPanelMin() + Vec2f(8 + tab * 96, 8);
+}
+
+bool AIB_MouseInBlueprintCatalogTab(const u8 tab, Vec2f mouse)
+{
+	Vec2f min = AIB_BlueprintCatalogTabMin(tab);
+	Vec2f max = min + Vec2f(90, 24);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+string AIB_BlueprintCatalogTabLabel(const u8 tab)
+{
+	if(tab == AIB_CATALOG_TAB_BLOCKS) return "Blocks";
+	if(tab == AIB_CATALOG_TAB_WORKSHOPS) return "Workshops";
+	return "Blobs";
+}
+
+u16 AIB_BlueprintCatalogCount(const u8 tab)
+{
+	if(tab == AIB_CATALOG_TAB_BLOCKS) return 4;
+	if(tab == AIB_CATALOG_TAB_BLOBS) return 6;
+	return 11;
+}
+
+u16 AIB_BlueprintCatalogBlockAt(const u8 tab, const u16 index)
+{
+	if(tab == AIB_CATALOG_TAB_BLOCKS)
+	{
+		if(index == 0) return AIBP_STONE_BLOCK;
+		if(index == 1) return AIBP_STONE_BACKWALL;
+		if(index == 2) return AIBP_WOOD_BLOCK;
+		if(index == 3) return AIBP_WOOD_BACKWALL;
+	}
+	else if(tab == AIB_CATALOG_TAB_BLOBS)
+	{
+		if(index == 0) return AIBP_STONE_DOOR;
+		if(index == 1) return AIBP_WOOD_DOOR;
+		if(index == 2) return AIBP_BRIDGE;
+		if(index == 3) return AIBP_PLATFORM;
+		if(index == 4) return AIBP_LADDER;
+		if(index == 5) return AIBP_SPIKES;
+	}
+	else
+	{
+		if(index == 0) return AIBP_BUILDER_SHOP;
+		if(index == 1) return AIBP_QUARTERS;
+		if(index == 2) return AIBP_KNIGHT_SHOP;
+		if(index == 3) return AIBP_ARCHER_SHOP;
+		if(index == 4) return AIBP_BOAT_SHOP;
+		if(index == 5) return AIBP_VEHICLE_SHOP;
+		if(index == 6) return AIBP_AI_BUILDER_SHOP;
+		if(index == 7) return AIBP_NURSERY;
+		if(index == 8) return AIBP_STORAGE;
+		if(index == 9) return AIBP_TUNNEL;
+		if(index == 10) return AIBP_QUARRY;
+	}
+	return AIBP_STONE_BLOCK;
+}
+
+string AIB_BlueprintCatalogShortName(const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if(id == AIBP_STONE_BLOCK) return "Stone";
+	if(id == AIBP_STONE_BACKWALL) return "Stone wall";
+	if(id == AIBP_WOOD_BLOCK) return "Wood";
+	if(id == AIBP_WOOD_BACKWALL) return "Wood wall";
+	if(id == AIBP_STONE_DOOR) return "Stone door";
+	if(id == AIBP_WOOD_DOOR) return "Wood door";
+	if(id == AIBP_BRIDGE) return "Bridge";
+	if(id == AIBP_PLATFORM) return "Platform";
+	if(id == AIBP_LADDER) return "Ladder";
+	if(id == AIBP_SPIKES) return "Spikes";
+	if(id == AIBP_BUILDER_SHOP) return "Builder";
+	if(id == AIBP_QUARTERS) return "Quarters";
+	if(id == AIBP_KNIGHT_SHOP) return "Knight";
+	if(id == AIBP_ARCHER_SHOP) return "Archer";
+	if(id == AIBP_BOAT_SHOP) return "Boat";
+	if(id == AIBP_VEHICLE_SHOP) return "Vehicle";
+	if(id == AIBP_AI_BUILDER_SHOP) return "AI Builder";
+	if(id == AIBP_NURSERY) return "Nursery";
+	if(id == AIBP_STORAGE) return "Storage";
+	if(id == AIBP_TUNNEL) return "Tunnel";
+	if(id == AIBP_QUARRY) return "Quarry";
+	return AIBP_BlockDisplayName(block);
+}
+
+SColor AIB_BlueprintCatalogSwatch(const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	if(id == AIBP_STONE_BLOCK || id == AIBP_STONE_BACKWALL || id == AIBP_STONE_DOOR || id == AIBP_SPIKES) return SColor(0xff8f969e);
+	if(id == AIBP_WOOD_BLOCK || id == AIBP_WOOD_BACKWALL || id == AIBP_WOOD_DOOR || id == AIBP_BRIDGE || id == AIBP_PLATFORM || id == AIBP_LADDER) return SColor(0xffb17a42);
+	if(AIBP_IsWorkshopBlock(block)) return SColor(0xff6f8fb1);
+	return SColor(0xff777777);
+}
+
+bool AIB_BlueprintCatalogUsesAtlasPreview(const u16 block)
+{
+	return !AIBP_IsWorkshopBlock(block);
+}
+
+u16 AIB_BlueprintCatalogAtlasFrame(const u16 block)
+{
+	return AIBP_BlockId(AIB_RenderAtlasBlock(block));
+}
+
+Vec2f AIB_BlueprintCatalogCellMin(const u16 index)
+{
+	const u16 cols = 4;
+	Vec2f panelMin = AIB_BlueprintCatalogPanelMin();
+	return panelMin + Vec2f(8 + (index % cols) * 110, 40 + (index / cols) * 50);
+}
+
+bool AIB_MouseInBlueprintCatalogCell(const u16 index, Vec2f mouse)
+{
+	Vec2f min = AIB_BlueprintCatalogCellMin(index);
+	Vec2f max = min + Vec2f(104, 44);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool AIB_BlueprintCatalogBlockAtMouse(Vec2f mouse, u16 &out block)
+{
+	const u16 count = AIB_BlueprintCatalogCount(blueprintCatalogTab);
+	for(u16 i = 0; i < count; i++)
+	{
+		if(AIB_MouseInBlueprintCatalogCell(i, mouse))
+		{
+			block = AIB_BlueprintCatalogBlockAt(blueprintCatalogTab, i);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool UpdateBlueprintCatalogPanel()
+{
+	if(!AIB_BlueprintCatalogPanelVisible())
+	{
+		blueprintCatalogPanelButtonPressed = false;
+		blueprintCatalogPanelPressedBlock = 0;
+		blueprintCatalogTabButtonPressed = false;
+		blueprintCatalogTabPressed = 255;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+	Vec2f mouse = controls.getMouseScreenPos();
+
+	u8 hoveredTab = 255;
+	for(u8 i = 0; i < AIB_CATALOG_TAB_COUNT; i++)
+	{
+		if(AIB_MouseInBlueprintCatalogTab(i, mouse))
+		{
+			hoveredTab = i;
+			break;
+		}
+	}
+
+	if(hoveredTab != 255 && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		blueprintCatalogTabButtonPressed = true;
+		blueprintCatalogTabPressed = hoveredTab;
+		return true;
+	}
+	if(blueprintCatalogTabButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hoveredTab == blueprintCatalogTabPressed) blueprintCatalogTab = hoveredTab;
+		blueprintCatalogTabButtonPressed = false;
+		blueprintCatalogTabPressed = 255;
+		return true;
+	}
+
+	u16 hoveredBlock = 0;
+	const bool hoveredCell = AIB_BlueprintCatalogBlockAtMouse(mouse, hoveredBlock);
+	if(hoveredCell && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		blueprintCatalogPanelButtonPressed = true;
+		blueprintCatalogPanelPressedBlock = hoveredBlock;
+		return true;
+	}
+	if(blueprintCatalogPanelButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hoveredCell && hoveredBlock == blueprintCatalogPanelPressedBlock)
+		{
+			customMenuTurn = AIBP_BlockId(hoveredBlock);
+			currentRotation = AIBP_DefaultRotation(hoveredBlock);
+			oldBlockIndex = customMenuTurn;
+			blockIndex = AIBP_EncodeBlock(customMenuTurn, currentRotation);
+			customCatalogSelectionActive = true;
+		}
+		blueprintCatalogPanelButtonPressed = false;
+		blueprintCatalogPanelPressedBlock = 0;
+		return true;
+	}
+
+	Vec2f panelMin = AIB_BlueprintCatalogPanelMin();
+	Vec2f panelMax = panelMin + Vec2f(456, 198);
+	const bool inPanel = mouse.x >= panelMin.x && mouse.x <= panelMax.x && mouse.y >= panelMin.y && mouse.y <= panelMax.y;
+	return inPanel && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+void AIB_ActivateToolbarTool(const u8 tool)
+{
+	if(tool == BLUEPRINT_TOOL_SAVE)
+	{
+		keyOJustPressed = true;
+		return;
+	}
+	if(tool == BLUEPRINT_TOOL_LOAD)
+	{
+		displayPrefabSelectionMenu = !displayPrefabSelectionMenu;
+		if(!displayPrefabSelectionMenu)
+		{
+			AIB_CloseSelectionModes();
+		}
+		return;
+	}
+	if(tool == BLUEPRINT_TOOL_ROTATE)
+	{
+		if(currentRotation <= 0)
+		{
+			currentRotation = 3;
+		}
+		else
+		{
+			currentRotation -= 1;
+		}
+		return;
+	}
+	if(tool == BLUEPRINT_TOOL_FLIP)
+	{
+		flipBlueprint = !flipBlueprint;
+		return;
+	}
+	if(tool == BLUEPRINT_TOOL_VISIBILITY)
+	{
+		toggleBlueprint = !toggleBlueprint;
+		return;
+	}
+	if(tool == BLUEPRINT_TOOL_OVERSEER)
+	{
+		// Overseer view is entered and exited through an AI Builder Workshop chair.
+		return;
+	}
+
+	if(blueprintEditorActive && blueprintEditorTool == tool)
+	{
+		blueprintEditorActive = false;
+		blueprintEditorSelecting = false;
+	}
+	else
+	{
+		blueprintEditorActive = true;
+		blueprintEditorTool = tool;
+	}
+	displayPrefabSelectionMenu = false;
+	AIB_CloseSelectionModes();
+}
+
+void AIB_SetOverseerViewActive(const bool active)
+{
+	overseerViewActive = active;
+	overseerSelectionDragging = false;
+	displayMouseSelect = false;
+	if(active)
+	{
+		blueprintEditorActive = false;
+		displayPrefabSelectionMenu = true;
+		toggleBlueprint = true;
+		CCamera@ camera = getCamera();
+		CBlob@ blob = getLocalPlayerBlob();
+		if(camera !is null)
+		{
+			overseerCameraPos = camera.getPosition();
+			camera.setTarget(null);
+		}
+		else if(blob !is null)
+		{
+			overseerCameraPos = blob.getPosition();
+		}
+	}
+	else
+	{
+		CCamera@ camera = getCamera();
+		CBlob@ blob = getLocalPlayerBlob();
+		if(camera !is null && blob !is null)
+		{
+			camera.setTarget(blob);
+		}
+	}
+}
+
+bool AIB_LocalIsWorkshopOverseer()
+{
+	CBlob@ blob = getLocalPlayerBlob();
+	return blob !is null && blob.isAttachedToPoint("OVERSEER");
+}
+
+void AIB_SyncOverseerViewWithWorkshop()
+{
+	const bool shouldBeActive = AIB_LocalIsWorkshopOverseer()
+		&& AIB_CanPlayerUseOverseerControls(getLocalPlayer());
+	if(shouldBeActive != overseerViewActive)
+	{
+		AIB_SetOverseerViewActive(shouldBeActive);
+	}
+}
+
+void UpdateOverseerViewCamera()
+{
+	if(!overseerViewActive) return;
+	CPlayer@ player = getLocalPlayer();
+	if(!AIB_CanPlayerUseOverseerControls(player))
+	{
+		AIB_SetOverseerViewActive(false);
+		return;
+	}
+
+	CCamera@ camera = getCamera();
+	CControls@ controls = getControls();
+	if(camera is null || controls is null) return;
+
+	if(overseerCameraPos == Vec2f_zero)
+	{
+		overseerCameraPos = camera.getPosition();
+	}
+
+	Vec2f move = Vec2f_zero;
+	if(controls.isKeyPressed(KEY_KEY_A)) move.x -= 1.0f;
+	if(controls.isKeyPressed(KEY_KEY_D)) move.x += 1.0f;
+	if(controls.isKeyPressed(KEY_KEY_W)) move.y -= 1.0f;
+	if(controls.isKeyPressed(KEY_KEY_S)) move.y += 1.0f;
+	if(move.Length() > 0.0f)
+	{
+		move.Normalize();
+		const f32 speed = controls.isKeyPressed(KEY_LSHIFT) || controls.isKeyPressed(KEY_RSHIFT) ? 28.0f : 14.0f;
+		overseerCameraPos += move * speed * getRenderApproximateCorrectionFactor();
+	}
+
+	camera.setTarget(null);
+	camera.setPosition(overseerCameraPos);
+}
+
+bool UpdateOverseerView()
+{
+	if(!overseerViewActive) return false;
+	CPlayer@ player = getLocalPlayer();
+	if(!AIB_CanPlayerUseOverseerControls(player)) return false;
+
+	CControls@ controls = getControls();
+	if(controls is null) return true;
+
+	// Blueprint editing and resource selection own world mouse input while they
+	// are active.  The control modifier also preserves the legacy live-edit
+	// gesture.  Let ChangeIfNeeded handle those clicks instead of turning every
+	// overseer left-click into an AI-builder selection drag.
+	if(blueprintEditorActive || displayLoadedBlueprint || aibTreeSelectMode || aibStoneSelectMode
+		|| controls.isKeyPressed(KEY_LCONTROL) || controls.isKeyPressed(KEY_RCONTROL))
+	{
+		return false;
+	}
+
+	bool consumedDrag = UpdateOverseerPanelDrag();
+	if(consumedDrag) return true;
+
+	bool consumedOrder = UpdateOverseerOrderButtons();
+	if(consumedOrder) return true;
+
+	if(controls.isKeyJustPressed(KEY_RBUTTON) || controls.isKeyJustPressed(KEY_CANCEL))
+	{
+		overseerSelectedBuilders.clear();
+		overseerSelectionDragging = false;
+		displayMouseSelect = false;
+		return true;
+	}
+
+	if(controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		overseerSelectionDragging = true;
+		AIB_SetSelectionCorner(0, controls.getMouseWorldPos());
+		AIB_SetSelectionCorner(1, controls.getMouseWorldPos());
+		displayMouseSelect = true;
+		return true;
+	}
+	if(overseerSelectionDragging && controls.isKeyPressed(KEY_LBUTTON))
+	{
+		AIB_SetSelectionCorner(1, controls.getMouseWorldPos());
+		displayMouseSelect = true;
+		return true;
+	}
+	if(overseerSelectionDragging && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		AIB_SetSelectionCorner(1, controls.getMouseWorldPos());
+		AIB_SelectBuildersInCurrentRect();
+		overseerSelectionDragging = false;
+		displayMouseSelect = false;
+		return true;
+	}
+
+	// No overseer interaction consumed this frame.  Allow the legacy blueprint
+	// controls to process keyboard input such as holding X to move/open the UI.
+	return false;
+}
+
+bool AIB_IsSelectedOverseerBuilder(CBlob@ builder)
+{
+	if(builder is null) return false;
+	const u16 id = builder.getNetworkID();
+	for(uint i = 0; i < overseerSelectedBuilders.length; i++)
+	{
+		if(overseerSelectedBuilders[i] == id) return true;
+	}
+	return false;
+}
+
+void AIB_SelectBuildersInCurrentRect()
+{
+	u16 x1;
+	u16 y1;
+	u16 x2;
+	u16 y2;
+	if(!AIB_NormalizeSelectionRect(x1, y1, x2, y2)) return;
+
+	CPlayer@ player = getLocalPlayer();
+	const int team = player is null ? -1 : player.getTeamNum();
+	overseerSelectedBuilders.clear();
+	CBlob@[] builders;
+	AIB_GetConstructionWorkers(builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder is null || builder.hasTag("dead")) continue;
+		if(team >= 0 && team < 100 && builder.getTeamNum() != team) continue;
+		const u16 tx = u16(builder.getPosition().x / 8);
+		const u16 ty = u16(builder.getPosition().y / 8);
+		if(tx >= x1 && tx <= x2 && ty >= y1 && ty <= y2)
+		{
+			overseerSelectedBuilders.push_back(builder.getNetworkID());
+		}
+	}
+
+	if(overseerSelectedBuilders.length == 0)
+	{
+		CBlob@ nearest = AIB_GetNearestOverseerBuilder(getControls().getMouseWorldPos());
+		if(nearest !is null)
+		{
+			overseerSelectedBuilders.push_back(nearest.getNetworkID());
+		}
+	}
+}
+
+CBlob@ AIB_GetNearestOverseerBuilder(Vec2f worldPos)
+{
+	CPlayer@ player = getLocalPlayer();
+	const int team = player is null ? -1 : player.getTeamNum();
+	CBlob@[] builders;
+	AIB_GetConstructionWorkers(builders);
+	CBlob@ best = null;
+	f32 bestDistance = 999999.0f;
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder is null || builder.hasTag("dead")) continue;
+		if(team >= 0 && team < 100 && builder.getTeamNum() != team) continue;
+		const f32 distance = (builder.getPosition() - worldPos).Length();
+		if(distance < bestDistance && distance <= 40.0f)
+		{
+			bestDistance = distance;
+			@best = builder;
+		}
+	}
+	return best;
+}
+
+Vec2f AIB_OverseerPanelDefaultPosition()
+{
+	Vec2f screen = getDriver().getScreenDimensions();
+	return Vec2f(118, screen.y - 146);
+}
+
+Vec2f AIB_ClampOverseerPanelPosition(Vec2f pos)
+{
+	Vec2f screen = getDriver().getScreenDimensions();
+	const f32 width = 154.0f;
+	const f32 height = 124.0f;
+	pos.x = Maths::Clamp(pos.x, 4.0f, Maths::Max(4.0f, screen.x - width - 4.0f));
+	pos.y = Maths::Clamp(pos.y, 4.0f, Maths::Max(4.0f, screen.y - height - 4.0f));
+	return pos;
+}
+
+Vec2f AIB_OverseerPanelPosition()
+{
+	if(overseerPanelPosition.x < 0.0f || overseerPanelPosition.y < 0.0f)
+	{
+		overseerPanelPosition = AIB_OverseerPanelDefaultPosition();
+	}
+	overseerPanelPosition = AIB_ClampOverseerPanelPosition(overseerPanelPosition);
+	return overseerPanelPosition;
+}
+
+Vec2f AIB_OverseerPanelHeaderMin()
+{
+	return AIB_OverseerPanelPosition();
+}
+
+bool AIB_MouseInOverseerPanelHeader(Vec2f mouse)
+{
+	Vec2f min = AIB_OverseerPanelHeaderMin();
+	Vec2f max = min + Vec2f(154, 28);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool UpdateOverseerPanelDrag()
+{
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+
+	Vec2f mouse = controls.getMouseScreenPos();
+	if(AIB_MouseInOverseerPanelHeader(mouse) && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		overseerPanelDragging = true;
+		overseerPanelDragOffset = mouse - AIB_OverseerPanelPosition();
+		return true;
+	}
+
+	if(overseerPanelDragging)
+	{
+		if(controls.isKeyPressed(KEY_LBUTTON))
+		{
+			overseerPanelPosition = AIB_ClampOverseerPanelPosition(mouse - overseerPanelDragOffset);
+			return true;
+		}
+
+		overseerPanelDragging = false;
+		return true;
+	}
+
+	return false;
+}
+
+Vec2f AIB_OverseerOrderButtonMin(const u8 order)
+{
+	return AIB_OverseerPanelPosition() + Vec2f(0, 34 + order * 32);
+}
+
+bool AIB_MouseInOverseerOrderButton(const u8 order, Vec2f mouse)
+{
+	Vec2f min = AIB_OverseerOrderButtonMin(order);
+	Vec2f max = min + Vec2f(154, 28);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+Vec2f AIB_DirectorPanelMin()
+{
+	return Vec2f(210, 8);
+}
+
+Vec2f AIB_DirectorToggleMin()
+{
+	return AIB_DirectorPanelMin() + Vec2f(330, 4);
+}
+
+bool AIB_LocalCanToggleDirector()
+{
+	CPlayer@ player = getLocalPlayer();
+	return player !is null && player.getTeamNum() >= 0 && player.getTeamNum() < 8 && AIB_CanPlayerUseOverseerControls(player);
+}
+
+bool AIB_MouseInDirectorToggle(Vec2f mouse)
+{
+	Vec2f min = AIB_DirectorToggleMin();
+	Vec2f max = min + Vec2f(92, 22);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool UpdateAIBDirectorToggle()
+{
+	if(!AIB_LocalCanToggleDirector())
+	{
+		aibDirectorTogglePressed = false;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+	const bool hovered = AIB_MouseInDirectorToggle(controls.getMouseScreenPos());
+	if(hovered && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		aibDirectorTogglePressed = true;
+		return true;
+	}
+
+	if(aibDirectorTogglePressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hovered) AIB_SendDirectorToggle();
+		aibDirectorTogglePressed = false;
+		return true;
+	}
+
+	return hovered && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+void AIB_SendDirectorToggle()
+{
+	CPlayer@ player = getLocalPlayer();
+	CRules@ rules = getRules();
+	if(player is null || rules is null || player.getTeamNum() < 0 || player.getTeamNum() >= 8) return;
+	const u8 team = u8(player.getTeamNum());
+	const u8 requestedMode = AIBP_ToggleDirectorMode(rules.get_u8(AIBP_ModeKey(team)));
+	CBitStream params;
+	params.write_u16(player.getNetworkID());
+	params.write_u16(0);
+	params.write_u8(requestedMode == AIBP_StrategyMode::auto_mode ? AIB_OVERSEER_ORDER_DIRECTOR_ON : AIB_OVERSEER_ORDER_DIRECTOR_OFF);
+	rules.SendCommand(rules.getCommandID("overseerOrderAIBuilder"), params);
+	AIB_LogEvent("ui", "director_toggle", AIB_EventPlayerRef(player), "mode=" + requestedMode + " team=" + team);
+}
+
+void AIB_ServerSetDirectorMode(const u16 playerNetID, const u8 requestedMode)
+{
+	if(!isServer() || (requestedMode != AIBP_StrategyMode::off && requestedMode != AIBP_StrategyMode::auto_mode)) return;
+	CPlayer@ player = getPlayerByNetworkId(playerNetID);
+	if(player is null || player.getTeamNum() < 0 || player.getTeamNum() >= 8 || !AIB_ServerCanUseBlueprintControls(playerNetID)) return;
+	const u8 team = u8(player.getTeamNum());
+	CRules@ rules = getRules();
+	if(rules is null) return;
+	rules.set_u8(AIBP_ModeKey(team), requestedMode);
+	rules.Sync(AIBP_ModeKey(team), true);
+	rules.set_u32("aib strategy important event team " + int(team), getGameTime());
+	AIBP_SetAIWorkEnabled(team, requestedMode == AIBP_StrategyMode::auto_mode);
+	if(requestedMode == AIBP_StrategyMode::off) AIB_ServerStopDirectorAssignments(team);
+	else AIBM_ReleaseTeamManualControl(team);
+	u16 actionX = 0; u16 actionY = 0;
+	AIB_ActionBoundaryBlobTile(player.getBlob(), actionX, actionY);
+	AIB_ActionQueueBoundary(AIBActionBoundary::director_mode, AIBActionActorKind::player,
+		playerNetID, 0, team, actionX, actionY, requestedMode, 0);
+	AIB_LogEvent("player", "director_mode", AIB_EventPlayerRef(player), "mode=" + requestedMode + " team=" + team);
+}
+
+void AIB_ServerStopDirectorAssignments(const u8 team)
+{
+	if(!isServer()) return;
+	CBlob@[] builders;
+	AIB_GetConstructionWorkers(builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder is null || builder.hasTag("dead") || builder.getTeamNum() != team || !builder.get_bool("aib strategy assigned")) continue;
+		AIBM_StopDirectorControl(builder);
+	}
+}
+
+void AIB_GetConstructionWorkers(array<CBlob@> &out builders)
+{
+	builders.clear();
+	string[] names = { "aibuilder", "autobuilder" };
+	for(uint n = 0; n < names.length; n++)
+	{
+		CBlob@[] named;
+		getBlobsByName(names[n], @named);
+		for(uint i = 0; i < named.length; i++) builders.push_back(named[i]);
+	}
+}
+
+bool UpdateOverseerOrderButtons()
+{
+	if(overseerSelectedBuilders.length == 0)
+	{
+		overseerOrderButtonPressed = false;
+		overseerPressedOrder = 255;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+	Vec2f mouse = controls.getMouseScreenPos();
+	u8 hovered = 255;
+	for(u8 i = 0; i < 3; i++)
+	{
+		if(AIB_MouseInOverseerOrderButton(i, mouse))
+		{
+			hovered = i;
+			break;
+		}
+	}
+
+	if(hovered != 255 && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		overseerOrderButtonPressed = true;
+		overseerPressedOrder = hovered;
+		return true;
+	}
+
+	if(overseerOrderButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hovered == overseerPressedOrder)
+		{
+			AIB_SendOverseerOrder(hovered);
+		}
+		overseerOrderButtonPressed = false;
+		overseerPressedOrder = 255;
+		return true;
+	}
+
+	return hovered != 255 && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+void AIB_SendOverseerOrder(const u8 order)
+{
+	CPlayer@ player = getLocalPlayer();
+	if(player is null) return;
+	for(uint i = 0; i < overseerSelectedBuilders.length; i++)
+	{
+		CBitStream params;
+		params.write_u16(player.getNetworkID());
+		params.write_u16(overseerSelectedBuilders[i]);
+		params.write_u8(order);
+		getRules().SendCommand(getRules().getCommandID("overseerOrderAIBuilder"), params);
+	}
+}
+
+bool AIB_IsValidWorkerOverseerOrder(const u8 order)
+{
+	return order == AIB_OVERSEER_ORDER_WOOD || order == AIB_OVERSEER_ORDER_STONE ||
+		order == AIB_OVERSEER_ORDER_BLUEPRINT;
+}
+
+void AIB_ServerApplyOverseerOrder(const u16 playerNetID, const u16 builderNetID, const u8 order)
+{
+	if(!isServer()) return;
+	if(order == AIB_OVERSEER_ORDER_DIRECTOR_OFF || order == AIB_OVERSEER_ORDER_DIRECTOR_ON)
+	{
+		AIB_ServerSetDirectorMode(playerNetID,
+			order == AIB_OVERSEER_ORDER_DIRECTOR_ON ? AIBP_StrategyMode::auto_mode : AIBP_StrategyMode::off);
+		return;
+	}
+	// Reject unknown packet opcodes before looking up or mutating a worker.  The
+	// manual-control boundary releases reservations, deferred roles, paths, and
+	// the resource-home pin, so it must run only after a real job was accepted.
+	if(!AIB_IsValidWorkerOverseerOrder(order)) return;
+	CBlob@ builder = getBlobByNetworkID(builderNetID);
+	if(builder is null || (builder.getName() != "aibuilder" && builder.getName() != "autobuilder") || builder.hasTag("dead")) return;
+	if(!AIB_ServerCanIssueOverseerCommand(playerNetID, u8(builder.getTeamNum()))) return;
+	const bool autoBuilder = builder.getName() == "autobuilder";
+	if(autoBuilder && order != AIB_OVERSEER_ORDER_BLUEPRINT) return;
+	AIBM_TakeManualControl(builder);
+
+	if(order == AIB_OVERSEER_ORDER_WOOD)
+	{
+		builder.set_u8("ai builder state", 1);
+		builder.set_u8("ai builder job", 0);
+	}
+	else if(order == AIB_OVERSEER_ORDER_STONE)
+	{
+		builder.set_u8("ai builder state", 7);
+		builder.set_u8("ai builder job", 1);
+		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
+		builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
+	}
+	else if(order == AIB_OVERSEER_ORDER_BLUEPRINT)
+	{
+		builder.set_u8("ai builder state", autoBuilder ? 13 : 12);
+		builder.set_u8("ai builder job", 2);
+		builder.set_Vec2f("ai builder tile target", Vec2f_zero);
+		builder.set_Vec2f("ai builder shaft top", Vec2f_zero);
+		builder.set_bool("ai builder saw blueprint target", false);
+	}
+
+	builder.set_netid("ai builder target", 0);
+	builder.set_Vec2f("ai builder destination", Vec2f_zero);
+	builder.set_bool("ai builder job active", true);
+	builder.Sync("ai builder state", true);
+	builder.Sync("ai builder job", true);
+	builder.Sync("ai builder job active", true);
+	u16 actionX = 0; u16 actionY = 0;
+	AIB_ActionBoundaryBlobTile(builder, actionX, actionY);
+	AIB_ActionQueueBoundary(AIBActionBoundary::overseer_order, AIBActionActorKind::player,
+		playerNetID, builderNetID, u8(builder.getTeamNum()), actionX, actionY, order, 0);
+	AIB_LogEvent("player", "overseer_order", AIB_EventBlobRef(builder), "order=" + order + " player=" + playerNetID + " pos=" + AIB_EventPos(builder.getPosition()));
+}
+
 bool UpdateTreeSelectionButton()
 {
-	if(!(enableOverseer == 0 || isOverseer))
+	if(!AIB_LocalCanUseBlueprintControls())
 	{
 		aibTreeButtonPressed = false;
 		return false;
@@ -1153,7 +2424,7 @@ bool AIB_MouseInTreeButton(Vec2f mouse)
 
 bool UpdateStoneSelectionButton()
 {
-	if(!(enableOverseer == 0 || isOverseer))
+	if(!AIB_LocalCanUseBlueprintControls())
 	{
 		aibStoneButtonPressed = false;
 		return false;
@@ -1351,7 +2622,7 @@ void RenderSelectedTreeMarkers()
 		CBlob@ tree = trees[i];
 		if(tree is null || !tree.get_bool("aibuilder selected tree")) continue;
 
-		AddTreeSelectionQuad(v_vertexNonTile, v_indexNonTile, tree.getPosition() + Vec2f(0, -14));
+		AIB_DrawResourceSelectionHead(tree.getPosition() + Vec2f(0, -14));
 	}
 
 	array<Vec2f>@ stones = AIB_GetSelectedStoneTiles();
@@ -1363,7 +2634,20 @@ void RenderSelectedTreeMarkers()
 			Vec2f tile = Vec2f(stones[i].x * map.tilesize, stones[i].y * map.tilesize);
 			if(!AIB_IsSelectableStoneTile(tile)) continue;
 
-			AddStoneSelectionQuad(v_vertexNonTile, v_indexNonTile, tile + Vec2f(map.tilesize * 0.5f, map.tilesize * 0.5f));
+			AIB_DrawResourceSelectionHead(tile + Vec2f(map.tilesize * 0.5f, map.tilesize * 0.5f));
+		}
+	}
+
+	if(overseerViewActive)
+	{
+		CBlob@[] builders;
+		AIB_GetConstructionWorkers(builders);
+		for(uint i = 0; i < builders.length; i++)
+		{
+			CBlob@ builder = builders[i];
+			if(builder is null || builder.hasTag("dead")) continue;
+			if(!AIB_IsSelectedOverseerBuilder(builder)) continue;
+			AIB_DrawBuilderSelectionMarker(builder.getPosition() + Vec2f(0, -6));
 		}
 	}
 
@@ -1379,38 +2663,26 @@ void RenderSelectedTreeMarkers()
 	nonTileMesh.RenderMeshWithMaterial();
 }
 
-void AddTreeSelectionQuad(Vertex[] &vertices, u16[] &indices, Vec2f pos)
+void AIB_DrawResourceSelectionHead(Vec2f worldPos)
 {
-	u16 index = u16(vertices.size());
-	f32 z = 1000;
-	SColor color = SColor(0xfffffb20);
-	vertices.push_back(Vertex(pos.x - 9, pos.y - 9, z, 0.0f, 0.0f, color));
-	vertices.push_back(Vertex(pos.x + 9, pos.y - 9, z, offsetx, 0.0f, color));
-	vertices.push_back(Vertex(pos.x + 9, pos.y + 9, z, offsetx, offsety, color));
-	vertices.push_back(Vertex(pos.x - 9, pos.y + 9, z, 0.0f, offsety, color));
-	indices.push_back(index);
-	indices.push_back(index + 1);
-	indices.push_back(index + 2);
-	indices.push_back(index);
-	indices.push_back(index + 2);
-	indices.push_back(index + 3);
+	CPlayer@ player = getLocalPlayer();
+	u8 team = player is null || player.getTeamNum() >= 8 ? 0 : u8(player.getTeamNum());
+	Vec2f screenPos = getDriver().getScreenPosFromWorldPos(worldPos);
+	Vec2f iconSize = Vec2f(16, 16) * AIB_RESOURCE_MARKER_SCALE;
+	GUI::DrawIcon("Heads.png", AIB_BUILDER_HEAD_FRAME, Vec2f(16, 16), screenPos - iconSize * 0.5f, AIB_RESOURCE_MARKER_SCALE, team);
 }
 
-void AddStoneSelectionQuad(Vertex[] &vertices, u16[] &indices, Vec2f pos)
+void AIB_DrawBuilderSelectionMarker(Vec2f worldPos)
 {
-	u16 index = u16(vertices.size());
-	f32 z = 1000;
-	SColor color = SColor(0xfffffb20);
-	vertices.push_back(Vertex(pos.x - 6, pos.y - 6, z, 0.0f, 0.0f, color));
-	vertices.push_back(Vertex(pos.x + 6, pos.y - 6, z, offsetx, 0.0f, color));
-	vertices.push_back(Vertex(pos.x + 6, pos.y + 6, z, offsetx, offsety, color));
-	vertices.push_back(Vertex(pos.x - 6, pos.y + 6, z, 0.0f, offsety, color));
-	indices.push_back(index);
-	indices.push_back(index + 1);
-	indices.push_back(index + 2);
-	indices.push_back(index);
-	indices.push_back(index + 2);
-	indices.push_back(index + 3);
+	Vec2f screenPos = getDriver().getScreenPosFromWorldPos(worldPos);
+
+	// Layer translucent circles from the faint outer edge inward.  This keeps
+	// the builder visible while producing a soft white selection glow without
+	// relying on the blueprint mesh texture/UVs.
+	GUI::DrawCircle(screenPos, 22.0f, SColor(0x30ffffff));
+	GUI::DrawCircle(screenPos, 19.0f, SColor(0x38ffffff));
+	GUI::DrawCircle(screenPos, 16.0f, SColor(0x40ffffff));
+	GUI::DrawCircle(screenPos, 13.0f, SColor(0x48ffffff));
 }
 
 void AddBlueprintQuad(Vertex[] &vertices, u16[] &indices, int x, int y, uint16 blockID)
@@ -1489,17 +2761,28 @@ void initVertexAray(Vertex[] &v_raw, u16[] &v_i)
 
 float offsetx = 8/pngWidth;
 float offsety = 8/pngHeight;
+u16 AIB_RenderAtlasBlock(uint16 blockID)
+{
+	const u16 id = AIBP_BlockId(blockID);
+	if(id == AIBP_BRIDGE) return AIBP_EncodeBlock(180, AIBP_BlockRotation(blockID));
+	if(id == AIBP_SPIKES) return AIBP_EncodeBlock(57, AIBP_BlockRotation(blockID));
+	return blockID;
+}
+
 float getUVX(uint16 blockID, uint16 vertexNumber)
 {
+	blockID = AIB_RenderAtlasBlock(blockID);
+	if(AIBP_IsWorkshopBlock(blockID)) blockID = AIBP_EncodeBlock(AIBP_BUILDER_SHOP, AIBP_BlockRotation(blockID));
+	const u16 id = AIBP_BlockId(blockID);
 	float ModuloCalc = (((blockID << 2) >> 2) % (pngWidth/8))/(pngWidth/8) ;//the << and >> operator remove the rotation bits from the blockID.
-	uint16 uvxCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
+	uint16 uvxCurrentRotation = AIBP_BlockRotation(blockID);
 	float ultraoffsetx = 0;
 	blockID = (blockID << 2) >> 2;
-	if(blockID == 80)//80 is workshop
+	if(id == AIBP_BUILDER_SHOP)
 	{
 		ultraoffsetx = offsetx*4;
 	}
-	if(blockID == 88)//88 is ladder
+	if(id == AIBP_LADDER)
 	{
 		ultraoffsetx= offsetx*2/8;
 	}
@@ -1529,16 +2812,19 @@ float getUVX(uint16 blockID, uint16 vertexNumber)
 
 float getUVY(uint16 blockID, uint16 vertexNumber)
 {
+	blockID = AIB_RenderAtlasBlock(blockID);
+	if(AIBP_IsWorkshopBlock(blockID)) blockID = AIBP_EncodeBlock(AIBP_BUILDER_SHOP, AIBP_BlockRotation(blockID));
+	const u16 id = AIBP_BlockId(blockID);
 
 	float ModuloCalc = (int(((blockID << 2)>> 2) / (pngWidth/8)) / (pngHeight/8)); //the << and >> operator remove the rotation bits from the blockID.
-	uint16 uvyCurrentRotation = blockID >> 14; // retrieve the 2 rotation bit from blockID
+	uint16 uvyCurrentRotation = AIBP_BlockRotation(blockID);
 	float ultraoffsety = 0;
 	blockID = (blockID << 2) >> 2;
-	if(blockID == 80 || blockID == 88) // if we receive the workshop or the ladder number, we give special dimension
+	if(id == AIBP_BUILDER_SHOP || id == AIBP_LADDER)
 	{
 		ultraoffsety = offsety*2;
 	}
-	if(blockID == 44)//44 is a spiker
+	if(id == AIBP_SPIKES)
 	{
 		ultraoffsety = offsety*3/8;
 	}
@@ -1565,27 +2851,33 @@ float getUVY(uint16 blockID, uint16 vertexNumber)
 	}
 }
 
-int getSizeX(int blockID)
+int getSizeX(uint16 blockID)
 {
-	blockID = (blockID << 2) >> 2;
-	if(blockID == 80)//80 is an empty workshop
+	const u16 id = AIBP_BlockId(blockID);
+	const u8 rotation = AIBP_BlockRotation(blockID);
+	if(AIBP_IsWorkshopBlock(blockID))
 	{
 		return 20;
 	}
-	if(blockID == 88)
+	if(id == AIBP_LADDER)
 	{
-		return 5;
+		return (rotation & 1) == 0 ? 5 : 12;
 	}
 	return x_size;
 }
-int getSizeY(int blockID)
+int getSizeY(uint16 blockID)
 {
-	blockID = (blockID << 2) >> 2;
-	if(blockID == 80 || blockID == 88)//80 is an empty workshop 88 is a ladder.
+	const u16 id = AIBP_BlockId(blockID);
+	const u8 rotation = AIBP_BlockRotation(blockID);
+	if(AIBP_IsWorkshopBlock(blockID))
 	{
 		return 12;
 	}
-	if(blockID == 44)//44 is a spiker
+	if(id == AIBP_LADDER)
+	{
+		return (rotation & 1) == 0 ? 12 : 5;
+	}
+	if(id == AIBP_SPIKES)
 	{
 		return 4;
 	}
@@ -1624,6 +2916,11 @@ void unsetVertexMatrix(uint16[][] &position, Vertex[] &v_raw, int x, int y)
 
 void RenderAdvancedGui(int id)
 {
+	RenderAIBuilderResourceCounters();
+	RenderAIBStrategyStatus();
+	RenderBlueprintToolbar();
+	RenderBlueprintCatalogPanel();
+
 	if(toggleBlueprint && displayPrefabSelectionMenu)
 	{
 		inv.Render();
@@ -1631,11 +2928,498 @@ void RenderAdvancedGui(int id)
 
 	RenderTreeSelectionButton();
 	RenderStoneSelectionButton();
+	RenderBlueprintAdvancedPanel();
+	RenderOverseerView();
+}
+
+void RenderAIBStrategyStatus()
+{
+	CPlayer@ player = getLocalPlayer();
+	CRules@ rules = getRules();
+	if (player is null || rules is null || player.getTeamNum() >= 100) return;
+	const u8 team = u8(player.getTeamNum());
+	const u8 mode = rules.get_u8(AIBP_ModeKey(team));
+	const bool directorEnabled = AIBP_IsDirectorEnabled(mode);
+	const u16 plan = rules.get_u16(AIBP_PlanKey(team, "id"));
+	const string templateName = rules.get_string(AIBP_PlanKey(team, "template"));
+	const f32 score = rules.get_f32(AIBP_PlanKey(team, "score"));
+	const string reasons = rules.get_string(AIBP_PlanKey(team, "reasons"));
+	const u16 pending = rules.get_u16(AIBP_PlanKey(team, "pending"));
+	const u16 completed = rules.get_u16(AIBP_PlanKey(team, "completed"));
+	const u16 damaged = rules.get_u16(AIBP_PlanKey(team, "damaged"));
+	Vec2f min = AIB_DirectorPanelMin();
+	Vec2f max = min + Vec2f(430, 66);
+	GUI::DrawRectangle(min, max, SColor(0xdd101820));
+	const SColor statusColor = directorEnabled ? SColor(0xff70e090) : SColor(0xffffa070);
+	GUI::DrawText("Director AI: " + (directorEnabled ? "ON" : "OFF"), min + Vec2f(8, 6), statusColor);
+
+	const bool canToggle = AIB_LocalCanToggleDirector();
+	CControls@ controls = getControls();
+	const bool hover = canToggle && controls !is null && AIB_MouseInDirectorToggle(controls.getMouseScreenPos());
+	Vec2f buttonMin = AIB_DirectorToggleMin();
+	Vec2f buttonMax = buttonMin + Vec2f(92, 22);
+	SColor buttonFill = canToggle ? SColor(0xff283844) : SColor(0xaa202830);
+	if(aibDirectorTogglePressed) buttonFill = SColor(0xff505050);
+	else if(hover) buttonFill = SColor(0xff3e5868);
+	GUI::DrawRectangle(buttonMin, buttonMax, SColor(0xff080808));
+	GUI::DrawRectangle(buttonMin + Vec2f(1, 1), buttonMax - Vec2f(1, 1), buttonFill);
+	GUI::DrawTextCentered(directorEnabled ? "Turn off" : "Turn on", (buttonMin + buttonMax) / 2.0f,
+		canToggle ? SColor(0xffffffff) : SColor(0xff888888));
+
+	if(directorEnabled)
+	{
+		if(plan == 0)
+		{
+			GUI::DrawText("Planning and assigning builders...", min + Vec2f(8, 27), SColor(0xffb8d8ee));
+		}
+		else
+		{
+			GUI::DrawText(templateName + "  score " + formatFloat(score, "", 0, 1) + "  tasks " + completed + "/" +
+				(completed + pending) + (damaged > 0 ? " damaged " + damaged : ""), min + Vec2f(8, 27), SColor(0xffffffff));
+			GUI::DrawText(reasons, min + Vec2f(8, 46), SColor(0xffb8d8ee));
+		}
+	}
+	else if(mode == AIBP_StrategyMode::suggest)
+	{
+		GUI::DrawText("Suggestion mode only; automatic builder orders are off.", min + Vec2f(8, 27), SColor(0xffe0c070));
+	}
+	else
+	{
+		GUI::DrawText("Automatic planning and builder assignment are disabled.", min + Vec2f(8, 27), SColor(0xffb8d8ee));
+	}
+}
+
+void RenderBlueprintToolbar()
+{
+	if(!AIB_LocalCanUseBlueprintControls())
+	{
+		return;
+	}
+
+	CControls@ controls = getControls();
+	Vec2f mouse = controls is null ? Vec2f_zero : controls.getMouseScreenPos();
+	for(u8 i = 0; i < BLUEPRINT_TOOL_COUNT; i++)
+	{
+		Vec2f min = AIB_ToolButtonMin(i);
+		Vec2f max = min + Vec2f(92, 24);
+		bool hover = controls !is null && AIB_MouseInToolButton(i, mouse);
+		bool selected = blueprintEditorActive && (i == blueprintEditorTool) &&
+			(i == BLUEPRINT_TOOL_PAINT || i == BLUEPRINT_TOOL_ERASE || i == BLUEPRINT_TOOL_SELECT);
+
+		SColor fill = SColor(0xdd202020);
+		if(blueprintToolbarButtonPressed && blueprintToolbarPressedTool == i)
+		{
+			fill = SColor(0xff505050);
+		}
+		else if(selected)
+		{
+			fill = SColor(0xff2f6f8f);
+		}
+		else if(hover)
+		{
+			fill = SColor(0xff3a3a3a);
+		}
+
+		GUI::DrawRectangle(min, max, SColor(0xff080808));
+		GUI::DrawRectangle(min + Vec2f(1, 1), max - Vec2f(1, 1), fill);
+		GUI::DrawTextCentered(AIB_ToolLabel(i), (min + max) / 2.0f, SColor(0xffffffff));
+	}
+
+	Vec2f statusMin = AIB_ToolButtonMin(BLUEPRINT_TOOL_COUNT) + Vec2f(0, 4);
+	Vec2f statusMax = statusMin + Vec2f(92, 24);
+	GUI::DrawRectangle(statusMin, statusMax, blueprintEditorActive ? SColor(0xdd14331d) : SColor(0xdd331414));
+	GUI::DrawTextCentered(blueprintEditorActive ? "Editor on" : "Editor off", (statusMin + statusMax) / 2.0f, SColor(0xffffffff));
+	Vec2f blockMin = statusMin + Vec2f(0, 28);
+	Vec2f blockMax = blockMin + Vec2f(160, 38);
+	GUI::DrawRectangle(blockMin, blockMax, SColor(0xdd202020));
+	GUI::DrawText(AIBP_BlockDisplayName(blockIndex), blockMin + Vec2f(5, 3), SColor(0xffffffff));
+	GUI::DrawText(AIBP_BlockCostSummary(blockIndex) + "  rot " + AIBP_BlockRotation(blockIndex), blockMin + Vec2f(5, 20), SColor(0xffb8d8ee));
+}
+
+void RenderBlueprintCatalogPanel()
+{
+	if(!AIB_BlueprintCatalogPanelVisible()) return;
+
+	CControls@ controls = getControls();
+	Vec2f mouse = controls is null ? Vec2f_zero : controls.getMouseScreenPos();
+	Vec2f min = AIB_BlueprintCatalogPanelMin();
+	Vec2f max = min + Vec2f(456, 198);
+	GUI::DrawRectangle(min, max, SColor(0x66121212));
+
+	for(u8 i = 0; i < AIB_CATALOG_TAB_COUNT; i++)
+	{
+		Vec2f tabMin = AIB_BlueprintCatalogTabMin(i);
+		Vec2f tabMax = tabMin + Vec2f(90, 24);
+		SColor fill = i == blueprintCatalogTab ? SColor(0xaa2f6f8f) : SColor(0x77202020);
+		if(blueprintCatalogTabButtonPressed && blueprintCatalogTabPressed == i) fill = SColor(0xbb505050);
+		else if(controls !is null && AIB_MouseInBlueprintCatalogTab(i, mouse) && i != blueprintCatalogTab) fill = SColor(0x88404040);
+		GUI::DrawRectangle(tabMin, tabMax, fill);
+		GUI::DrawTextCentered(AIB_BlueprintCatalogTabLabel(i), (tabMin + tabMax) / 2.0f, SColor(0xffffffff));
+	}
+
+	const u16 count = AIB_BlueprintCatalogCount(blueprintCatalogTab);
+	for(u16 i = 0; i < count; i++)
+	{
+		const u16 catalogBlock = AIB_BlueprintCatalogBlockAt(blueprintCatalogTab, i);
+		Vec2f cellMin = AIB_BlueprintCatalogCellMin(i);
+		Vec2f cellMax = cellMin + Vec2f(104, 44);
+		const bool selected = AIBP_BlockId(blockIndex) == AIBP_BlockId(catalogBlock);
+		const bool hover = controls !is null && AIB_MouseInBlueprintCatalogCell(i, mouse);
+		SColor fill = selected ? SColor(0xaa2f6f8f) : SColor(0x77202020);
+		if(blueprintCatalogPanelButtonPressed && blueprintCatalogPanelPressedBlock == catalogBlock) fill = SColor(0xbb505050);
+		else if(hover && !selected) fill = SColor(0x88404040);
+		GUI::DrawRectangle(cellMin, cellMax, fill);
+		if(AIB_BlueprintCatalogUsesAtlasPreview(catalogBlock))
+		{
+			GUI::DrawRectangle(cellMin + Vec2f(4, 5), cellMin + Vec2f(22, 23), SColor(0x88202020));
+			GUI::DrawIcon("REEE.png", AIB_BlueprintCatalogAtlasFrame(catalogBlock), Vec2f(8, 8), cellMin + Vec2f(5, 6), 2.0f);
+		}
+		else
+		{
+			GUI::DrawRectangle(cellMin + Vec2f(4, 5), cellMin + Vec2f(22, 23), AIB_BlueprintCatalogSwatch(catalogBlock));
+		}
+		GUI::DrawText(AIB_BlueprintCatalogShortName(catalogBlock), cellMin + Vec2f(28, 4), SColor(0xffffffff));
+		GUI::DrawText(AIBP_BlockCostSummary(catalogBlock),
+			cellMin + Vec2f(6, 25), SColor(0xffb8d8ee));
+	}
+}
+
+Vec2f AIB_BlueprintAdvancedPanelMin()
+{
+	Vec2f screen = getDriver().getScreenDimensions();
+	return Vec2f(screen.x - 372, 66);
+}
+
+Vec2f AIB_BlueprintAdvancedTabMin(const u8 tab)
+{
+	return AIB_BlueprintAdvancedPanelMin() + Vec2f(6, 6 + tab * 28);
+}
+
+bool AIB_MouseInBlueprintAdvancedTab(const u8 tab, Vec2f mouse)
+{
+	Vec2f min = AIB_BlueprintAdvancedTabMin(tab);
+	Vec2f max = min + Vec2f(116, 24);
+	return mouse.x >= min.x && mouse.x <= max.x && mouse.y >= min.y && mouse.y <= max.y;
+}
+
+bool UpdateBlueprintAdvancedPanel()
+{
+	if(!AIB_LocalCanUseBlueprintControls() || !displayPrefabSelectionMenu)
+	{
+		blueprintAdvancedButtonPressed = false;
+		blueprintAdvancedPressedTab = 255;
+		return false;
+	}
+
+	CControls@ controls = getControls();
+	if(controls is null) return false;
+	Vec2f mouse = controls.getMouseScreenPos();
+	u8 hovered = 255;
+	for(u8 i = 0; i < 5; i++)
+	{
+		if(AIB_MouseInBlueprintAdvancedTab(i, mouse))
+		{
+			hovered = i;
+			break;
+		}
+	}
+
+	if(hovered != 255 && controls.isKeyJustPressed(KEY_LBUTTON))
+	{
+		blueprintAdvancedButtonPressed = true;
+		blueprintAdvancedPressedTab = hovered;
+		return true;
+	}
+	if(blueprintAdvancedButtonPressed && !controls.isKeyPressed(KEY_LBUTTON))
+	{
+		if(hovered == blueprintAdvancedPressedTab) blueprintAdvancedTab = hovered;
+		blueprintAdvancedButtonPressed = false;
+		blueprintAdvancedPressedTab = 255;
+		return true;
+	}
+
+	Vec2f panelMin = AIB_BlueprintAdvancedPanelMin();
+	Vec2f panelMax = panelMin + Vec2f(360, 158);
+	const bool inPanel = mouse.x >= panelMin.x && mouse.x <= panelMax.x && mouse.y >= panelMin.y && mouse.y <= panelMax.y;
+	return inPanel && controls.isKeyPressed(KEY_LBUTTON);
+}
+
+string AIB_BlueprintAdvancedTabLabel(const u8 tab)
+{
+	if(tab == 0) return "Blueprint";
+	if(tab == 1) return "Team plan";
+	if(tab == 2) return "Preview checks";
+	if(tab == 3) return "Material summary";
+	return "AI build queue";
+}
+
+u16 AIB_CountDisplayedBlueprintTiles()
+{
+	u16 count = 0;
+	for(uint x = 0; x < dynamicMapTileData.length; x++)
+	{
+		for(uint y = 0; y < dynamicMapTileData[x].length; y++)
+		{
+			if(dynamicMapTileData[x][y] != 0 && count < 65535) count++;
+		}
+	}
+	return count;
+}
+
+u16 AIB_CountTeamStoredMaterial(const u8 team, const string &in material)
+{
+	CRules@ rules = getRules();
+	if(rules is null) return 0;
+	const string kind = material == "mat_stone" ? "stone" : (material == "mat_gold" ? "gold" : "wood");
+	return rules.get_u16("aib strategy accessible " + kind + " team " + int(team));
+}
+
+void AIB_BlueprintMaterialCosts(u32 &out wood, u32 &out stone, u32 &out gold)
+{
+	wood = 0;
+	stone = 0;
+	gold = 0;
+	for(uint x = 0; x < dynamicMapTileData.length; x++)
+	{
+		for(uint y = 0; y < dynamicMapTileData[x].length; y++)
+		{
+			const u16 block = dynamicMapTileData[x][y];
+			wood += AIBP_BlockMaterialCost(block, "mat_wood");
+			stone += AIBP_BlockMaterialCost(block, "mat_stone");
+			gold += AIBP_BlockMaterialCost(block, "mat_gold");
+		}
+	}
+}
+
+string AIB_PlanStatusLabel(const u8 status)
+{
+	if(status == 1) return "active";
+	if(status == 2) return "completed";
+	if(status == 3) return "replaced";
+	return "none";
+}
+
+void AIB_DrawAdvancedLine(Vec2f contentMin, const u8 line, const string &in text, const SColor color = SColor(0xffd8d8d8))
+{
+	GUI::DrawText(text, contentMin + Vec2f(0, line * 20), color);
+}
+
+void RenderBlueprintAdvancedPanel()
+{
+	if(!AIB_LocalCanUseBlueprintControls() || !displayPrefabSelectionMenu)
+	{
+		return;
+	}
+
+	Vec2f min = AIB_BlueprintAdvancedPanelMin();
+	Vec2f max = min + Vec2f(360, 158);
+	GUI::DrawRectangle(min, max, SColor(0xdd151515));
+	CControls@ controls = getControls();
+	Vec2f mouse = controls is null ? Vec2f_zero : controls.getMouseScreenPos();
+	for(u8 i = 0; i < 5; i++)
+	{
+		Vec2f tabMin = AIB_BlueprintAdvancedTabMin(i);
+		Vec2f tabMax = tabMin + Vec2f(116, 24);
+		SColor fill = i == blueprintAdvancedTab ? SColor(0xff2f6f8f) : SColor(0xdd252525);
+		if(blueprintAdvancedButtonPressed && blueprintAdvancedPressedTab == i) fill = SColor(0xff505050);
+		else if(AIB_MouseInBlueprintAdvancedTab(i, mouse) && i != blueprintAdvancedTab) fill = SColor(0xff3a3a3a);
+		GUI::DrawRectangle(tabMin, tabMax, fill);
+		GUI::DrawTextCentered(AIB_BlueprintAdvancedTabLabel(i), (tabMin + tabMax) / 2.0f, SColor(0xffffffff));
+	}
+
+	CPlayer@ player = getLocalPlayer();
+	CRules@ rules = getRules();
+	if(player is null || rules is null) return;
+	const u8 team = u8(player.getTeamNum());
+	Vec2f content = min + Vec2f(132, 10);
+	if(blueprintAdvancedTab == 0)
+	{
+		AIB_DrawAdvancedLine(content, 0, AIBP_BlockDisplayName(blockIndex), SColor(0xffffffff));
+		AIB_DrawAdvancedLine(content, 1, "Tool: " + (blueprintEditorActive ? AIB_ToolLabel(blueprintEditorTool) : "off"));
+		AIB_DrawAdvancedLine(content, 2, "Visible tiles: " + AIB_CountDisplayedBlueprintTiles());
+		AIB_DrawAdvancedLine(content, 3, "Team version: " + rules.get_u16(AIBP_PlanKey(team, "human version")));
+		AIB_DrawAdvancedLine(content, 4, displayLoadedBlueprint ? "Prefab: " + currentBlueprintWidth + " x " + currentBlueprintHeight : "Prefab: none loaded");
+		AIB_DrawAdvancedLine(content, 5, toggleBlueprint ? "Layer: visible" : "Layer: hidden");
+	}
+	else if(blueprintAdvancedTab == 1)
+	{
+		const u16 plan = rules.get_u16(AIBP_PlanKey(team, "id"));
+		const u8 mode = rules.get_u8(AIBP_ModeKey(team));
+		AIB_DrawAdvancedLine(content, 0, "Plan #" + plan + "  v" + rules.get_u16(AIBP_PlanKey(team, "version")), SColor(0xffffffff));
+		AIB_DrawAdvancedLine(content, 1, "Mode: " + (mode == AIBP_StrategyMode::off ? "off" : (mode == AIBP_StrategyMode::suggest ? "suggest" : "auto")));
+		AIB_DrawAdvancedLine(content, 2, "Status: " + AIB_PlanStatusLabel(rules.get_u8(AIBP_PlanKey(team, "status"))));
+		AIB_DrawAdvancedLine(content, 3, "Template: " + (plan == 0 ? "none" : rules.get_string(AIBP_PlanKey(team, "template"))));
+		AIB_DrawAdvancedLine(content, 4, "Done " + rules.get_u16(AIBP_PlanKey(team, "completed")) + "  pending " + rules.get_u16(AIBP_PlanKey(team, "pending")));
+		AIB_DrawAdvancedLine(content, 5, "Damaged: " + rules.get_u16(AIBP_PlanKey(team, "damaged")));
+	}
+	else if(blueprintAdvancedTab == 2)
+	{
+		CMap@ map = getMap();
+		Vec2f world = controls is null ? Vec2f_zero : controls.getMouseWorldPos();
+		const int x = Maths::Floor(world.x / 8.0f);
+		const int y = Maths::Floor(world.y / 8.0f);
+		const bool inBounds = map !is null && x >= 0 && y >= 0 && x < map.tilemapwidth && y < map.tilemapheight;
+		AIB_DrawAdvancedLine(content, 0, "Cursor tile: " + x + ", " + y, SColor(0xffffffff));
+		AIB_DrawAdvancedLine(content, 1, inBounds ? "Map bounds: pass" : "Map bounds: blocked", inBounds ? SColor(0xff8fe68f) : SColor(0xffff8888));
+		const bool noBuild = inBounds && map.getSectorAtPosition(Vec2f(x * 8 + 4, y * 8 + 4), "no build") !is null;
+		AIB_DrawAdvancedLine(content, 2, noBuild ? "No-build sector: blocked" : "No-build sector: pass", noBuild ? SColor(0xffff8888) : SColor(0xff8fe68f));
+		const bool occupied = inBounds && map.isTileSolid(map.getTile(Vec2f(x * 8 + 4, y * 8 + 4)).type);
+		AIB_DrawAdvancedLine(content, 3, occupied ? "Terrain: occupied" : "Terrain: clear", occupied ? SColor(0xffffcc77) : SColor(0xff8fe68f));
+		const bool hasBlueprint = inBounds && x < int(dynamicMapTileData.length) && y < int(dynamicMapTileData[x].length) && dynamicMapTileData[x][y] != 0;
+		AIB_DrawAdvancedLine(content, 4, hasBlueprint ? "Blueprint tile: occupied" : "Blueprint tile: clear");
+		AIB_DrawAdvancedLine(content, 5, displayLoadedBlueprint ? "Prefab footprint: previewing" : "Prefab footprint: none");
+	}
+	else if(blueprintAdvancedTab == 3)
+	{
+		u32 wood = 0; u32 stone = 0; u32 gold = 0;
+		AIB_BlueprintMaterialCosts(wood, stone, gold);
+		const u16 storedWood = AIB_CountTeamStoredMaterial(team, "mat_wood");
+		const u16 storedStone = AIB_CountTeamStoredMaterial(team, "mat_stone");
+		const u16 storedGold = AIB_CountTeamStoredMaterial(team, "mat_gold");
+		const bool infiniteBuilder = AIB_TeamHasAutoBuilder(team);
+		AIB_DrawAdvancedLine(content, 0, "Blueprint cost", SColor(0xffffffff));
+		AIB_DrawAdvancedLine(content, 1, "Wood: " + wood + "  accessible " + storedWood);
+		AIB_DrawAdvancedLine(content, 2, "Stone: " + stone + "  accessible " + storedStone);
+		AIB_DrawAdvancedLine(content, 3, "Gold: " + gold + "  accessible " + storedGold);
+		AIB_DrawAdvancedLine(content, 4, infiniteBuilder ? "Shortages: ignored by Autobuilder" :
+			"Short W/S/G: " + (wood > storedWood ? wood - storedWood : 0) + "/" +
+			(stone > storedStone ? stone - storedStone : 0) + "/" + (gold > storedGold ? gold - storedGold : 0));
+	}
+	else
+	{
+		u16 builders = 0; u16 building = 0; u16 reserved = 0;
+		CBlob@[] aiBuilders;
+		AIB_GetConstructionWorkers(aiBuilders);
+		for(uint i = 0; i < aiBuilders.length; i++)
+		{
+			CBlob@ builder = aiBuilders[i];
+			if(builder is null || builder.hasTag("dead") || builder.getTeamNum() != team) continue;
+			builders++;
+			const u8 state = builder.get_u8("ai builder state");
+			if(state == 12 || state == 13 || state == 14) building++;
+			if(builder.get_netid("ai builder target") != 0) reserved++;
+		}
+		AIB_DrawAdvancedLine(content, 0, "Team builders: " + builders, SColor(0xffffffff));
+		AIB_DrawAdvancedLine(content, 1, "Building: " + building);
+		AIB_DrawAdvancedLine(content, 2, "With target: " + reserved);
+		AIB_DrawAdvancedLine(content, 3, "Queued tasks: " + rules.get_u16(AIBP_PlanKey(team, "pending")));
+		AIB_DrawAdvancedLine(content, 4, "Completed: " + rules.get_u16(AIBP_PlanKey(team, "completed")));
+		AIB_DrawAdvancedLine(content, 5, "Damaged: " + rules.get_u16(AIBP_PlanKey(team, "damaged")));
+	}
+}
+
+bool AIB_TeamHasAutoBuilder(const u8 team)
+{
+	CBlob@[] builders;
+	getBlobsByName("autobuilder", @builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder !is null && !builder.hasTag("dead") && builder.getTeamNum() == team) return true;
+	}
+	return false;
+}
+
+string AIB_OverseerOrderLabel(const u8 order)
+{
+	if(order == AIB_OVERSEER_ORDER_WOOD) return "Harvest wood";
+	if(order == AIB_OVERSEER_ORDER_STONE) return "Mine stone";
+	if(order == AIB_OVERSEER_ORDER_BLUEPRINT) return "Build blueprint";
+	return "";
+}
+
+void RenderOverseerView()
+{
+	if(!overseerViewActive)
+	{
+		return;
+	}
+
+	Vec2f panelMin = AIB_OverseerPanelHeaderMin();
+	Vec2f panelMax = panelMin + Vec2f(154, 28);
+	GUI::DrawRectangle(panelMin, panelMax, SColor(0xdd151515));
+	GUI::DrawTextCentered("AI selected: " + overseerSelectedBuilders.length, (panelMin + panelMax) / 2.0f, SColor(0xffffffff));
+
+	CControls@ controls = getControls();
+	Vec2f mouse = controls is null ? Vec2f_zero : controls.getMouseScreenPos();
+	for(u8 i = 0; i < 3; i++)
+	{
+		Vec2f min = AIB_OverseerOrderButtonMin(i);
+		Vec2f max = min + Vec2f(154, 28);
+		bool hover = controls !is null && AIB_MouseInOverseerOrderButton(i, mouse);
+		SColor fill = SColor(0xdd202020);
+		if(overseerOrderButtonPressed && overseerPressedOrder == i)
+		{
+			fill = SColor(0xff505050);
+		}
+		else if(hover)
+		{
+			fill = SColor(0xff3a3a3a);
+		}
+		if(overseerSelectedBuilders.length == 0)
+		{
+			fill = SColor(0xaa202020);
+		}
+
+		GUI::DrawRectangle(min, max, SColor(0xff080808));
+		GUI::DrawRectangle(min + Vec2f(1, 1), max - Vec2f(1, 1), fill);
+		GUI::DrawTextCentered(AIB_OverseerOrderLabel(i), (min + max) / 2.0f, SColor(0xffffffff));
+	}
+}
+
+void RenderAIBuilderResourceCounters()
+{
+	u16 woodBuilders = 0;
+	u16 stoneBuilders = 0;
+	u16 blueprintBuilders = 0;
+
+	CBlob@[] builders;
+	AIB_GetConstructionWorkers(builders);
+	for(uint i = 0; i < builders.length; i++)
+	{
+		CBlob@ builder = builders[i];
+		if(builder is null || builder.hasTag("dead")) continue;
+		if(builder.get_u8("ai builder state") == AIB_RENDERER_STATE_IDLE) continue;
+
+		const u8 job = builder.get_u8("ai builder job");
+		if(job == AIB_RENDERER_JOB_WOOD)
+		{
+			woodBuilders++;
+		}
+		else if(job == AIB_RENDERER_JOB_STONE)
+		{
+			stoneBuilders++;
+		}
+		else if(job == AIB_RENDERER_JOB_BLUEPRINT)
+		{
+			blueprintBuilders++;
+		}
+	}
+
+	Vec2f screen = getDriver().getScreenDimensions();
+	const f32 counterWidth = 58.0f;
+	const f32 counterGap = 10.0f;
+	const f32 totalWidth = counterWidth * 3.0f + counterGap * 2.0f;
+	const f32 mapUiReserve = 174.0f;
+	Vec2f pos = Vec2f(Maths::Max(4.0f, screen.x - mapUiReserve - totalWidth - 12.0f), 8);
+	pos = RenderAIBuilderResourceCounter(pos, "$mat_wood$", woodBuilders);
+	pos = RenderAIBuilderResourceCounter(pos + Vec2f(counterGap, 0), "$mat_stone$", stoneBuilders);
+	RenderAIBuilderResourceCounter(pos + Vec2f(counterGap, 0), "$BUILDER$", blueprintBuilders);
+}
+
+Vec2f RenderAIBuilderResourceCounter(Vec2f pos, const string &in iconToken, const u16 count)
+{
+	Vec2f min = pos;
+	Vec2f max = pos + Vec2f(58, 24);
+	GUI::DrawRectangle(min, max, SColor(0xaa101010));
+	GUI::DrawIconByName(iconToken, pos + Vec2f(4, 4));
+	GUI::DrawText("" + count, pos + Vec2f(26, 5), SColor(0xffffffff));
+	return Vec2f(max.x, pos.y);
 }
 
 void RenderTreeSelectionButton()
 {
-	if(!(enableOverseer == 0 || isOverseer))
+	if(!AIB_LocalCanUseBlueprintControls())
 	{
 		return;
 	}
@@ -1673,7 +3457,7 @@ void RenderTreeSelectionButton()
 
 void RenderStoneSelectionButton()
 {
-	if(!(enableOverseer == 0 || isOverseer))
+	if(!AIB_LocalCanUseBlueprintControls())
 	{
 		return;
 	}
@@ -1714,38 +3498,23 @@ void RenderStoneSelectionButton()
 CFileImage@ save_image;
 void SaveBlueprintToPng(CRules@ this)
 {
-	int startingXPosition = 0;
-	int endingXPosition = 10;
-	int startingYPosition = 0;
-	int endingYPosition = 10;
-	if(mouseSelect[0].x == mouseSelect[1].x || mouseSelect[0].y == mouseSelect[1].y)
+	u16 x1;
+	u16 y1;
+	u16 x2;
+	u16 y2;
+	if(!AIB_GetBlueprintSaveRect(x1, y1, x2, y2))
 	{
-		mouseSelect[0] = Vec2f(1,1);
-		mouseSelect[1] = Vec2f(5,5);
-	}
-	if(mouseSelect[0].x > mouseSelect[1].x)
-	{
-		startingXPosition = mouseSelect[1].x;
-		endingXPosition = mouseSelect[0].x;
-	}
-	else
-	{
-		startingXPosition = mouseSelect[0].x;
-		endingXPosition = mouseSelect[1].x;
+		print("couldn't save blueprint : no valid blueprint selection");
+		keyOJustPressed = false;
+		return;
 	}
 
-	if(mouseSelect[0].y > mouseSelect[1].y)
-	{
-		startingYPosition = mouseSelect[1].y;
-		endingYPosition = mouseSelect[0].y;
-	}
-	else
-	{
-		startingYPosition = mouseSelect[0].y;
-		endingYPosition = mouseSelect[1].y;
-	}
-	int width = Maths::Abs(mouseSelect[0].x-mouseSelect[1].x);
-	int height =  Maths::Abs(mouseSelect[0].y-mouseSelect[1].y);
+	int startingXPosition = x1;
+	int endingXPosition = x2;
+	int startingYPosition = y1;
+	int endingYPosition = y2;
+	int width = endingXPosition - startingXPosition + 1;
+	int height = endingYPosition - startingYPosition + 1;
 	@save_image = CFileImage(width, height, true);
 	int currentTime = Time();
 	string blueprintPath = "Maps/DynamicBlueprints/blueprint_" + currentTime + ".png";
@@ -1754,7 +3523,7 @@ void SaveBlueprintToPng(CRules@ this)
 
 	if(startingXPosition >= 0 && startingYPosition >= 0 && endingXPosition >= 0 && endingYPosition >= 0)
 	{
-		RuntimeBlueprint@ runtimeBlueprint = RuntimeBlueprint(blueprintPath, width + 1, height + 1);
+		RuntimeBlueprint@ runtimeBlueprint = RuntimeBlueprint(blueprintPath, width, height);
 		for (int yp = startingYPosition; yp < endingYPosition+1; yp++)
 		{
 			for(int xp = startingXPosition; xp < endingXPosition+1; xp++)
@@ -1762,9 +3531,9 @@ void SaveBlueprintToPng(CRules@ this)
 				Vec2f pixelpos = save_image.getPixelPosition();
 				uint16 blockData = dynamicMapTileData[xp][yp];
 				SColor pixelColor = getColorFromBlockID(blockData);
-				int imageX = width - (endingXPosition - xp);
-				int imageY = height - (endingYPosition - yp);
-				save_image.setPixelAtPosition(width - (endingXPosition - xp), height - (endingYPosition - yp), pixelColor, false);
+				int imageX = xp - startingXPosition;
+				int imageY = yp - startingYPosition;
+				save_image.setPixelAtPosition(imageX, imageY, pixelColor, false);
 				if(runtimeBlueprint !is null &&
 					imageX >= 0 && imageX < runtimeBlueprint.width &&
 					imageY >= 0 && imageY < runtimeBlueprint.height)
@@ -1891,7 +3660,7 @@ void LoadBlueprintFromPng(CRules@ this, string imagePath)
 			if(save_image.readPixel(a, r, g, b)) ///the argument given are the output of the function
 			{
 				//r contain the block id and b contain the rotation data
-				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = uint16(r) | uint16(b)<<14;
+				currentBlueprintData[save_image.getPixelPosition().x][save_image.getPixelPosition().y] = AIBP_EncodeBlock(uint16(r), b);
 				//only the red part of the image is used to store something.
                 //Therefore only retrieve the red value is retrieved.
 			}
@@ -1912,43 +3681,34 @@ void LoadBlueprintFromPng(CRules@ this, string imagePath)
 
 bool displayLoadedBlueprint = false;
 uint16[][] networkBlueprintData;
+
+u16 AIB_FlipBlueprintBlockHorizontal(const u16 block)
+{
+	const u16 id = AIBP_BlockId(block);
+	u8 rotation = AIBP_BlockRotation(block);
+	if(rotation == 1) rotation = 3;
+	else if(rotation == 3) rotation = 1;
+	return AIBP_EncodeBlock(id, rotation);
+}
+
 void LoadBlueprintDataToMapTileDataFromNetwork(int16 indexX, int16 indexY, int16 bpWidth, int16 bpHeight)
 {
-	uint16 startingx = indexX - Maths::Ceil(float(bpWidth)/2.0f);
-	uint16 startingy = indexY - Maths::Ceil(float(bpHeight)/2.0f);
-	uint16 endingx = indexX + int(bpWidth/2);
-	uint16 endingy = indexY + int(bpHeight/2);
-	if(startingx < 0)
-	{
-		startingx = 0;
-	}
-	if(startingy < 0)
-	{
-		startingy = 0;
-	}
 	CMap@ map = getMap();
-	if(endingx >= map.tilemapwidth)
+	if(map is null) return;
+
+	const int startingx = indexX - Maths::Ceil(float(bpWidth) / 2.0f);
+	const int startingy = indexY - Maths::Ceil(float(bpHeight) / 2.0f);
+	for(int ybp = 0; ybp < bpHeight; ybp++)
 	{
-		endingx = map.tilemapwidth-1;
-	}
-	if(endingy >= map.tilemapheight)
-	{
-		endingy = map.tilemapheight;
-	}
-	int xbp = 0;
-	int ybp = 0;
-	for(int yp = startingy; yp < endingy; yp++)
-	{
-		for(int xp = startingx; xp < endingx; xp++)
+		for(int xbp = 0; xbp < bpWidth; xbp++)
 		{
+			const int xp = startingx + xbp;
+			const int yp = startingy + ybp;
+			if(xp < 0 || yp < 0 || xp >= map.tilemapwidth || yp >= map.tilemapheight) continue;
 			dynamicMapTileData[xp][yp] = networkBlueprintData[xbp][ybp];
-			xbp += 1;
 		}
-		xbp = 0;
-		ybp += 1;
 	}
 	blueprintMeshDirty = true;
-	AIB_PublishBlueprintForBuilders();
 }
 
 bool flipBlueprint = false;
@@ -1965,103 +3725,43 @@ void LoadBlueprintDataToMapTileData(int16 indexX = -1, int16 indexY = -1)
 			indexY = (currentPlacementPosition.y-4)/8;
 			dynamicMapTileData = tileMapDataCopy;
 		}
-		uint16 startingx = indexX - Maths::Ceil(float(currentBlueprintWidth)/2.0f);
-		uint16 startingy = indexY - Maths::Ceil(float(currentBlueprintHeight)/2.0f);
-		uint16 endingx = indexX + int(currentBlueprintWidth/2);
-		uint16 endingy = indexY + int(currentBlueprintHeight/2);
-		if(startingx < 1)
-		{
-			startingx = 1;
-		}
-		if(startingy < 0)
-		{
-			startingy = 0;
-		}
 		CMap@ map = getMap();
-		if(endingx >= map.tilemapwidth)
-		{
-			endingx = map.tilemapwidth-1;
-		}
-		if(endingy >= map.tilemapheight)
-		{
-			endingy = map.tilemapheight;
-		}
-		int xbp = 0;
-		int ybp = 0;
+		if(map is null) return;
+		const int startingx = indexX - Maths::Ceil(float(currentBlueprintWidth) / 2.0f);
+		const int startingy = indexY - Maths::Ceil(float(currentBlueprintHeight) / 2.0f);
 		if(flipBlueprint) // if it's true, we flip the blueprint on the y axis
 		{
-			for(int yp = startingy; yp < endingy; yp++)
+			for(int ybp = 0; ybp < currentBlueprintHeight; ybp++)
 			{
-				for(int xp = startingx; xp < endingx; xp++)
+				for(int xbp = 0; xbp < currentBlueprintWidth; xbp++)
 				{
-					uint16 currentRotation = currentBlueprintData[xbp][ybp] >> 14;
-					if(currentRotation == 3)
-					{
-						dynamicMapTileData[endingx - xp + startingx-1][yp] = currentBlueprintData[xbp][ybp] & 0b0111111111111111; // set the rotation to 1
-					}
-					else if(currentRotation == 1)
-					{
-						dynamicMapTileData[endingx - xp + startingx-1][yp] = currentBlueprintData[xbp][ybp] | 0b1000000000000000; // set the rotation to 3
-					}
-					else
-					{
-						dynamicMapTileData[endingx - xp + startingx-1][yp] = currentBlueprintData[xbp][ybp];
-					}
-					xbp += 1;
+					const int xp = startingx + xbp;
+					const int yp = startingy + ybp;
+					const int flippedX = startingx + (currentBlueprintWidth - 1 - xbp);
+					if(flippedX < 0 || yp < 0 || flippedX >= map.tilemapwidth || yp >= map.tilemapheight) continue;
+
+					dynamicMapTileData[flippedX][yp] = AIB_FlipBlueprintBlockHorizontal(currentBlueprintData[xbp][ybp]);
 				}
-				xbp = 0;
-				ybp += 1;
 			}
 		}
 		else
 		{
-			for(int yp = startingy; yp < endingy; yp++)
+			for(int ybp = 0; ybp < currentBlueprintHeight; ybp++)
 			{
-				for(int xp = startingx; xp < endingx; xp++)
+				for(int xbp = 0; xbp < currentBlueprintWidth; xbp++)
 				{
-						
+					const int xp = startingx + xbp;
+					const int yp = startingy + ybp;
+					if(xp < 0 || yp < 0 || xp >= map.tilemapwidth || yp >= map.tilemapheight) continue;
 					dynamicMapTileData[xp][yp] = currentBlueprintData[xbp][ybp];
-					xbp += 1;
 				}
-				xbp = 0;
-				ybp += 1;
 			}
 		}
 		blueprintMeshDirty = true;
-		AIB_PublishBlueprintForBuilders();
 	}
 }
 
 uint16[][] tileMapDataCopy;
-void AIB_PublishBlueprintForBuilders()
-{
-	CRules@ rules = getRules();
-	CMap@ map = getMap();
-	if(rules is null || map is null || dynamicMapTileData.size() == 0)
-	{
-		return;
-	}
-
-	array<u16> blueprint;
-	blueprint.set_length(map.tilemapwidth * map.tilemapheight);
-	for(int y = 0; y < map.tilemapheight; y++)
-	{
-		for(int x = 0; x < map.tilemapwidth; x++)
-		{
-			u16 value = 0;
-			if(x < dynamicMapTileData.size() && y < dynamicMapTileData[x].size())
-			{
-				value = dynamicMapTileData[x][y];
-			}
-			blueprint[y * map.tilemapwidth + x] = value;
-		}
-	}
-
-	rules.set(AIB_BLUEPRINT_DATA_KEY, blueprint);
-	rules.set_u16(AIB_BLUEPRINT_WIDTH_KEY, map.tilemapwidth);
-	rules.set_u16(AIB_BLUEPRINT_HEIGHT_KEY, map.tilemapheight);
-}
-
 void deepCopyArray()
 {
 	CMap@ map = getMap();
@@ -2070,27 +3770,27 @@ void deepCopyArray()
 
 SColor getColorFromBlockID(u16 blockID) 
 {
-	uint16 currentRotation = blockID >> 14;//retrieve the last 2 bits that contain the rotation data
-	blockID = blockID << 2 >> 2;//remove the rotation bits from the blockID so that the ID fit within 8 bits
+	uint16 currentRotation = AIBP_BlockRotation(blockID);
+	blockID = AIBP_CanonicalId(blockID);
 	// 48 = stone, 64 = stone backwall, 196 = wood, 205 = wood backwall
 	// 3 = stone door, 6 = wooden doors, 7 = trap, 8 = ladder, 9 = platform, 10 = workshop, 11 = spike
 	if(blockID == 0)
 	{
 		return SColor(0,0,0,0);
 	}
-	if(blockID == 48 || blockID == 1)
+	if(blockID == AIBP_STONE_BLOCK)
 	{
 		return SColor(255,1,0,currentRotation);
 	}
-	if(blockID == 64 || blockID == 2)
+	if(blockID == AIBP_STONE_BACKWALL)
 	{
 		return SColor(255,2,0,currentRotation);
 	}
-	if(blockID == 196 || blockID == 4)
+	if(blockID == AIBP_WOOD_BLOCK)
 	{
 		return SColor(255,4,0,currentRotation);
 	}
-	if(blockID == 205 || blockID == 5)
+	if(blockID == AIBP_WOOD_BACKWALL)
 	{
 		return SColor(255,5,0,currentRotation);
 	}
@@ -2098,7 +3798,7 @@ SColor getColorFromBlockID(u16 blockID)
 }
 
 //Overseer GAMEMODE RELATED FUNCTIONS
-bool isOverseer = true;
+bool isOverseer = false;
 
 bool mapFitBlueprint()
 {	

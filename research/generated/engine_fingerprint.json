@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "interface_build": 4762,
+  "app_manifest_id": "version_file 1779655693-2915-0a16b73ee90e",
+  "executable": {
+    "name": "KAG.exe",
+    "size": 11316755,
+    "sha256": "59956793616fb1722713cbfa864e15e92fb82453dbb508ab4e0331f3ee54efcf",
+    "format": "COFF-x86-64",
+    "architecture": "x86_64",
+    "pe_timestamp": "2026-05-24 20:48:11 (0x6A13640B)",
+    "debuglink": "KAG.exe.debug",
+    "debug_companion_installed": false
+  },
+  "linked_engine_evidence": {
+    "irrlicht": "present; precise upstream version unresolved",
+    "box2d": "present; precise upstream version unresolved"
+  },
+  "available_static_tools": [
+    {
+      "name": "llvm-readobj",
+      "path": "C:\\Program Files\\LLVM\\bin\\llvm-readobj.exe"
+    },
+    {
+      "name": "llvm-objdump",
+      "path": "C:\\Program Files\\LLVM\\bin\\llvm-objdump.exe"
+    },
+    {
+      "name": "objdump",
+      "path": "C:\\msys64\\mingw64\\bin\\objdump.exe"
+    },
+    {
+      "name": "strings",
+      "path": "C:\\msys64\\mingw64\\bin\\strings.exe"
+    },
+    {
+      "name": "ghidra",
+      "path": "E:\\Tools\\KAGResearch\\apps\\ghidra_12.1.2_PUBLIC\\ghidraRun.bat"
+    },
+    {
+      "name": "analyzeHeadless",
+      "path": "E:\\Tools\\KAGResearch\\apps\\ghidra_12.1.2_PUBLIC\\support\\analyzeHeadless.bat"
+    },
+    {
+      "name": "java",
+      "path": "E:\\Tools\\KAGResearch\\apps\\jdk-21.0.11+10\\bin\\java.exe"
+    }
+  ]
+}

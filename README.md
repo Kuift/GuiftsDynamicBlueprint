@@ -1,25 +1,126 @@
-# CONTROLS :
-- To enter blueprint editing mode, press Left control or Right control
-- To hide blueprints, simply press 'H'
-- When in editing mode, you can left click to add a block, or right click to remove a block
-- When playing as a builder, use the usual menu to choose which block to place
-- When playing as archer or knight, use the key 'R' and 'U' to naviguate between the different blocks
-- You can select a zone by settings selection points using the 'I' and 'P' key. Use 'I' to set the first point and 'P' to set the second point. Then press 'O' to save your selection. You can also use the mouse-wheel click button.
-- You can save a blueprint that is inside the two selection points using the 'O' key
-- You can load your saved blueprints by using the 'L' key or using the 'X' key
-- You can cycle through rendering window size by pressing 'J', try it if your performance aren't great
-- You can cycle through rendering relative to your camera or your cursor by pressing 'K'
-- As a moderator, you can enable or disable live blueprint editing using the "!bp_edit_toggle" command
-- As a moderator, you can enable or disable the overseer mode using the "!bp_overseer_toggle" command.
-    - When the overseer mode is enabled, only the selected overseers with the command "!bp_overseer_set Username" can place and edit blueprints
-    - The moderator can use the command "!bp_overseer_none" to remove the overseer role from each player
+# GuiftsDynamicBlueprint
+
+**Taking over development? Read [START_HERE.md](START_HERE.md).** It contains the
+checkout/setup instructions, code map, current blockers, reading order, and a
+copy-paste agent prompt. The handoff branch is `handoff/astra-2026-09-13`.
+This is an unfinished development checkpoint; the current 78-scenario source
+has no complete passing runtime run. See [GOAL_HANDOFF.md](GOAL_HANDOFF.md).
+
+## Controls
+
+Project direction: `ai_blueprint_direction.md`. Detailed deterministic gym architecture and current execution queue: `kag_gym.md`. Runtime map-scoped score semantics: `AIB_GYM_METRICS.md`. The current resumable optimization checkpoint is `GOAL_HANDOFF.md`.
+
+## Blueprint toolbar
+- The blueprint toolbar is visible for players who can use blueprint controls.
+- Paint: click the Paint tool, then left-click tiles to add the currently selected blueprint block.
+- Erase: click the Erase tool, then left-click blueprint tiles to remove them.
+- Select: click the Select tool, then drag a rectangle to define the save/selection area.
+- Save: saves the current selected tile rectangle as a blueprint.
+- Load: opens or closes the blueprint browser.
+- Rotate: rotates the active block or placement preview.
+- Flip: flips the loaded blueprint preview before placement.
+- Hide/Show: toggles blueprint rendering.
+
+## Legacy blueprint shortcuts
+- Hold Left Control or Right Control to use the older live-edit cursor.
+- While holding Control, left-click adds a block and right-click removes a block.
+- Press H to hide or show blueprints.
+- Press I and P to set the two selection corners, then press O to save that rectangle.
+- Press the mouse-wheel button and drag to set the selection rectangle.
+- Press L or hold X to open the blueprint browser.
+- When playing as a builder, use the usual build menu to choose the block to place.
+- When playing as archer or knight, press R and U to cycle through blueprint blocks.
+- Press J to cycle the render window size.
+- Press K to cycle rendering relative to camera or cursor.
+
+## Overseer view
+- Press E at a same-team AI Builder Workshop and click **Become overseer**. The workshop only seats one overseer at a time.
+- Your character remains seated and locked into the workshop while using overseer view. Press E again to leave the chair and exit the view.
+- In overseer view, the camera is detached from the player and is not clamped to the map bounds.
+- Move the overseer camera with W, A, S, and D.
+- Hold Shift while moving to pan faster.
+- Drag with left-click to select same-team AI builders or Autobuilder orbs. A short click near one worker selects it.
+- Right-click or Cancel clears the current AI builder selection.
+- After selecting AI builders, use the order buttons:
+    - Harvest wood
+    - Mine stone
+    - Build blueprint
+- Orders are validated on the server. A player can only order same-team AI builders unless they are a spectator/admin team player.
+- Autobuilder orbs accept only **Build blueprint**; wood and stone orders remain runner-builder jobs.
+
+## Moderator commands
+- As a moderator, enable or disable live blueprint editing using the "!bp_edit_toggle" command.
+- As a moderator, enable or disable overseer restrictions using the "!bp_overseer_toggle" command.
+    - When overseer restrictions are enabled and at least one overseer is assigned, only selected overseers can place/edit blueprints and use overseer orders.
+    - Use "!bp_overseer_set Username" to assign an overseer.
+    - Use "!bp_overseer_none" to remove all assigned overseers.
+
+## AI builder storage and mining
+
+- Base storage workshops are placed only after a nearby search on both sides of the home finds a clear 5x3 volume, full five-column ground support, a grounded approach, and clearance from no-build sectors, barriers, buildings, and blocking blobs. Same-team homes and flags receive at least six tiles of edge clearance. The AI revalidates before spawning and cools down after a failed search.
+- Stone miners prefer a reusable low-dirt, two-wide shaft/cross route with a clear surface approach and direct shaft movement. They do not dig off-route dirt, and reject bedrock or castle-blocked routes.
+- A stone miner mines a line-of-sight gold cluster and returns the gold to its base crate immediately when that visible cluster is exhausted. Mirrored corner recovery handles both upper-left and upper-right overhang traps.
+
+## Autobuilder strategy-test orb
+
+- The AI Builder Workshop can deploy a free Autobuilder orb. It flies directly through walls and blobs, has infinite blueprint wood/stone, and remains blueprint-only.
+- It uses the same support generation, reservations, repairs, obstruction clearing, workshops, and completion accounting as the normal AI builder; it does not bypass the director with raw tile writes.
+- Each orb places at most one successful blueprint block per second. The workshop's gold button upgrades team-wide flight speed for 50 gold per level (4, 6, 8, then 12 pixels per tick); upgrades reset each round and never increase placement cadence.
+- While an orb is active, director planning ignores runner-only approach checks and current material shortages. Director-owned runner builders receive no new construction role, keeping strategy execution isolated from ordinary pathing.
+
+## Strategic AI blueprint director
+
+- The server-side director observes each team's home, frontline, terrain, combat mix, recent pressure, stored resources, and AI builders.
+- Production follows the Chapter 1 one-shot sequence: flag room, frontline tower, protected workshops, home Tunnel, frontline Tunnel, then Quarry/Storage. Legacy gatehouse, archer-perch, and access-route templates are fixture-only; a real collapse can still select an emergency barrier.
+- Human blueprints and AI blueprints use separate layers. Human tiles always win merge conflicts and autonomous replanning never edits the human layer.
+- AI plans retain an immutable desired layer and task history after builders consume the live work grid.
+- Construction is phased: foundation/backwalls, access pieces, then shell. A task lease covers only active approach/build work; it is released before an ordinary Builder collects missing material and whenever the target is stale, so competing Builders or Autobuilders cannot deadlock on an abandoned reservation.
+- Doors and platforms are supported build targets and material collection follows the actual remaining plan cost.
+
+Team members can select a director mode with `!aib_strategy off`, `!aib_strategy suggest`, or `!aib_strategy auto`. `Rules/CommonScripts/AIBDirectorPolicy.cfg` defaults CTF to `auto`, so a team plan is selected and activated without a player drawing it or entering a command; server administrators can instead choose `off` or `suggest`. The deterministic AIB test mode always defaults to `off` and opts in only in director-specific scenarios.
+
+The director can publish a plan before the team owns an AI builder. In CTF auto mode, a team with a home, an active non-empty plan, and no existing builder can receive one free bootstrap worker per round when `ctf_bootstrap_enabled` is true. The server searches both sides of the home for a grounded, clear, barrier-safe spawn connected to the home by a bounded terrain route, so a locally valid sealed cave cannot win. It retries later when none is safe, assigns builders deterministically, and does not respawn the bootstrap worker after death. A moderator on a playing team can use `!aib_bootstrap on|off|status`; changing the policy does not reset the round grant or retry cooldown and does not kill an existing worker. This is still a guarded server spawn rather than a workshop purchase, so its economy balance and new policy path need live CTF acceptance.
+
+Suggestion mode renders the proposed plan and its score reasons without assigning builders. Auto mode publishes the work layer and assigns wood, stone, and construction jobs according to current shortages. With one collector slot it chooses the larger material shortage instead of always favoring wood; with larger rosters it covers both materials proportionally while retaining a construction worker. Already-correct roles are preserved before deterministic network-ID slot filling, reducing unnecessary episode handoffs.
+
+An active plan retains ordinary same-team damaged tiles for repair, but only while the repair remains legal in the current world. A newly active barrier, no-build sector, or protected-building overlap invalidates pending repair work and allows safe replanning; already-complete matching tasks do not churn a plan merely because a later restriction surrounds them.
+
+For paired in-engine pressure trials on a fresh map with the match actively running (not staging), moderators can run `!aib_wave <seed> control [knight|archer|bomb|mixed]` and `!aib_wave <seed> plan [knight|archer|bomb|mixed]`. Use the same seed and scenario on separately restarted maps. The harness aborts `match_not_running` before measurement capture if KAG is still staging. Its deterministic direct controller measures actual forward displacement, uses bounded jump holds when that progress stalls, and releases all synthetic controls when the trial finishes. A run with no crossing, death, flag approach, or tracked structure damage aborts `no_pressure_outcome` instead of emitting a comparable result. Strategy event logging records breach timing, crossings, deaths, flag approaches, completion and damage timing, structure lifetime, builder travel/idle time, reservation conflicts, replans, route preservation, and estimated absorbed cost.
+
+Compare paired result logs with `Tools/compare_aib_wave_results.ps1 -LogPath <log paths> -RequireAcceptanceGates`. The current fixture is version 4: it measures a local grounded corridor with at most one production worker plus seven attackers, exact fixture/team/side/scenario/seed identity, and canonical/measurement fingerprints. The retained `Artifacts/aib_gym/wave_v4_bombsafe_20260718_*.tcpr.txt` dataset contains 48 trials and 24 accepted control/plan pairs across both sides, four scenarios, and three seeds. It validates that named historical fixture, not every map or the current workshop geometry. See [GOAL_HANDOFF.md](GOAL_HANDOFF.md) and [AIB_GYM_METRICS.md](AIB_GYM_METRICS.md) for exact evidence limits; offline comparator tests alone do not validate KAG behavior.
+
+Generate the required two-side, four-scenario, three-seed control/plan collection manifest with `Tools/new_aib_wave_matrix.ps1 -FixtureId <id> -OutputPath <matrix.ndjson>`. The default is exactly 48 ordered trials / 24 pairs, and every record requires a fresh canonical reset. This manifest prevents omissions and duplicate sampling; it does not perform the KAG reset or run the trial itself. Its regression is `Tools/test_new_aib_wave_matrix.ps1`.
+
+The lightweight seeded evaluator is available at `Tools/aib_strategy_abstract_sim.ps1`; its regression check is `Tools/test_aib_strategy_abstract_sim.ps1`.
+
+## AI builder tests
+
+Public CTF runs include server-side, privacy-bounded player action telemetry for later matched-context AI evaluation. It records binary delta frames in memory and flushes compact base64 `[AIBACT]` batches about every ten seconds or 2 KiB; it does not print per-player frames or record usernames, IP addresses, or chat. `Rules/CommonScripts/AIBTelemetryPolicy.cfg` controls the CTF startup default and a once-per-connection client-local player notice. Moderator `!aib_telemetry on|off|status` overrides survive round restarts; disabling flushes the current batch, while re-enabling starts a separate episode and notifies connected players who have not seen the notice. Schema v3 retains v1/v2 decoding and adds accepted human blueprint/director actions, director-workshop purchases, and production plan/task boundaries through a bounded numeric queue. Queue overflow emits an explicit loss record. Export batches with `Tools/parse_aib_player_actions.ps1 -LogPath <console logs> -OutputPath <actions.ndjson>`, then derive raw task episodes with `Tools/summarize_aib_player_episodes.ps1 -InputPath <actions.ndjson> -OutputPath <episodes.ndjson>`. Summaries preserve explicit versus inferred attribution, accepted player-boundary counts, raw cost components, and a privacy-safe context key. Compare baseline human/AI cohorts with `Tools/compare_aib_task_episodes.ps1`; it requires three episodes per matched context by default and only enforces success/cost/death gates with `-RequireQualityGates`. Console-log access, rotation, retention, and evidence collection are covered in `PUBLIC_SERVER_OPERATIONS.md`. Visible CTF runtime evidence now covers policy loading, schema-v3 batching, production plan boundaries, and 47-record NDJSON decoding; generic hit and pickup/drop boundaries plus moderator transition/notice UX still need focused checks. See `kag_gym.md` for the evaluation architecture and `KAG_ENGINE_QUIRKS.md` before diagnosing engine behavior.
+
+The passive AI monitor emits at most one compact numeric `[AIBGYM]` record per builder when it first latches a failure in public CTF. It then emits one binary/base64 `[AIBGYMW]` diagnostic window containing up to 30 pre-failure and 12 post-failure samples at five-tick spacing. Neither format contains player identity or free-form text. Export them with `Tools/parse_aib_gym_failures.ps1 -LogPath <console logs> -OutputPath <failures.ndjson>` and `Tools/parse_aib_gym_windows.ps1 -LogPath <console logs> -OutputPath <windows.ndjson>`. This preserves the first causal movement/intent/target/resource/reservation/build-retry failure and its trajectory without per-tick log strings.
+
+For an interactive director check, a moderator on a playing team can use `!aib_director_test`. It switches that team to automatic strategy and automatically creates one same-team AI builder at the moderator only when none exists. Automated coverage should use `strategic_auto_director_heartbeat_end_to_end`, which starts without a worker and verifies that production bootstrap provisioning creates and assigns one safely.
+
+The AIBTest suite contains 78 scenarios. A complete successful run reports:
+
+```text
+AIB tests passed: 78 passed, 0 failed
+```
+
+The game log must also contain the matching `[AIBTEST] DONE` marker; the launcher no longer accepts matching START/PASS counts alone. Run the full suite with `Tools/run_aib_tests.ps1`, one case with `-Scenario <name>`, or an inclusive range with `-StartScenario <name> -EndScenario <name>`. The default opens a visible `RunLocalhost` session and leaves KAG running; add `-StopAfterRun` only when desired. Intermediate fixtures remain visible for 15 ticks before cleanup, while the final selected fixture is retained indefinitely after `DONE` for human inspection. A lack of post-START log/simulation progress produces a distinct stale-run diagnostic. `AIBTestCamera.as` intends to follow the active fixture, but displayed follow and manual movement are currently unreliable; `CAMERA_TARGET`/`CAMERA_VIEW` logs must not be treated as proof of what the player sees.
+
+KAG can still stop advancing during visible localhost runs. The last complete baseline is the older 65-scenario run in `console-26-07-18-18-49-07.txt`; no complete 78-scenario verdict exists for the current source. The corrected flag-sector, protected-workshop, zero-gold Tunnel, hard-progression, and two-Tunnel cases passed individually in `console-26-07-20-08-30-22.txt`; reservation contention passed as strengthened visible hot run `68d8e2cd8af1`. Earlier guide cases 71–76 retain a focused 6/6 `DONE`, and the affected workshop pair retains 2/2 with `DONE`. These focused records are not a full-suite pass, and camera records are not visual verification. See `BUILDER_GUIDE_CHAPTER1_IMPLEMENTATION.md` for the point-by-point contract and evidence limits.
 ##### Thanks to all kag's modder who answered my questions and big thanks to Numan and Monkey_Feats.
 ##### Thanks to Epsilon for the inventory code
 
 # INSTALLATION FOR HOST
-add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it added on CTF gamemode, go to King Arthur's Gold\Base\Rules\CTF\gamemode.cfg and edit the file to add CustomRenderer.as in the script section.
+Enable this mod and add `CustomRenderer.as` to the applicable gamemode script list through this mod's override under `Rules`. Do not edit `King Arthur's Gold/Base`; files in this mod override matching base-game files.
 
-## TODO:
+## Historical editor wishlist
+
+These older ideas are not the current implementation checklist; several have
+since been implemented. Use [START_HERE.md](START_HERE.md) for active priorities
+and [TODO.md](TODO.md) for the secondary editor backlog.
 ### Live editor todo:
 * make selection actually select the right area
 * make it possible to rotate 2d sprite larger than 8x8
@@ -64,3 +165,5 @@ add the CustomRenderer.as to your rules.cfg scripts list. Example, to have it ad
     - kind of an addon/gamemode where there's one overseer per team that tell the team what to do
 
 ## Code structure
+
+See the [code map in START_HERE.md](START_HERE.md#where-the-code-lives).

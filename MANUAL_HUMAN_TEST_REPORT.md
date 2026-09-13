@@ -1,0 +1,39 @@
+- [x] The nursery should only produce trees see and nothing else, there should be a maximum of one nursery per team. the time before getting another tree should be 4 time higher. 
+- [x] When there is grass below a blueprint, the builder refuses to build, fix this
+- [x] the icon "become overseer" overlap with the "deliver" button in the ai workshop
+- [x] the icon become overseer is way too big. it should be a round smaller icon. the icon could be the flag's base sprite.
+- [x] the builder ai should "speak" not in chat but in a bubble like other npc in the game to indicate their state. they should do so every 10 seconds when they are stuck or waiting for something. This will make it easier to debug, right now it's hard to tell why a builder just stop doing whatever.
+- [x] builder ai goes to the right side of the map and touch the enemy tent and comes back for no clear reason.
+- [x] when rotating a ladder in editor mode, the blueprint placed is not rotated, instead you get a single square that looks wrong
+- [x] builder ai is not able to put two blob entity next to each other ; putting a row of wooden platform will result in the ai placing like 2 wooden platform spaced by 1 block and will freeze afterward. same for all non tile entity : doors, teamdoors, workshop
+- [x] the editor should let you place workshop and set the workshop type somehow in blueprint mode
+- [x] the blueprint, team plan, preview checks, material summary, ai build queue does not work: nothing happens there.
+- [x] when sitting in the ai workshop to enter overseer mode, the camera is very jittery, slow, and not smooth
+- [x] when sitting in the ai workshop, it's not possible to place block anymore
+- [x] when sitting in the ai workshop, it's not possible to move the UI with x
+- [x] The builder should not be able to place a workshop if there's no support. it should build the support first. there need to be a check for that. it's also not supposed to be able to do it within the tent no build zone.
+- [x] when selecting builder in overseer mode to order them around, it should place a white medium-sized circle with fading edges on top of the builder with some transparency instead of a black square that hides everything.
+- [x] look into https://github.com/Kuift/Overseer to figure out how to split blueprints between teams. compare what was done here to enable overseer to the code on this github repo. improve the code based on that.
+- [x] the text in the f1 help menu don't align/fit within the background box.
+- [x] the editor behavior is now very finicky compared to before.
+- [x] when planting seed for wood, the wood builder instantly cut the tree when it's not grown enough leading to no wood. it should wait until it's almost fully grown before cutting it otherwise it gets nothing
+- [x] if the builder doesn't have enough materials to build something, it should build something else instead of waiting
+- [x] the sprite for the ladder when rotated is wrong, it looked like a streched brown square
+- [x] the white circle ontop of the builder when selecting is too hard too see. need to be more opaque.
+- [x] when placing block and backwalls and stuff like that, the builder should not consider grass or even most blob as something he cannot build on. right now, it juust doesnt place backwall on the grass leading to no structural support
+- [x] sometime, the builder has to build something that is at their feet, but because they themselves are there, they cannot place it. in those situation, they should jump to be able to place the block.
+- [x] wood harvester and blueprint builder will sometime juust stop doing their job and require another button press for them to continue. i shouldn't have to command them again
+- [x] the indicator ontop of the screen of the number of wood collector and stone collector should also include number of blueprint builder with either the builder hammer icon or the stone icon. that same indicator is currently hidden by the map display ontop, it should be slightly below the map thing.
+- [x] builder still don't place backwall on grass, they think it's filled in, but it's not. they need to put it on the grass.
+- [x] when mining stone, sometimes the builder juust gets stucks and don't manage to eveer get unstuck. it seem to happen when they jump and there's one block on top of their head and on block to the left or right of their head.
+- [x] when placing blocks, the displayed blueprint rotation of the block/blob doesn't always match what the ai builder places. it doesn't matter for stone or wood block, but it does for bridge, team bridges, spikes and doors.
+- [x] there's no option to put spikes in the editor, add one
+- [x] the builders say nothing about their status. look into that.
+- [x] blueprint block/blob placed ontop of backwalls is considered blocked and the builder wont place it.
+- [x] there should be a command or blueprint way to tell the builder "remove what's there and place these blocks according to this blueprint". it should ignore indestructible blocks
+- [x] the spike sprite and the teambridge sprite are wrong in the blueprint view. currently it's a spiker sprite and a team block sprite.
+- [x] when underwater, if the builder is or close to drowning, they should try to reach the surface and full their breathing bar before going back down. verify behavior of ai builder in water and adapt it if you notice anything else.
+- [x] ladder should be placed horizontally/rotated 90 degrees because vertical ladder don't stick to walls easily
+- [x] right now, every blob that is placed is immediately destroyed by the builder, make it so that it doesn't do that. also air and grass should be considered the same, they both don't provide supports
+- [x] there's 4 ways to create stone : with a quarry (1 per team, must be enabled for the match), with supply drop at the builder shop, mining stones. one can also acquire stone from materials left on the ground. if there's no stone in any safe area, the builder whose tasks is to get stone should get stone from supply or quarry. getting stone from quarry imply taking wood and putting it into the quarry, waiting until it produce stone and then taking it. getting stone from supply imply simply waiting at the tent or a builder shop.
+- [x] currently, all the builder are too eiger to mine out dirt when they are blocked or when trying to reach their destination. they should try to minimize the number of dirt block deestroyed because it ruins the map really quickly otherwise. one way might be for stone miner to go back to the surface and mine downward instead of directly pathing to the stone. another way would be to have better pathing and understanding of what is required for a builder to go through a hole : they only two block to go through.

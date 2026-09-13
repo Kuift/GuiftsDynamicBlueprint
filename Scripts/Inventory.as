@@ -265,6 +265,16 @@ class Inventory
 		return selectedItem !is null;
 	}
 
+	// The inventory is drawn manually, so callers must explicitly keep its
+	// mouse gesture from falling through to world interactions.
+	bool consumesMouseInput()
+	{
+		CControls@ controls = getControls();
+		if(controls is null) return false;
+		return selectedItem !is null ||
+			(getCellAtPoint(controls.getMouseScreenPos()) >= 0 && controls.isKeyPressed(KEY_LBUTTON));
+	}
+
 	int getCellAtPoint(Vec2f point)
 	{
 		Vec2f pos = point - position;

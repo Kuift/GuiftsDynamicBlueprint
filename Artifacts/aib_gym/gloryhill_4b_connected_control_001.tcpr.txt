@@ -1,0 +1,26 @@
+AIBGYM|ARMED|run=gloryhill_4b_connected_control_001
+AIBGYM|START|run=gloryhill_4b_connected_control_001|metric=resource_collection_180s|fixture=map_3142477075_210x66|side=left|builders=4|order=mixed|duration=5400
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=150|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=300|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=450|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=600|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=750|collected=290|delivered=290|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=900|collected=290|delivered=290|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1050|collected=290|delivered=290|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1200|collected=290|delivered=290|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1350|collected=290|delivered=290|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1500|collected=460|delivered=460|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1650|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1800|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=1950|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=2100|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=2250|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=2400|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=2550|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=2700|collected=630|delivered=630|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=2850|collected=654|delivered=654|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=3000|collected=654|delivered=654|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=3150|collected=654|delivered=654|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=3300|collected=714|delivered=714|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_4b_connected_control_001|elapsed=3450|collected=714|delivered=714|deaths=0
+14:45:04TCPR: server shutting down.

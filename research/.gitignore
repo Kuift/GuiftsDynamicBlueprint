@@ -1,0 +1,9 @@
+# Proprietary or machine-local reverse-engineering output must stay local.
+/private/
+/generated/raw/
+*.gpr
+*.rep/
+*.ghidra
+*.bak
+__pycache__/
+*.pyc

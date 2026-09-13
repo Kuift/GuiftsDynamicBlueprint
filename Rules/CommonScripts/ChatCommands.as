@@ -6,6 +6,11 @@
 #include "MakeSeed.as";
 #include "MakeCrate.as";
 #include "MakeScroll.as";
+#include "BlueprintCommon.as";
+#include "AutoBuilderCommon.as";
+#include "AIBDirectorPolicy.as";
+#include "AIBTelemetryPolicy.as";
+#include "AIBManualOrderCommon.as";
 
 const bool ChatCommandCoolDown = false; // enable if you want cooldown on your server
 const uint ChatCommandDelay = 3 * 30; // Cooldown in seconds
@@ -13,6 +18,121 @@ const uint ChatCommandDelay = 3 * 30; // Cooldown in seconds
 void onInit(CRules@ this)
 {
 	this.addCommandID("SendChatMessage");
+}
+
+bool AIB_HandleTelemetryCommand(CRules@ rules, const string &in text, CPlayer@ player)
+{
+	if (rules is null || player is null) return false;
+	string[]@ tokens = text.split(" ");
+	if (tokens.length == 0 || tokens[0] != "!aib_telemetry") return false;
+	if (!player.isMod() || tokens.length != 2 ||
+		(tokens[1] != "on" && tokens[1] != "off" && tokens[1] != "status"))
+	{
+		SendChatMessage(rules, player, "[AIB] usage: !aib_telemetry on|off|status (moderator)", SColor(255, 255, 220, 80));
+		return true;
+	}
+	if (tokens[1] != "status")
+	{
+		rules.set_bool("aib player action log enabled", tokens[1] == "on");
+		rules.Sync("aib player action log enabled", true);
+	}
+	const string telemetryState = rules.get_bool("aib player action log enabled") ? "on" : "off";
+	AIBTelemetryPolicy@ telemetryPolicy = AIB_GetTelemetryPolicy();
+	SendChatMessage(rules, player, "[AIB] privacy-bounded player action telemetry: " + telemetryState +
+		"; CTF startup " + (telemetryPolicy.ctfEnabled ? "on" : "off") +
+		"; player notice " + (telemetryPolicy.playerNoticeEnabled ? "on" : "off"), SColor(255, 100, 210, 255));
+	return true;
+}
+
+bool AIB_HandleGymCommand(CRules@ rules, const string &in text, CPlayer@ player)
+{
+	if (rules is null || player is null) return false;
+	string[]@ tokens = text.split(" ");
+	if (tokens.length == 0 || tokens[0] != "!aib_gym") return false;
+	if (!player.isMod())
+	{
+		SendChatMessage(rules, player, "[AIB Gym] moderator access required", SColor(255, 255, 80, 80));
+		return true;
+	}
+	if (tokens.length == 2 && tokens[1] == "status")
+	{
+		const bool infrastructure = rules.get_bool("aib infrastructure active") || rules.get_bool("aib infrastructure request");
+		SendChatMessage(rules, player, infrastructure ?
+			("[AIB Gym] " + rules.get_string("aib infrastructure status") + "; run=" + rules.get_string("aib infrastructure run id")) :
+			("[AIB Gym] " + rules.get_string("aib gym status") + "; run=" + rules.get_string("aib gym run id")),
+			SColor(255, 100, 210, 255));
+		return true;
+	}
+	if (tokens.length == 2 && tokens[1] == "stop")
+	{
+		if (rules.get_bool("aib infrastructure active") || rules.get_bool("aib infrastructure request"))
+			rules.set_bool("aib infrastructure stop requested", true);
+		else rules.set_bool("aib gym stop requested", true);
+		SendChatMessage(rules, player, "[AIB Gym] stop requested", SColor(255, 100, 210, 255));
+		return true;
+	}
+	if ((tokens.length == 2 || tokens.length == 3) && tokens[1] == "infrastructure")
+	{
+		const string infrastructureMetric = tokens.length == 3 ? tokens[2] : "gatehouse";
+		if (infrastructureMetric != "gatehouse" && infrastructureMetric != "workshops" &&
+			infrastructureMetric != "gatehouse_breach" && infrastructureMetric != "workshops_breach")
+		{
+			SendChatMessage(rules, player, "[AIB Gym] infrastructure metric must be gatehouse, workshops, gatehouse_breach, or workshops_breach", SColor(255, 255, 80, 80));
+			return true;
+		}
+		const s8 infrastructureTeam = player.getTeamNum();
+		if (infrastructureTeam < 0 || infrastructureTeam >= 8)
+		{
+			SendChatMessage(rules, player, "[AIB Gym] join a playing team before starting infrastructure", SColor(255, 255, 80, 80));
+			return true;
+		}
+		if (rules.get_bool("aib gym active") || rules.get_bool("aib gym request") ||
+			rules.get_bool("aib infrastructure active") || rules.get_bool("aib infrastructure request"))
+		{
+			SendChatMessage(rules, player, "[AIB Gym] another episode is active", SColor(255, 255, 80, 80));
+			return true;
+		}
+		rules.set_u8("aib infrastructure team", u8(infrastructureTeam));
+		rules.set_string("aib infrastructure metric", infrastructureMetric);
+		rules.set_string("aib infrastructure variant", "manual");
+		rules.set_string("aib infrastructure run id", "manual_infrastructure_" + getGameTime());
+		rules.set_u32("aib infrastructure readiness deadline", 0);
+		rules.set_bool("aib infrastructure stop requested", false);
+		rules.set_bool("aib infrastructure request", true);
+		SendChatMessage(rules, player, "[AIB Gym] physical " + infrastructureMetric + " episode requested", SColor(255, 100, 210, 255));
+		return true;
+	}
+	if (tokens.length < 4 || tokens.length > 5 || tokens[1] != "resources")
+	{
+		SendChatMessage(rules, player, "[AIB Gym] usage: !aib_gym resources 1|4 wood|stone|mixed [10-180 seconds] | infrastructure [gatehouse|workshops|gatehouse_breach|workshops_breach] | status | stop", SColor(255, 255, 220, 80));
+		return true;
+	}
+	const s8 team = player.getTeamNum();
+	const int builders = parseInt(tokens[2]);
+	const string order = tokens[3];
+	const int seconds = tokens.length == 5 ? parseInt(tokens[4]) : 180;
+	if (team < 0 || team >= 8 || (builders != 1 && builders != 4) ||
+		(order != "wood" && order != "stone" && order != "mixed") || (order == "mixed" && builders != 4) ||
+		seconds < 10 || seconds > 180)
+	{
+		SendChatMessage(rules, player, "[AIB Gym] invalid request; mixed requires four builders and duration must be 10-180 seconds", SColor(255, 255, 80, 80));
+		return true;
+	}
+	if (rules.get_bool("aib gym active") || rules.get_bool("aib gym request"))
+	{
+		SendChatMessage(rules, player, "[AIB Gym] another episode is active", SColor(255, 255, 80, 80));
+		return true;
+	}
+	rules.set_u8("aib gym team", u8(team));
+	rules.set_u8("aib gym builder count", u8(builders));
+	rules.set_string("aib gym resource order", order);
+	rules.set_u32("aib gym duration ticks", u32(seconds * 30));
+	rules.set_string("aib gym variant", "manual");
+	rules.set_string("aib gym run id", "manual_" + getGameTime());
+	rules.set_bool("aib gym stop requested", false);
+	rules.set_bool("aib gym request", true);
+	SendChatMessage(rules, player, "[AIB Gym] map-scoped " + seconds + "s resource episode requested for " + builders + " builder(s)", SColor(255, 100, 210, 255));
+	return true;
 }
 
 bool onServerProcessChat(CRules@ this, const string& in text_in, string& out text_out, CPlayer@ player)
@@ -49,6 +169,70 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 	if (player is null)
 		return true;
 
+	// Moderator-only runtime control for KAG's TCP RCON listener. A password
+	// must already be configured; accepting one through chat would leak it to logs.
+	if (text_in == "!tcpr" || text_in == "!tcpr status" || text_in == "!tcpr on" || text_in == "!tcpr off")
+	{
+		if (!player.isMod())
+		{
+			SendChatMessage(this, player, "[TCPR] moderator access required", SColor(255, 255, 80, 80));
+			return false;
+		}
+
+		if (text_in == "!tcpr on")
+		{
+			if (sv_rconpassword == "")
+			{
+				SendChatMessage(this, player, "[TCPR] set sv_rconpassword in KAG/autoconfig.cfg first", SColor(255, 255, 80, 80));
+				return false;
+			}
+
+			SendChatMessage(this, player, "[TCPR] runtime mutation is unavailable; set sv_tcpr = 1 in autoconfig.cfg and restart", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		if (text_in == "!tcpr off")
+		{
+			SendChatMessage(this, player, "[TCPR] runtime mutation is unavailable; set sv_tcpr = 0 in autoconfig.cfg and restart", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		const string state = sv_tcpr ? "enabled" : "disabled";
+		SendChatMessage(this, player, "[TCPR] " + state + " on sv_port " + sv_port, SColor(255, 100, 210, 255));
+		return false;
+	}
+
+	// Only explicit moderator commands are forwarded to the local TCPR bridge.
+	// Ordinary chat never leaves the game.
+	if (text_in == "!codex" || text_in.substr(0, 7) == "!codex ")
+	{
+		if (!player.isMod())
+		{
+			SendChatMessage(this, player, "[Codex] moderator access required", SColor(255, 255, 80, 80));
+			return false;
+		}
+
+		string request = text_in.size() > 7 ? text_in.substr(7, text_in.size() - 7) : "";
+		if (request == "")
+		{
+			SendChatMessage(this, player, "[Codex] usage: !codex <request> | status | cancel", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		if (request == "status" || request == "cancel")
+		{
+			tcpr("CODEX_CONTROL|" + player.getUsername() + "|" + request);
+			SendChatMessage(this, player, "[Codex] " + request + " requested", SColor(255, 100, 210, 255));
+			return false;
+		}
+
+		tcpr("CODEX_REQUEST|" + player.getUsername() + "|" + request);
+		SendChatMessage(this, player, "[Codex] request submitted", SColor(255, 100, 210, 255));
+		return false;
+	}
+	if (AIB_HandleTelemetryCommand(this, text_in, player)) return false;
+	if (AIB_HandleGymCommand(this, text_in, player)) return false;
+
 	CBlob@ blob = player.getBlob(); // now, when the code references "blob," it means the player who called the command
 
 	if (blob is null || text_in.substr(0, 1) != "!") // dont continue if its not a command
@@ -79,6 +263,98 @@ bool onServerProcessChat(CRules@ this, const string& in text_in, string& out tex
 	}
 
 	string[]@ tokens = (text_in.substr(0, text_in.size())).split(" ");
+	if(tokens.length > 0 && tokens[0] == "!aib_director_test")
+	{
+		if(!player.isMod() || team < 0 || team >= 8)
+		{
+			SendChatMessage(this, player, "[AIB] !aib_director_test requires a moderator on a playing team", SColor(255, 255, 220, 80));
+			return false;
+		}
+		CBlob@[] workers;
+		getBlobsByName("aibuilder", @workers);
+		CBlob@ worker = null;
+		for(uint i = 0; i < workers.length; i++)
+		{
+			if(workers[i] !is null && !workers[i].hasTag("dead") && workers[i].getTeamNum() == team) { @worker = workers[i]; break; }
+		}
+		if(worker is null)
+		{
+			@worker = server_CreateBlob("aibuilder", team, blob.getPosition());
+			if(worker !is null) worker.Tag("aib director manual test worker");
+		}
+		this.set_u8(AIBP_ModeKey(u8(team)), AIBP_StrategyMode::auto_mode);
+		this.Sync(AIBP_ModeKey(u8(team)), true);
+		AIBM_ReleaseTeamManualControl(u8(team));
+		this.set_u32("aib strategy important event team " + team, getGameTime());
+		SendChatMessage(this, player, worker is null ? "[AIB] director test worker spawn failed" : "[AIB] director test enabled; AI builder " + worker.getNetworkID() + " is ready", worker is null ? SColor(255, 255, 80, 80) : SColor(255, 100, 210, 255));
+		return false;
+	}
+	if(tokens.length > 0 && tokens[0] == "!aib_bootstrap")
+	{
+		if(!player.isMod() || team < 0 || team >= 8 || tokens.length != 2 ||
+			(tokens[1] != "on" && tokens[1] != "off" && tokens[1] != "status"))
+		{
+			SendChatMessage(this, player, "[AIB] usage: !aib_bootstrap on|off|status (moderator on a playing team)", SColor(255, 255, 220, 80));
+			return false;
+		}
+
+		const string enabledKey = AIBS_BootstrapKey(u8(team), "enabled");
+		if(tokens[1] != "status")
+		{
+			this.set_bool(enabledKey, tokens[1] == "on");
+			this.Sync(enabledKey, true);
+			if(tokens[1] == "on") this.set_u32("aib strategy important event team " + team, getGameTime());
+		}
+		const bool enabled = this.get_bool(enabledKey);
+		const bool provisioned = this.get_bool(AIBS_BootstrapKey(u8(team), "provisioned"));
+		const u32 retryAt = this.get_u32(AIBS_BootstrapKey(u8(team), "next retry"));
+		const u32 retryTicks = retryAt > getGameTime() ? retryAt - getGameTime() : 0;
+		SendChatMessage(this, player, "[AIB] team " + team + " free bootstrap: " + (enabled ? "on" : "off") +
+			"; round grant " + (provisioned ? "used" : "available") +
+			(retryTicks > 0 ? "; retry in " + retryTicks + " ticks" : ""), SColor(255, 100, 210, 255));
+		return false;
+	}
+	if(tokens.length > 0 && tokens[0] == "!aib_strategy")
+	{
+		if(tokens.length < 2 || (tokens[1] != "off" && tokens[1] != "suggest" && tokens[1] != "auto"))
+		{
+			SendChatMessage(this, player, "[AIB] usage: !aib_strategy off|suggest|auto", SColor(255, 255, 220, 80));
+			return false;
+		}
+		const u8 mode = tokens[1] == "off" ? AIBP_StrategyMode::off :
+			(tokens[1] == "suggest" ? AIBP_StrategyMode::suggest : AIBP_StrategyMode::auto_mode);
+		this.set_u8(AIBP_ModeKey(u8(team)), mode);
+		this.Sync(AIBP_ModeKey(u8(team)), true);
+		if(mode == AIBP_StrategyMode::auto_mode) AIBM_ReleaseTeamManualControl(u8(team));
+		this.set_u32("aib strategy important event team " + team, getGameTime());
+		SendChatMessage(this, player, "[AIB] strategy mode: " + tokens[1], SColor(255, 100, 210, 255));
+		return false;
+	}
+	if(tokens.length > 0 && tokens[0] == "!aib_wave")
+	{
+		const string scenario = tokens.length >= 4 ? tokens[3] : "mixed";
+		const bool validScenario = scenario == "knight" || scenario == "archer" || scenario == "bomb" || scenario == "mixed";
+		if(!player.isMod() || team < 0 || team > 1 || tokens.length < 3 ||
+			(tokens[2] != "control" && tokens[2] != "plan") || !validScenario)
+		{
+			SendChatMessage(this, player, "[AIB] usage: !aib_wave <seed> control|plan [knight|archer|bomb|mixed] (fresh map)", SColor(255, 255, 220, 80));
+			return false;
+		}
+		const u32 seed = parseInt(tokens[1]);
+		if(this.get_bool("aib wave request") || this.get_bool("aib wave enabled") || this.get_bool("aib wave running"))
+		{
+			SendChatMessage(this, player, "[AIB] another wave request or episode is active", SColor(255, 255, 80, 80));
+			return false;
+		}
+		this.set_u8("aib wave request team", u8(team));
+		this.set_u32("aib wave request seed", seed);
+		this.set_string("aib wave request variant", tokens[2]);
+		this.set_string("aib wave request scenario", scenario);
+		this.set_string("aib wave request run id", "");
+		this.set_bool("aib wave request", true);
+		SendChatMessage(this, player, "[AIB] " + scenario + " wave requested; use a fresh sv_test CTF map for the paired variant", SColor(255, 100, 210, 255));
+		return false;
+	}
 	// commands that don't rely on sv_test being on (sv_test = 1)
 	if (isMod)
 	{
@@ -408,6 +684,17 @@ void onCommand(CRules@ this, u8 cmd, CBitStream @para)
 		SColor col = SColor(para.read_u8(), para.read_u8(), para.read_u8(), para.read_u8());
 		client_AddToChat(errorMessage, col);
 	}
+}
+
+void SendChatMessage(CRules@ this, CPlayer@ player, const string& in message, SColor color)
+{
+	CBitStream params;
+	params.write_string(message);
+	params.write_u8(color.getBlue());
+	params.write_u8(color.getGreen());
+	params.write_u8(color.getRed());
+	params.write_u8(color.getAlpha());
+	this.SendCommand(this.getCommandID("SendChatMessage"), params, player);
 }
 
 bool IsBlacklisted(string name)

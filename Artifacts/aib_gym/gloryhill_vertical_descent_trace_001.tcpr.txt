@@ -1,0 +1,288 @@
+Checking is server modded...
+Using custom files
+**** This is a modded server ****
+Attempting mod verification
+CModVerify::readModRegFile error: file ./../Mods/GuiftsDynamicBlueprint_vDev//registration.json missing
+Mod ./../Mods/GuiftsDynamicBlueprint_vDev/ cannot be verified because it has no registration.json file
+At least one active mod has failed verification
+This is safe to ignore. If you are a modder, consider registering these mods through the API
+Whitelist inactive.
+Loading blacklist from Base/Security/blacklist.cfg
+Blacklist empty.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/ignorelist.cfg'
+Loading ignorelist from Base/Security/ignorelist.cfg
+Loading ignorelist failed - file missing or corrupt. A blank ignorelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/hidenamelist.cfg'
+Loading hidenamelist from Base/Security/hidenamelist.cfg
+Loading hidenamelist failed - file missing or corrupt. A blank hidenamelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/seclevs.cfg'
+Loading security levels from Base/Security/seclevs.cfg
+Loading default security levels
+Files have the same name! (rename for safety) ../Mods/GuiftsDynamicBlueprint_vDev/Rules/AIBTest/gamemode.cfg - ../Mods/GuiftsDynamicBlueprint_vDev/Rules/CTF/gamemode.cfg (during query 'gamemode.cfg')
+Files have the same name! (rename for safety) ../Mods/GuiftsDynamicBlueprint_vDev/Rules/AIBTest/gamemode.cfg - ../Mods/GuiftsDynamicBlueprint_vDev/Rules/CTF/gamemode.cfg (during query 'rules/ctf/gamemode.cfg')
+Loading game rules from Rules/CTF/gamemode.cfg...
+Loaded team 0 'Blue Team'
+Loaded team 1 'Red Team'
+Reloaded mapcycle 'Rules/CTF/mapcycle.cfg' (70 maps)
+Reloaded mapcycle 'Rules/CTF/mapcycle.cfg' (70 maps)
+File not found Maps/Official/CTF/8x_Gloryhill.png, searching matches...
+Best match Maps/Official/CTF/8x_Gloryhill2.png
+LOADING PNG MAP Maps/Official/CTF/8x_Gloryhill2.png
+
+WARNING Scripts/MapLoaders/BasePNGLoader.as:95:2: Function not considered for JIT compilation because it is too complex
+  94 |
+  95 |     void handlePixel(const SColor &in pixel, int offset)
+           ^ HERE
+  96 |     {
+  97 |         u8 alpha = pixel.getAlpha();
+Adding map script aib_gym_autostart
+Client created
+Connecting to 127.0.0.1:50301
+############ GAMEMODE CTF
+Files have the same name! (rename for safety) Maps/Official/CTF/TresFlags.png - Maps/CTF/Dormant/TresFlags.png (during query 'flag.png')
+Whitelist inactive.
+Loading blacklist from Base/Security/blacklist.cfg
+Blacklist empty.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/ignorelist.cfg'
+Loading ignorelist from Base/Security/ignorelist.cfg
+Loading ignorelist failed - file missing or corrupt. A blank ignorelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/hidenamelist.cfg'
+Loading hidenamelist from Base/Security/hidenamelist.cfg
+Loading hidenamelist failed - file missing or corrupt. A blank hidenamelist file will be generated for you.
+Config file not found 'C:/Program Files (x86)/Steam/steamapps/common/King Arthur's Gold/Security/seclevs.cfg'
+Loading security levels from Base/Security/seclevs.cfg
+Loading default security levels
+Compiling shader: hq2x
+Restarting rules script: Rules/CTF/Scripts/CTF.as
+Config file not found '../Cache/ChatCommands.cfg'
+Checking any holidays...
+Maps/DynamicBlueprints/blueprint_1619787124.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1628964185.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778379219.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778379220.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381130.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381131.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381506.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381587.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778381591.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1778451158.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1781996221.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1782005168.png blueprint has been found
+Maps/DynamicBlueprints/blueprint_1782161488.png blueprint has been found
+creating texture...
+Too many commands added (cmd clearBlueprintLayer on rules) - results will be bad!
+[AIBTELEMETRY] init gamemode=CTF policy_initialized=false default=true enabled=true policy_loaded=true file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBTelemetryPolicy.cfg
+Too many commands added (cmd SendChatMessage on rules) - results will be bad!
+TCPR: client 127.0.0.1:8685 connected.
+TCPR: client 127.0.0.1:8685 is now authenticated.
+RCON command from 127.0.0.1:8685 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:8685 :
+getRules().set_bool("aib event log enabled", true)
+RCON command from 127.0.0.1:8685 :
+getRules().set_u8("aib gym team", 0)
+RCON command from 127.0.0.1:8685 :
+getRules().set_u8("aib gym builder count", 1)
+Game has been running slow for too long. Skipping 14.000000 ticks worth of simulation.
+RCON command from 127.0.0.1:8685 :
+getRules().set_string("aib gym resource order", "wood")
+Server uses mod: : (GuiftsDynamicBlueprint_vDev)
+Loading mod: GuiftsDynamicBlueprint_vDev
+New track added to mixer Sounds/Music/ambient_forest.ogg
+New track added to mixer Sounds/Music/ambient_mountain.ogg
+New track added to mixer Sounds/Music/ambient_cavern.ogg
+New track added to mixer Sounds/Music/KAGWorldIntroShortA.ogg
+New track added to mixer Sounds/Music/KAGWorld1-1a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-2a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-3a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-4a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-5a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-6a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-7a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-8a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-9a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-10a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-11a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-12a.ogg
+New track added to mixer Sounds/Music/KAGWorld1-13.ogg
+New track added to mixer Sounds/Music/KAGWorld1-14.ogg
+New track added to mixer Sounds/Music/KAGWorld1-14outro.ogg
+Waiting for scripts...
+Waiting for scripts...
+Game has been running slow for too long. Skipping 2.000000 ticks worth of simulation.
+RCON command from 127.0.0.1:8685 :
+getRules().set_u32("aib gym duration ticks", 1200)
+Files have the same name! (rename for safety) Maps/Official/CTF/HearthPlains.png - Maps/CTF/HearthPlains.png (during query 'heart')
+Files have the same name! (rename for safety) Maps/Official/CTF/Oodle_Stonethrow.png - Maps/CTF/Returning/Oodle_Stonethrow.png (during query 'stone')
+Map: 8x_Gloryhill
+[AIB] Privacy-bounded gameplay telemetry is enabled for AI evaluation. It excludes usernames, IP addresses, and chat.
+Guift (guift) has joined Blue Team
+guift connected as Guift
+RCON command from 127.0.0.1:8685 :
+getRules().set_string("aib gym variant", "diagnostic")
+Game has been running slow for too long. Skipping 5.000000 ticks worth of simulation.
+RCON command from 127.0.0.1:8685 :
+getRules().set_string("aib gym run id", "gloryhill_vertical_descent_trace_001")
+RCON command from 127.0.0.1:8685 :
+getRules().set_bool("aib gym stop requested", false)
+[AIBEVT] t=30 seq=1 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=22,40 reason=no_build
+[AIBEVT] t=30 seq=2 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=19,40 reason=building_overlap
+[AIBEVT] t=30 seq=3 scenario=manual source=strategy action=reject actor=team:0 template=flag_gatehouse anchor=25,40 reason=no_build
+[AIBEVT] t=30 seq=4 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=20,40 reason=occupied_terrain
+[AIBEVT] t=30 seq=5 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=32,40 reason=unreachable_tasks
+[AIBEVT] t=30 seq=6 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=24,40 reason=no_build
+[AIBEVT] t=30 seq=7 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=28,40 reason=unreachable_tasks
+[AIBEVT] t=30 seq=8 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=36,34 reason=occupied_terrain
+[AIBEVT] t=30 seq=9 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=40,33 reason=unreachable_tasks
+[AIBEVT] t=30 seq=10 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=44,40 reason=occupied_terrain
+[AIBEVT] t=30 seq=11 scenario=manual source=strategy action=reject actor=team:0 template=frontline_tower anchor=48,45 reason=occupied_terrain
+[AIBEVT] t=30 seq=12 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=37,33 reason=unsupported
+[AIBEVT] t=30 seq=13 scenario=manual source=strategy action=reject actor=team:0 template=archer_perch anchor=18,29 reason=unsupported
+[AIBEVT] t=30 seq=14 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=32,40 reason=occupied_terrain
+[AIBEVT] t=30 seq=15 scenario=manual source=strategy action=reject actor=team:0 template=access_route anchor=20,40 reason=occupied_terrain
+[AIBEVT] t=30 seq=16 scenario=manual source=strategy action=reject actor=team:1 template=flag_gatehouse anchor=187,40 reason=no_build
+[AIBEVT] t=30 seq=17 scenario=manual source=strategy action=reject actor=team:1 template=flag_gatehouse anchor=190,40 reason=building_overlap
+[AIBEVT] t=30 seq=18 scenario=manual source=strategy action=reject actor=team:1 template=flag_gatehouse anchor=184,40 reason=no_build
+[AIBEVT] t=30 seq=19 scenario=manual source=strategy action=reject actor=team:1 template=frontline_tower anchor=165,40 reason=occupied_terrain
+[AIBWEIGHTS] loaded=true version=1 file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBStrategyWeights.cfg
+[AIBEVT] t=30 seq=20 scenario=manual source=strategy action=reject actor=team:1 template=frontline_tower anchor=185,40 reason=no_build
+[AIBEVT] t=30 seq=21 scenario=manual source=strategy action=reject actor=team:1 template=frontline_tower anchor=181,40 reason=unreachable_tasks
+[AIBEVT] t=30 seq=22 scenario=manual source=strategy action=reject actor=team:1 template=frontline_tower anchor=173,34 reason=occupied_terrain
+[AIBEVT] t=30 seq=23 scenario=manual source=strategy action=reject actor=team:1 template=frontline_tower anchor=169,33 reason=unreachable_tasks
+[AIBEVT] t=30 seq=24 scenario=manual source=strategy action=reject actor=team:1 template=frontline_tower anchor=161,45 reason=occupied_terrain
+[AIBEVT] t=30 seq=25 scenario=manual source=strategy action=reject actor=team:1 template=archer_perch anchor=167,33 reason=unsupported
+[AIBEVT] t=30 seq=26 scenario=manual source=strategy action=reject actor=team:1 template=archer_perch anchor=191,29 reason=unsupported
+[AIBEVT] t=30 seq=27 scenario=manual source=strategy action=reject actor=team:1 template=access_route anchor=177,40 reason=occupied_terrain
+[AIBEVT] t=30 seq=28 scenario=manual source=strategy action=reject actor=team:1 template=access_route anchor=165,40 reason=occupied_terrain
+[AIBEVT] t=30 seq=29 scenario=manual source=strategy action=publish actor=team:1 plan=1 version=1 template=frontline_tower tasks=27 active=true
+[AIBEVT] t=30 seq=30 scenario=manual source=strategy action=provision actor=team:1 builder=50 source=home pos=1628,284 one_time=true
+[AIBEVT] t=30 seq=31 scenario=manual source=strategy action=assign actor=team:1 builder=50 job=1 state=7
+[AIBEVT] t=30 seq=32 scenario=manual source=ai action=target actor=aibuilder:50 target=stone_tile state=tunnel_to_stone tile=1584,248 route_corner=1608,248 route_dirt=1 pos=1628,284
+[AIBEVT] t=30 seq=33 scenario=manual source=ai action=state actor=aibuilder:50 from=find_stone to=tunnel_to_stone reason=stone tile acquired pos=1628,284
+RCON command from 127.0.0.1:8685 :
+getRules().set_bool("aib gym request", true)
+[AIBEVT] t=31 seq=34 scenario=manual source=strategy action=round_reset actor=team:0 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=35 scenario=manual source=strategy action=archive actor=team:1 plan=1 reason=round_reset
+[AIBEVT] t=31 seq=36 scenario=manual source=strategy action=round_reset actor=team:1 previous_plan=1 live_layers_cleared=true
+[AIBEVT] t=31 seq=37 scenario=manual source=strategy action=round_reset actor=team:2 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=38 scenario=manual source=strategy action=round_reset actor=team:3 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=39 scenario=manual source=strategy action=round_reset actor=team:4 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=40 scenario=manual source=strategy action=round_reset actor=team:5 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=41 scenario=manual source=strategy action=round_reset actor=team:6 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=42 scenario=manual source=strategy action=round_reset actor=team:7 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=31 seq=43 scenario=manual source=ai action=target actor=aibuilder:50 target=visible_gold_tile state=tunnel_to_stone tile=1600,240 pos=1628,284
+[AIBEVT] t=31 seq=44 scenario=manual source=ai action=path_set actor=aibuilder:50 destination=1604,284 waypoints=3 low=1 low0=1632,288 way0=1632,288
+RCON command from 127.0.0.1:8685 :
+tcpr("AIBGYM|ARMED|run=gloryhill_vertical_descent_trace_001")
+AIBGYM|ARMED|run=gloryhill_vertical_descent_trace_001
+Game has been running slow for too long. Skipping 9.000000 ticks worth of simulation.
+[AIBEVT] t=32 seq=45 scenario=manual source=strategy action=round_reset actor=team:0 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=46 scenario=manual source=strategy action=round_reset actor=team:1 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=47 scenario=manual source=strategy action=round_reset actor=team:2 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=48 scenario=manual source=strategy action=round_reset actor=team:3 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=49 scenario=manual source=strategy action=round_reset actor=team:4 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=50 scenario=manual source=strategy action=round_reset actor=team:5 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=51 scenario=manual source=strategy action=round_reset actor=team:6 previous_plan=0 live_layers_cleared=true
+[AIBEVT] t=32 seq=52 scenario=manual source=strategy action=round_reset actor=team:7 previous_plan=0 live_layers_cleared=true
+Files have the same name! (rename for safety) Maps/Official/CTF/JTG_NewGetisburgMines.png - Maps/CTF/Dormant/JTG_NewGetisburgMines.png (during query 'mine')
+Game has been running slow for too long. Skipping 3.000000 ticks worth of simulation.
+Files have the same name! (rename for safety) Maps/Official/CTF/Mazey_Junctions.png - Maps/CTF/Dormant/Mazey_Junctions.png (during query 'junction')
+Files have the same name! (rename for safety) Maps/Official/CTF/Potatobird_SharkRomance_v1.png - Maps/CTF/Dormant/Potatobird_SharkRomance_v1.png (during query 'shark')
+[AIBEVT] t=47 seq=53 scenario=manual source=player action=command actor=aibuilder:53 command=harvest_wood pos=140,288
+[AIBGYM] AIBGYM|START|run=gloryhill_vertical_descent_trace_001|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=1200
+AIBGYM|START|run=gloryhill_vertical_descent_trace_001|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=1200
+[AIBEVT] t=47 seq=54 scenario=manual source=ai action=target actor=aibuilder:53 target=tree_pine:9 state=chop_tree pos=140,288
+[AIBEVT] t=47 seq=55 scenario=manual source=ai action=state actor=aibuilder:53 from=find_tree to=chop_tree reason=tree target acquired pos=140,288
+[AIBEVT] t=48 seq=56 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=80,208 waypoints=4 low=1 low0=144,288 way0=144,288
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+[AIBEVT] t=60 seq=57 scenario=manual source=strategy action=stop actor=team:0 mode=off
+[AIBEVT] t=60 seq=58 scenario=manual source=strategy action=mode actor=team:0 from=2 to=0
+[AIBEVT] t=60 seq=59 scenario=manual source=strategy action=stop actor=team:1 mode=off
+[AIBEVT] t=60 seq=60 scenario=manual source=strategy action=mode actor=team:1 from=2 to=0
+[AIBEVT] t=60 seq=61 scenario=manual source=strategy action=stop actor=team:2 mode=off
+[AIBEVT] t=60 seq=62 scenario=manual source=strategy action=mode actor=team:2 from=2 to=0
+[AIBEVT] t=60 seq=63 scenario=manual source=strategy action=stop actor=team:3 mode=off
+[AIBEVT] t=60 seq=64 scenario=manual source=strategy action=mode actor=team:3 from=2 to=0
+[AIBEVT] t=60 seq=65 scenario=manual source=strategy action=stop actor=team:4 mode=off
+[AIBEVT] t=60 seq=66 scenario=manual source=strategy action=mode actor=team:4 from=2 to=0
+[AIBEVT] t=60 seq=67 scenario=manual source=strategy action=stop actor=team:5 mode=off
+[AIBEVT] t=60 seq=68 scenario=manual source=strategy action=mode actor=team:5 from=2 to=0
+[AIBEVT] t=60 seq=69 scenario=manual source=strategy action=stop actor=team:6 mode=off
+[AIBEVT] t=60 seq=70 scenario=manual source=strategy action=mode actor=team:6 from=2 to=0
+[AIBEVT] t=60 seq=71 scenario=manual source=strategy action=stop actor=team:7 mode=off
+[AIBEVT] t=60 seq=72 scenario=manual source=strategy action=mode actor=team:7 from=2 to=0
+[AIBEVT] t=102 seq=73 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=80,208 next=152,248 low=0 waypoints=0
+[AIBEVT] t=103 seq=74 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=80,208 waypoints=5 low=1 low0=152,264 way0=152,264
+[AIBEVT] t=155 seq=75 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=80,208 next=152,248 low=0 waypoints=0
+[AIBEVT] t=156 seq=76 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=80,208 waypoints=3 low=1 low0=152,272 way0=152,272
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=150|collected=0|delivered=0|deaths=0
+[AIBEVT] t=206 seq=77 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=80,208 next=152,248 low=0 waypoints=0
+[AIBEVT] t=207 seq=78 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=80,208 waypoints=4 low=1 low0=152,272 way0=152,272
+[AIBEVT] t=224 seq=79 scenario=manual source=ai action=corner_escape actor=aibuilder:53 direction=1 state=chop_tree pos=151,265
+[AIBEVT] t=260 seq=80 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=80,208 waypoints=7 low=1 low0=224,312 way0=224,312
+[AIBACT] v=3 episode=1 batch=1 records=9 reason=interval data=AAAAE2VOuwEHADEAAAkXAB4AAAAGAAAAAQABsQAoAAEAGwAGAAAAAAAyAAEB5vAXrFwGHAEGAAAAAAAzAP8Cb7sp71wGHAEGAAAAAAA0AP8Ci+FQIlwGHAEJAQAfAAAABwAAAAEAAbEAKAAGAAMABwAAAAAAADIAAQHm8BesXAYcAQYBAAAAADUAAAHm8BesjAAkAQ==
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=300|collected=0|delivered=0|deaths=0
+[AIBEVT] t=355 seq=81 scenario=manual source=ai action=corner_escape actor=aibuilder:53 direction=-1 state=chop_tree pos=72,255
+[AIBEVT] t=391 seq=82 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=72,208 waypoints=4 low=1 low0=8,296 way0=8,296
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=450|collected=0|delivered=0|deaths=0
+[AIBACT] v=3 episode=1 batch=2 records=17 reason=interval data=Bh0BAAAANwAAAYK39jNkABwBBgAAAAAAOAD/Amj+lI0AAAAAAwAAMQA3AAADZAAcAQgAADEAPwAAAAAAAB4AAAAAAAQAADEADvTdAAAAAAAAZAAcAQAABAUAMQAC8gAEBQAxAALwAAQFADEAAu8ABA8AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAA
+[AIBEVT] t=646 seq=83 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_tree to=find_log reason=tree felled or gone pos=50,216
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=600|collected=0|delivered=0|deaths=0
+[AIBEVT] t=647 seq=84 scenario=manual source=ai action=target actor=aibuilder:53 target=log:58 state=chop_log pos=50,216
+[AIBEVT] t=647 seq=85 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=50,216
+[AIBEVT] t=648 seq=86 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=86,216 waypoints=3 low=1 low0=48,216 way0=48,216
+[AIBEVT] t=706 seq=87 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=70,216
+[AIBEVT] t=707 seq=88 scenario=manual source=ai action=target actor=aibuilder:53 target=log:59 state=chop_log pos=70,216
+[AIBEVT] t=707 seq=89 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=70,216
+[AIBEVT] t=708 seq=90 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=101,220 waypoints=3 low=1 low0=72,216 way0=72,216
+[AIBEVT] t=766 seq=91 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=87,216
+[AIBEVT] t=767 seq=92 scenario=manual source=ai action=target actor=aibuilder:53 target=log:60 state=chop_log pos=87,216
+[AIBEVT] t=767 seq=93 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=87,216
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=750|collected=0|delivered=0|deaths=0
+[AIBEVT] t=826 seq=94 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=87,216
+[AIBEVT] t=827 seq=95 scenario=manual source=ai action=target actor=aibuilder:53 target=log:61 state=chop_log pos=87,216
+[AIBEVT] t=827 seq=96 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=87,216
+[AIBEVT] t=828 seq=97 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=5 low=1 low0=88,216 way0=88,216
+[AIBEVT] t=854 seq=98 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=162,313 next=32,216 low=0 waypoints=0
+[AIBEVT] t=855 seq=99 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=8 low=1 low0=40,216 way0=40,216
+[AIBACT] v=3 episode=1 batch=3 records=20 reason=interval data=BB4AMQAIZAAgAQAABh0AAAAAOgD/BFFRUT9aANcABgAAAAAAOwD/BFFRUT9nANMABgAAAAAAPAD/BFFRUT91AM8ABgAAAAAAPQD/BFFRUT+CAMsABgAAAAAAPgD/BFFRUT+PAMcABwAAAAAAAAkA/wQQpChMTADYAAQBADEACGQAIAEAAAYKAAAAAEAA/wJvuynvAAAAAAQUADEACGQAIAEAAAccAAAAAAA6AP8EUVFRP1sA3AAEAgAxAAhkACABAAAEHgAxAAhkACABAAAHHAAAAAAAOwD/BFFRUT9pANwABAIAMQAIZAAgAQAABB4AMQAIZAAgAQAABxwAAAAAADwA/wRRUVE/dgDcAAQCADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+[AIBEVT] t=906 seq=100 scenario=manual source=ai action=place_ladder actor=aibuilder:53 tile=32,272 next=48,216 angle=90 support_before_spawn=true prepared_tick=0 chain=0
+[AIBEVT] t=906 seq=101 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=ladder_recovery destination=162,313 next=48,216 low=0 waypoints=0
+[AIBEVT] t=907 seq=102 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=162,313 waypoints=6 low=1 low0=32,272 way0=32,272
+[AIBEVT] t=907 seq=103 scenario=manual source=ai action=ladder_path_probe actor=aibuilder:53 ladder=ladder:65 destination=162,313 pathing=true low=1 waypoints=6 next=32,272 next_blocked=false mineable=0,0 accepted=true
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=900|collected=0|delivered=0|deaths=0
+[AIBEVT] t=1034 seq=104 scenario=manual source=ai action=state actor=aibuilder:53 from=chop_log to=find_log reason=log gone pos=152,288
+[AIBEVT] t=1035 seq=105 scenario=manual source=ai action=target actor=aibuilder:53 target=log:62 state=chop_log pos=152,288
+[AIBEVT] t=1035 seq=106 scenario=manual source=ai action=state actor=aibuilder:53 from=find_log to=chop_log reason=log target acquired pos=152,288
+[AIBEVT] t=1036 seq=107 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1056 seq=108 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1057 seq=109 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1076 seq=110 scenario=manual source=gym action=progress_violation actor=aibuilder:53 kind=motion_stall state=4 movement_ticks=39 max_displacement=6.77814 jumps=0 replans=2 interactions=0 targets=1 outcomes=0 invalid=0 invalid_reason= pos=153,288 destination=174,316
+[AIBGYM] v=1 t=1076 b=53 tm=0 f=1 s=4 x=153 y=288 tx=0 ty=0 mv=6 j=0 rp=2 in=0 tg=1 out=0 inv=0 dx=174 dy=316 tb=62 bx=178 by=316
+[AIBEVT] t=1077 seq=111 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1078 seq=112 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=1050|collected=0|delivered=0|deaths=0
+[AIBEVT] t=1098 seq=113 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1099 seq=114 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1119 seq=115 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1120 seq=116 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBGYMW] data=ATUAADQEAAABACpx/0QAFQEAAAAABAA9AHb/RAAHAQAAAAAEAD0Ae/9NAAYBAAAAAAQAPQCA/1EABgEAAAAABAA9AIX/UQARAQAAAAAEAD0Aiv9SACABAAAAAAQAPQCP/1wAIAEAAAAABAA9AJT/agAgAQAAAAAEAD0Amf94ACABAAAAAAQAPQCe/4UAHwEAAAAABAA9AKP/kgAgAQAAAAAEAD0AqP+YACABAAAAAAQAPQCt/5gAIAEAAAAABAA9ALL/mAAgAQAAAAAEAD0At/+YACABAAAAAAQAPQC8/5gAIAEAAAAABAA9AMH/mAAgAQAAAAAEAD0Axv+YACABAAAAAAQAPQDL/5gAIAEAAAAABAA9AND/mAAgAQAAAAAEAD0A1f+YACABAAAAAAQAPQDa/5gAHwEAAAAABAA+AN//lwAgAQAAAAAEAD4A5P+XACABAAAAAAQAPgDp/5cAIAEAAAAABAA+AO7/lwAfAQAAAAAEAD4A8/+ZABkBAAAAAAQAPgD4/5kAHgEAAAAABAA+AP3/mQAgAQAAAAAEAD4AAgCaACABAAAAAAQAPgAHAJkAGQEAAAAABAA+AAwAmAAcAQAAAAAEAD4AEQCYACABAAAAAAQAPgAWAJgAIAEAAAAABAA+ABsAlwAaAQAAAAAEAD4AIACXABsBAAAAAAQAPgAlAJYAIAEAAAAABAA+ACoAlgAgAQAAAAAEAD4ALwCXABsBAAAAAAQAPgA0AJgAGgEAAAAABAA+ADkAmAAgAQAAAAAEAD4APgCYACABAAAAAAQAPgA=
+[AIBEVT] t=1140 seq=117 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1141 seq=118 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1161 seq=119 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1162 seq=120 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1182 seq=121 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1183 seq=122 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBACT] v=3 episode=1 batch=4 records=12 reason=interval data=BhMAAAAAQQAAAKm7YAAkABQBBAsAMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABB4AMQAIZAAgAQAABxoAAAAAAD0A/wRRUVE/pgA5AQQEADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAAQeADEACGQAIAEAAA==
+[AIBEVT] t=1203 seq=123 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1204 seq=124 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1224 seq=125 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1225 seq=126 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+[AIBEVT] t=1245 seq=127 scenario=manual source=ai action=path_replan actor=aibuilder:53 reason=obstruction destination=174,316 next=152,304 low=0 waypoints=0
+[AIBEVT] t=1246 seq=128 scenario=manual source=ai action=path_set actor=aibuilder:53 destination=174,316 waypoints=3 low=1 low0=152,288 way0=152,288
+AIBGYM|PROGRESS|run=gloryhill_vertical_descent_trace_001|elapsed=1200|collected=0|delivered=0|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_vertical_descent_trace_001 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-2268345552-989-50-1116020167-3878027599-2466050567 builders=1 live_builders=1 order=wood duration=1200 elapsed=1200 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0 stock_delta_wood=0 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=1 idle_ticks=0 travel_px=1359.89 reason=duration_complete
+[AIBGYMR] schema=4 status=result run=gloryhill_vertical_descent_trace_001 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1570756837 initial_fingerprint=w1-3142477075-210x66-1570756837-4872-2268345552-989-50-1116020167-3878027599-2466050567 builders=1 live_builders=1 order=wood duration=1200 elapsed=1200 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0 stock_delta_wood=0 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=1 idle_ticks=0 travel_px=1359.89 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_vertical_descent_trace_001 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+[AIBGYMB] schema=4 run=gloryhill_vertical_descent_trace_001 slot=0 collected_wood=0 collected_stone=0 collected_gold=0 collected_total=0 delivered_wood=0 delivered_stone=0 delivered_gold=0 delivered_total=0
+AIBGYM|RESULT|run=gloryhill_vertical_descent_trace_001|status=result|metric=resource_collection_smoke|collected=0|delivered=0|elapsed=1200|deaths=0|failures=1|reason=duration_complete

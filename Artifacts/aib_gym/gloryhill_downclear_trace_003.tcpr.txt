@@ -1,0 +1,27 @@
+AIBGYM|ARMED|run=gloryhill_downclear_trace_003
+AIBGYM|START|run=gloryhill_downclear_trace_003|metric=resource_collection_smoke|fixture=map_3142477075_210x66|side=left|builders=1|order=wood|duration=3300
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=150|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=300|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=450|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=600|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=750|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=900|collected=0|delivered=0|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1050|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1200|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1350|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1500|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1650|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1800|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=1950|collected=250|delivered=250|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=2100|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=2250|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=2400|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=2550|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=2700|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=2850|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=3000|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=3150|collected=550|delivered=550|deaths=0
+AIBGYM|PROGRESS|run=gloryhill_downclear_trace_003|elapsed=3300|collected=550|delivered=550|deaths=0
+[AIBGYMR] schema=4 status=result run=gloryhill_downclear_trace_003 variant=diagnostic metric=resource_collection_smoke fixture_id=map_3142477075_210x66 fixture_version=1 team=0 team_side=left map_hash=3142477075 map_width=210 map_height=66 initial_terrain_hash=1620624680 initial_fingerprint=w1-3142477075-210x66-1620624680-4871-3945193546-1025-52-184292138-3220769513-2466050567 builders=1 live_builders=1 order=wood duration=3300 elapsed=3300 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550 stock_delta_wood=350 stock_delta_stone=0 stock_delta_gold=0 deaths=0 failure_flags=0 idle_ticks=0 travel_px=4388.7 reason=duration_complete
+[AIBGYMB] schema=4 run=gloryhill_downclear_trace_003 slot=0 collected_wood=550 collected_stone=0 collected_gold=0 collected_total=550 delivered_wood=550 delivered_stone=0 delivered_gold=0 delivered_total=550
+AIBGYM|RESULT|run=gloryhill_downclear_trace_003|status=result|metric=resource_collection_smoke|collected=550|delivered=550|elapsed=3300|deaths=0|failures=0|reason=duration_complete

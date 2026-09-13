@@ -1,0 +1,22 @@
+TCPR: client 127.0.0.1:63431 is now authenticated.
+Files have the same name! (rename for safety) Entities/Characters/Sprites/CustomHeads/Ballista.png - Entities/Vehicles/Ballista/Ballista.png (during query 'ballista')
+RCON command from 127.0.0.1:63431 :
+getRules().SetCurrentState(GAME)
+RCON command from 127.0.0.1:63431 :
+getRules().set_u8("aib wave request team", 0)
+RCON command from 127.0.0.1:63431 :
+getRules().set_u32("aib wave request seed", 101)
+RCON command from 127.0.0.1:63431 :
+getRules().set_string("aib wave request variant", "control")
+RCON command from 127.0.0.1:63431 :
+getRules().set_string("aib wave request scenario", "knight")
+RCON command from 127.0.0.1:63431 :
+getRules().set_string("aib wave request run id", "wave_v4_bootstrap_control_left_knight_s101_20260718")
+RCON command from 127.0.0.1:63431 :
+getRules().set_bool("aib wave request", true)
+[AIBWEIGHTS] loaded=true version=1 file=../Mods/GuiftsDynamicBlueprint_vDev/Rules/CommonScripts/AIBStrategyWeights.cfg
+AIBWAVE|ABORT|run=wave_v4_bootstrap_control_left_knight_s101_20260718|reason=fixture_capture_failed
+RCON command from 127.0.0.1:63431 :
+tcpr("AIBWAVE|REQUESTED|run=wave_v4_bootstrap_control_left_knight_s101_20260718")
+AIBWAVE|REQUESTED|run=wave_v4_bootstrap_control_left_knight_s101_20260718
+Game has been running slow for too long. Skipping 4.000000 ticks worth of simulation.

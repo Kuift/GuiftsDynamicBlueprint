@@ -1,0 +1,10 @@
+# Machine-local editor and launch state
+.vscode/
+*.code-workspace
+autoconfig.cfg
+nextcommand.txt
+
+# Backup and interpreter cache files
+*~
+__pycache__/
+*.pyc
